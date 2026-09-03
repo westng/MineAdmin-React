@@ -1,0 +1,11 @@
+node_modules
+dist*
+.DS_Store
+*.local
+.eslintcache
+.vscode
+.idea
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

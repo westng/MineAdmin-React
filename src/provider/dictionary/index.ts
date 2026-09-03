@@ -1,0 +1,59 @@
+import { create } from 'zustand'
+
+export interface Dictionary {
+  label: string
+  value: string | number
+  i18n?: string
+  color?: string
+  [key: string]: unknown
+}
+
+import userType from './data/base-userType'
+import dataScope from './data/data-scope'
+import systemState from './data/system-state'
+import systemStatus from './data/system-status'
+
+interface DictionaryState {
+  dictionaries: Record<string, Dictionary[]>
+  find: (name: string) => Dictionary[] | null
+  push: (name: string, data: Dictionary[], replace?: boolean) => boolean
+  append: (name: string, item: Dictionary) => boolean
+  remove: (name: string) => void
+  clear: () => void
+  t: (name: string, value: string | number, attrName?: string) => string | number | null
+}
+
+const initialDictionaries: Record<string, Dictionary[]> = {
+  'base-userType': userType,
+  'data-scope': dataScope,
+  'system-state': systemState,
+  'system-status': systemStatus,
+}
+
+export const useDictStore = create<DictionaryState>((set, get) => ({
+  dictionaries: initialDictionaries,
+  find: name => get().dictionaries[name] || null,
+  push: (name, data, replace = false) => {
+    if (!replace && get().dictionaries[name]) return false
+    set(state => ({ dictionaries: { ...state.dictionaries, [name]: data } }))
+    return true
+  },
+  append: (name, item) => {
+    if (!get().dictionaries[name]) return false
+    set(state => ({ dictionaries: { ...state.dictionaries, [name]: [...state.dictionaries[name], item] } }))
+    return true
+  },
+  remove: name => set(state => {
+    const dictionaries = { ...state.dictionaries }
+    delete dictionaries[name]
+    return { dictionaries }
+  }),
+  clear: () => set({ dictionaries: {} }),
+  t: (name, value, attrName = 'label') => {
+    const item = get().dictionaries[name]?.find(candidate => String(candidate.value) === String(value))
+    const result = item?.[attrName]
+    return typeof result === 'string' || typeof result === 'number' ? result : null
+  },
+}))
+
+export default useDictStore
