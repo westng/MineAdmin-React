@@ -70,6 +70,15 @@ src/modules/<业务域>/<业务子类>/
 
 尚未迁移为 React 页面组件的 Vue 版视图由动态菜单占位页承接；页面路由、权限和菜单仍由后端返回的数据驱动。
 
+### Base 菜单视图迁移（重要）
+
+Base 页面已从旧的 Vue 目录约定迁移为 React 目录约定。后端 `menu.component` 保存的是视图地址；如果继续使用旧地址，菜单可能进入动态菜单占位页，新增或未迁移页面也不会自动兼容。
+
+- 旧地址到新地址的精确映射见 [`scripts/migrate-base-menu-components.sql`](./scripts/migrate-base-menu-components.sql)。执行前请备份 `menu` 表，并先运行脚本中的查询确认命中记录；建议在数据库事务中执行更新语句。
+- 脚本只修改已经有 React 页面实现的 11 个 Base 菜单地址，重复执行不会改动已迁移地址；`meta` 中的 Vue 配置会原样保留。
+- 当前前端保留旧地址兼容别名作为过渡措施，不代表所有旧页面都可用。`base/views/log/userLogin`、`base/views/log/userOperation` 和 `base/views/dataCenter/attachment/index` 在当前 React 前端没有对应页面，请按业务需要接入插件或继续使用原 Vue 页面。
+- 更新后重新登录或刷新菜单缓存，并检查最后一条查询返回的 `base/views/%` 记录；仍有记录表示需要人工迁移，不能直接删除菜单。
+
 ### 插件系统
 
 插件入口位于 `src/plugins/<vendor>/<name>/index.ts`，可以注册视图、字典、安装逻辑和生命周期钩子。插件启动时会按 `config.enable` 和 `config.info` 合并配置，再依次执行安装和初始化；网络请求与路由跳转也会触发对应钩子。
