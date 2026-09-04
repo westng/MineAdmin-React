@@ -1,4 +1,4 @@
-# MineAdmin-React
+# MineAdmin-Recat
 
 MineAdmin 3.2 的 React 前端，使用 React 19、Vite、TypeScript、Tailwind CSS、Zustand 和 ReUI 构建。
 
