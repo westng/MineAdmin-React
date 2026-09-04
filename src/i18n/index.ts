@@ -1,12 +1,15 @@
 import { create } from 'zustand'
+import { authLocaleMessages } from '@/modules/base/auth/locales'
+import { dashboardLocaleMessages } from '@/modules/base/dashboard/locales'
+import { dynamicMenuLocaleMessages } from '@/modules/base/dynamic-menu/locales'
 
 type Messages = Record<string, string>
 
 const messages: Record<string, Messages> = {
   zh_CN: {
-    'menu.dashboard': 'Overview',
-    'menu.login': '登录',
-    'menu.pageError': '页面不存在',
+    ...authLocaleMessages.zh_CN,
+    ...dashboardLocaleMessages.zh_CN,
+    ...dynamicMenuLocaleMessages.zh_CN,
     'mineAdmin.tab.refresh': '刷新',
     'mineAdmin.tab.close': '关闭',
     'mineAdmin.tab.closeOther': '关闭其他',
@@ -20,9 +23,9 @@ const messages: Record<string, Messages> = {
     'dictionary.system.statusDisabled': '禁用',
   },
   en_US: {
-    'menu.dashboard': 'Dashboard',
-    'menu.login': 'Login',
-    'menu.pageError': 'Page not found',
+    ...authLocaleMessages.en_US,
+    ...dashboardLocaleMessages.en_US,
+    ...dynamicMenuLocaleMessages.en_US,
   },
 }
 

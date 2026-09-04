@@ -1,4 +1,4 @@
-export { MaTable } from './ma-table'
+export { MaTable } from './components/ma-table'
 export type {
   MaTableCellContext,
   MaTableColumn,

@@ -1,5 +1,6 @@
 declare global {
   interface ImportMetaEnv {
+    readonly DEV: boolean
     readonly VITE_APP_TITLE: string
     readonly VITE_APP_PORT: string
     readonly VITE_APP_ROOT_BASE: string

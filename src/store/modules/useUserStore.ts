@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import { getInfo, loginApi, logoutApi, refreshApi, type CurrentUserInfo } from '@/modules/base/api/user'
+import { getInfo, loginApi, logoutApi, refreshApi, type CurrentUserInfo } from '@/modules/base/auth/api/user'
 import { useMenuStore } from './useMenuStore'
 import { useSettingStore } from '@/provider/settings'
 import type { SystemSettings } from '@/types/global'
+import { usePluginStore } from '@/provider/plugins'
 
 export type UserInfo = Partial<CurrentUserInfo> & {
   permissions?: string[]
@@ -69,6 +70,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   roles: [],
   permissions: [],
   login: async data => {
+    await usePluginStore.getState().callHooks('loginBefore', data)
     const response = await loginApi(data)
     const result = response.data.data
     localStorage.setItem(tokenKey, result.access_token)
@@ -78,6 +80,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     localStorage.setItem(userInfoKey, JSON.stringify(userInfo))
     useMenuStore.getState().clearMenus()
     set({ token: result.access_token, userInfo, initialized: false, error: null, roles: [], permissions: [] })
+    await usePluginStore.getState().callHooks('login', { username: data.username, ...result })
     return result
   },
   hydrate: async () => {
@@ -101,6 +104,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       }
       localStorage.setItem(userInfoKey, JSON.stringify({ ...userInfo, permissions }))
       set({ userInfo: { ...userInfo, permissions }, roles, permissions, initialized: true, loading: false })
+      await usePluginStore.getState().callHooks('getUserInfo', userInfo)
       return true
     }
     catch (error) {
@@ -130,6 +134,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     }
   },
   logout: async () => {
+    await usePluginStore.getState().callHooks('logout')
     if (get().token) {
       await logoutApi().catch(() => undefined)
     }

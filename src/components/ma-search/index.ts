@@ -1,2 +1,2 @@
-export { MaSearch } from './ma-search'
+export { MaSearch } from './components/ma-search'
 export type { MaSearchExpose, MaSearchItem, MaSearchModel, MaSearchOptions, MaSearchProps } from './types'

@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import { getMenus, getRoles, type MenuVo } from '@/modules/base/api/permission'
+import { getMenus, getRoles, type MenuVo } from '@/modules/base/permission/menu/api/permission'
 import cache from '@/hooks/useCache'
 import { flattenVisibleMenus, getMenuPath } from '@/router/dynamic-menu'
 import { useRouteStore } from './useRouteStore'
+import { usePluginStore } from '@/provider/plugins'
 
 interface MenuState {
   menus: MenuVo[]
@@ -32,7 +33,8 @@ export const useMenuStore = create<MenuState>((set, get) => ({
       const response = await getMenus()
       const menus = Array.isArray(response.data.data) ? response.data.data : []
       cache.set('menus', menus)
-      useRouteStore.getState().build(menus)
+      const routes = useRouteStore.getState().build(menus)
+      await usePluginStore.getState().callHooks('registerRoute', routes)
       set({ menus, loading: false, initialized: true })
       return menus
     }

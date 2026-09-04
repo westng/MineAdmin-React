@@ -19,14 +19,18 @@ export function useMaTableSort<T extends MaTableModel>({ rows, visibleColumns, o
   const sortedRows = React.useMemo(() => {
     if (!sortState.prop || !sortState.order) return rows
     const column = visibleColumns.find(candidate => candidate.prop === sortState.prop)
-    if (!column) return rows
+    if (!column || column.sortable === 'custom') return rows
     return [...rows].sort((left, right) => {
       const leftValue = getColumnValue(left, column)
       const rightValue = getColumnValue(right, column)
       if (leftValue === rightValue) return 0
       if (leftValue === undefined || leftValue === null) return sortState.order === 'ascending' ? -1 : 1
       if (rightValue === undefined || rightValue === null) return sortState.order === 'ascending' ? 1 : -1
-      const result = String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true })
+      const result = typeof leftValue === 'number' && typeof rightValue === 'number'
+        ? leftValue - rightValue
+        : leftValue instanceof Date && rightValue instanceof Date
+          ? leftValue.getTime() - rightValue.getTime()
+          : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' })
       return sortState.order === 'ascending' ? result : -result
     })
   }, [rows, sortState, visibleColumns])

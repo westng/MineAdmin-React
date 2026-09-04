@@ -23,6 +23,12 @@ export interface MaTableBodyProps<T extends MaTableModel> {
 }
 
 export function MaTableBody<T extends MaTableModel>({ rows, columns, options, currentPage, pageSize, loading, empty, selectedKeys, expandedKeys, getRowKey, onSelectionChange, onExpandChange, onRowClick }: MaTableBodyProps<T>) {
+  function handleRowClick(event: React.MouseEvent<HTMLTableRowElement>, row: T, rowIndex: number) {
+    const target = event.target as HTMLElement
+    if (target.closest('button, input, select, textarea, a, [role="button"], [role="checkbox"]')) return
+    onRowClick?.(row, rowIndex)
+  }
+
   function renderCell(column: MaTableColumn<T>, row: T, rowIndex: number): React.ReactNode {
     const value = getColumnValue(row, column)
     const context: MaTableCellContext<T> = { row, rowIndex, column, value }
@@ -38,6 +44,6 @@ export function MaTableBody<T extends MaTableModel>({ rows, columns, options, cu
     const rowKey = getRowKey(row, rowIndex)
     const rowContext: MaTableCellContext<T> = { row, rowIndex, column: columns[0] ?? {} as MaTableColumn<T>, value: undefined }
     const expanded = expandedKeys.has(rowKey)
-    return <React.Fragment key={rowKey}><TableRow className={cn(resolveRowClass(row, rowIndex, options.rowClassName), selectedKeys.has(rowKey) && 'bg-muted/50')} style={resolveRowStyle(row, rowIndex, options.rowStyle)} onClick={() => onRowClick?.(row, rowIndex)}>{columns.map((column, columnIndex) => <TableCell key={`${rowKey}-${String(column.prop ?? column.type ?? columnIndex)}`} className={column.className} style={{ width: column.width, minWidth: column.minWidth, textAlign: column.align ?? options.columnAlign ?? 'left' }}>{renderCell(column, row, rowIndex)}</TableCell>)}</TableRow>{expanded && columns.some(column => column.type === 'expand') && <TableRow><TableCell colSpan={columns.length} className="bg-muted/20">{columns.find(column => column.type === 'expand')?.expandedRender?.(rowContext)}</TableCell></TableRow>}</React.Fragment>
+    return <React.Fragment key={rowKey}><TableRow className={cn(resolveRowClass(row, rowIndex, options.rowClassName), selectedKeys.has(rowKey) && 'bg-muted/50')} style={resolveRowStyle(row, rowIndex, options.rowStyle)} onClick={event => handleRowClick(event, row, rowIndex)}>{columns.map((column, columnIndex) => <TableCell key={`${rowKey}-${String(column.prop ?? column.type ?? columnIndex)}`} className={column.className} style={{ width: column.width, minWidth: column.minWidth, textAlign: column.align ?? options.columnAlign ?? 'left' }}>{renderCell(column, row, rowIndex)}</TableCell>)}</TableRow>{expanded && columns.some(column => column.type === 'expand') && <TableRow><TableCell colSpan={columns.length} className="bg-muted/20">{columns.find(column => column.type === 'expand')?.expandedRender?.(rowContext)}</TableCell></TableRow>}</React.Fragment>
   }) : <TableRow><TableCell colSpan={Math.max(columns.length, 1)} className="h-32 text-center text-muted-foreground">{loading ? '加载中…' : empty ?? options.emptyText ?? '暂无数据'}</TableCell></TableRow>}</TableBody>
 }

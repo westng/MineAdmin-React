@@ -1,4 +1,4 @@
-export { MaForm } from './ma-form'
+export { MaForm } from './components/ma-form'
 export type {
   MaFormComponentName,
   MaFormExpose,

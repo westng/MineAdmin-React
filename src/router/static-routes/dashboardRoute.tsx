@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import type { AppRoute } from '@/router/types'
-import DashboardPage from '@/modules/base/views/dashboard'
+import DashboardPage from '@/modules/base/dashboard/views'
 
 const dashboardRoute: AppRoute = {
   name: 'dashboard',

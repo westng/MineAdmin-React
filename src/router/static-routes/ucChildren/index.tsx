@@ -1,6 +1,6 @@
 import type { AppRoute } from '@/router/types'
 import { Navigate } from 'react-router-dom'
-import SettingsPage from '@/modules/base/views/settings'
+import SettingsPage from '@/modules/base/settings/views'
 
 const ucChildren: AppRoute[] = [
   {

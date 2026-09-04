@@ -7,7 +7,7 @@ export async function bootstrap() {
   setColorMode(settings.app.colorMode)
   if (settings.app.primaryColor) document.documentElement.style.setProperty('--primary', settings.app.primaryColor)
   useI18nStore.getState().setLocale(getUserLanguage())
-  initializePlugins()
+  await initializePlugins()
 }
 
 function getUserLanguage() {

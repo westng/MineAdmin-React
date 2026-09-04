@@ -1,11 +1,10 @@
-import { Bell, BriefcaseBusiness, ChevronRight, CircleDot, LayoutDashboard, LogOut, Monitor, Moon, Palette, Plus, Search, Settings, Sun, UserRound } from 'lucide-react'
+import { Bell, BriefcaseBusiness, ChevronRight, CircleDot, LayoutDashboard, LogOut, Monitor, Moon, Palette, Search, Settings, Sun, UserRound } from 'lucide-react'
 import { Icon as Iconify } from '@iconify/react'
 import * as React from 'react'
 import type { ComponentType } from 'react'
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
@@ -37,7 +36,7 @@ import { useUserStore } from '@/store/modules/useUserStore'
 import { useSettingStore } from '@/provider/settings'
 import { useMenuStore } from '@/store/modules/useMenuStore'
 import { flattenVisibleMenus, getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/dynamic-menu'
-import type { MenuVo } from '@/modules/base/api/permission'
+import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
 import { cn } from '@/lib/utils'
 import { customSectionPanes } from './section-pane-registry'
 
@@ -177,6 +176,11 @@ function getSection(pathname: string, menus: MenuVo[]): SectionId {
   }
 
   return 'dashboard'
+}
+
+function normalizeRoutePath(pathname: string) {
+  const normalized = pathname.replace(/\/+$/, '')
+  return normalized || '/'
 }
 
 function getDynamicSectionItems(section: SectionId, menus: MenuVo[]): MenuItem[] {
@@ -360,59 +364,6 @@ function ProfileMenu({
   )
 }
 
-function DashboardPane() {
-  return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-background">
-      <div className="flex h-(--header-height) shrink-0 items-center justify-between border-b border-border px-3">
-        <span className="text-sm font-semibold text-foreground">Open Time</span>
-        <Button variant="ghost" size="icon-sm" aria-label="Book the first open slot"><Plus className="size-4" aria-hidden="true" /></Button>
-      </div>
-      <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">Today · 2 Sep</span>
-          <Badge variant="outline" className="text-muted-foreground">5 slots</Badge>
-        </div>
-        <div className="flex flex-wrap items-baseline gap-1.5">
-          <span className="text-2xl font-semibold tracking-tight tabular-nums">2h 45m</span>
-          <span className="text-xs text-muted-foreground">still sellable</span>
-        </div>
-        <span className="text-xs text-muted-foreground">Across 3 chairs that ran</span>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="border-b border-border py-2">
-          <div className="flex items-center justify-between px-3 py-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Open by chair</span>
-            <Badge variant="outline" className="text-muted-foreground">3 of 3</Badge>
-          </div>
-          {['Dr. Sarah Chen', 'Dr. Nick Bold', 'Dr. Emma Stone'].map((name, index) => (
-            <div key={name} className="flex h-9 items-center gap-2 px-3">
-              <span className={`size-2 shrink-0 rounded-full ${index === 0 ? 'bg-blue-600' : index === 1 ? 'bg-cyan-500' : 'bg-amber-400'}`} aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate text-sm">{name}</span>
-              <span className="text-xs text-muted-foreground">{index + 1} slots</span>
-            </div>
-          ))}
-        </div>
-        <div className="border-b border-border py-2">
-          <div className="flex items-center justify-between px-3 py-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Open slots · 30m+</span>
-            <Badge variant="outline" className="text-muted-foreground">5</Badge>
-          </div>
-          {['09:30 · Chair 01', '10:45 · Chair 03', '14:00 · Chair 02', '15:30 · Chair 01', '17:00 · Chair 03'].map(slot => (
-            <div key={slot} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
-              <span className="truncate">{slot}</span>
-              <span className="text-xs text-muted-foreground">30m</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex grow flex-col gap-2 px-3 py-3">
-          <Button className="w-full justify-start">Book the first open slot</Button>
-          <Button variant="outline" className="w-full justify-start text-muted-foreground">Open the board on this day</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function MainAside() {
   const location = useLocation()
   const menus = useMenuStore(state => state.menus)
@@ -447,7 +398,9 @@ export default function MainAside() {
   }
 
   // 查找自定义面板
-  const customPane = customSectionPanes.find(pane => pane.section === section)
+  const currentPath = normalizeRoutePath(location.pathname)
+  const customPane = customSectionPanes.find(pane => pane.path && normalizeRoutePath(pane.path) === currentPath)
+    ?? customSectionPanes.find(pane => pane.section === section && !pane.path)
 
   const displayName = userInfo?.nickname || userInfo?.username || '管理员'
   const email = userInfo?.email || userInfo?.username || '未绑定邮箱'
@@ -571,7 +524,7 @@ export default function MainAside() {
             sidebarState === 'collapsed' ? 'w-0' : 'w-[calc(var(--sidebar-width)-var(--sidebar-width-icon))]',
           )}
         >
-          {section === 'dashboard' ? <DashboardPane /> : customPane ? <customPane.component /> : (
+          {customPane ? <customPane.component /> : (
             <div className="relative flex flex-1 flex-col overflow-hidden bg-background">
               <div className="flex h-(--header-height) shrink-0 items-center justify-between border-b border-border px-3">
                 <span className="text-sm font-semibold text-foreground">{navigationTitle}</span>

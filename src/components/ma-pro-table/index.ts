@@ -1,4 +1,4 @@
-export { MaProTable } from './ma-pro-table'
+export { MaProTable } from './components/ma-pro-table'
 export type {
   MaProTableApi,
   MaProTableColumns,

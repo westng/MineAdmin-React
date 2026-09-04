@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { MenuVo } from '@/modules/base/api/permission'
+import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
 import { getMenuPath, isVisibleMenu } from '@/router/dynamic-menu'
 
 export interface RuntimeRoute {

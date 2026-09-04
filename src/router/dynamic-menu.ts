@@ -1,4 +1,4 @@
-import type { MenuVo } from '@/modules/base/api/permission'
+import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
 
 export function getMenuType(menu: MenuVo) {
   return menu.meta?.type || menu.type || 'M'

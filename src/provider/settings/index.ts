@@ -24,7 +24,7 @@ const defaultSettings: SystemSettings = {
   copyright: {
     enable: true,
     dates: new Date().getFullYear().toString(),
-    company: 'MineAdmin Team',
+    company: 'Rally聚势云',
     website: 'https://www.mineadmin.com',
     putOnRecord: '豫ICP备00000000号-1',
   },

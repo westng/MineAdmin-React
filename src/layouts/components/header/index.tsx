@@ -1,4 +1,4 @@
-import { Download, FilePlus2, Filter, Plus, Send, Share2, UserPlus } from 'lucide-react'
+import { FilePlus2, Filter, Plus, Send, UserPlus, type LucideIcon } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -8,7 +8,7 @@ import { useMenuStore } from '@/store/modules/useMenuStore'
 import HeaderActionSlot from '@/layouts/components/bars/toolbar'
 
 const titles: Record<string, string> = {
-  '/dashboard': 'Overview',
+  '/dashboard': '工作台',
   '/calendar': 'Calendar',
   '/appointments': 'Appointments',
   '/customers': 'Customers',
@@ -23,7 +23,7 @@ function ActionButton({
   children,
   icon: Icon,
   ...props
-}: ComponentProps<typeof Button> & { icon: typeof Download }) {
+}: ComponentProps<typeof Button> & { icon: LucideIcon }) {
   return (
     <Button {...props}>
       <Icon className="size-4" aria-hidden="true" />
@@ -37,7 +37,6 @@ export default function Header() {
   const menus = useMenuStore(state => state.menus)
   const dynamicMenu = findMenuByPath(menus, location.pathname)
   const title = titles[location.pathname] || (location.pathname.startsWith('/settings') ? '设置' : (dynamicMenu ? getMenuLabel(dynamicMenu) : 'Clinic'))
-  const isDashboard = location.pathname === '/dashboard'
   const isCalendar = location.pathname === '/calendar'
   const isAppointments = location.pathname === '/appointments'
   const isCustomers = location.pathname === '/customers'
@@ -55,12 +54,6 @@ export default function Header() {
         {isStaff && <ActionButton icon={Filter} variant="outline">Filters</ActionButton>}
         {isStaff && <ActionButton icon={FilePlus2} variant="default">New visit</ActionButton>}
         {isPayments && <ActionButton icon={Plus} variant="default">New invoice</ActionButton>}
-        {isDashboard && (
-          <>
-            <ActionButton icon={Download} variant="outline" onClick={() => window.print()}>Export</ActionButton>
-            <ActionButton icon={Share2} variant="default" onClick={() => navigator.clipboard?.writeText(window.location.href)}>Share</ActionButton>
-          </>
-        )}
         <HeaderActionSlot />
       </div>
     </header>

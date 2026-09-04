@@ -9,3 +9,7 @@ dist*
 .env
 .env.*
 !.env.example
+src/plugins/
+src/modules/*
+!src/modules/base/
+!src/modules/base/**

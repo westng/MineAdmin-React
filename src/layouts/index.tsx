@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import type { CSSProperties } from 'react'
 import { useState } from 'react'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -9,6 +9,7 @@ import BackTop from './components/back-top'
 import Header from './components/header'
 import MainAside, { SidebarCollapseRail } from './components/main-aside'
 import { HeaderActionsProvider } from './components/bars/toolbar'
+import { cn } from '@/lib/utils'
 
 function getSidebarDefaultOpen() {
   if (typeof document === 'undefined') return true
@@ -18,9 +19,11 @@ function getSidebarDefaultOpen() {
 }
 
 export default function AppLayout() {
+  const location = useLocation()
   const watermark = useSettingStore(state => state.settings.app.enableWatermark)
   const watermarkText = useSettingStore(state => state.settings.app.watermarkText)
   const [sidebarDefaultOpen] = useState(getSidebarDefaultOpen)
+  const isMarketingWorkspace = location.pathname === '/marketing/schedule' || location.pathname === '/marketing/calendar'
 
   return (
     <SidebarProvider
@@ -34,7 +37,7 @@ export default function AppLayout() {
         <SidebarInset className="min-w-0">
           <HeaderActionsProvider>
             <Header />
-            <main className="mine-main flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
+            <main className={cn('mine-main flex min-h-0 flex-1 flex-col overflow-y-auto', !isMarketingWorkspace && 'p-4')}>
               <Outlet />
             </main>
           </HeaderActionsProvider>

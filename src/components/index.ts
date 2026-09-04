@@ -2,6 +2,8 @@ export { MaForm } from './ma-form'
 export { MaSearch } from './ma-search'
 export { MaTable } from './ma-table'
 export { MaProTable } from './ma-pro-table'
+export { MaDialog, useMaDialog } from './ma-dialog'
+export { MaDrawer, useMaDrawer } from './ma-drawer'
 export type { MaModel } from './shared/types'
 
 export type {
@@ -42,3 +44,23 @@ export type {
   MaProTableProps,
   MaProTableSchema,
 } from './ma-pro-table'
+export type {
+  MaDialogAction,
+  MaDialogActionContext,
+  MaDialogActionErrorHandler,
+  MaDialogActionHandler,
+  MaDialogController,
+  MaDialogProps,
+  MaDialogStaticProps,
+  UseMaDialogOptions,
+} from './ma-dialog'
+export type {
+  MaDrawerAction,
+  MaDrawerActionContext,
+  MaDrawerActionErrorHandler,
+  MaDrawerActionHandler,
+  MaDrawerController,
+  MaDrawerProps,
+  MaDrawerStaticProps,
+  UseMaDrawerOptions,
+} from './ma-drawer'

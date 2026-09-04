@@ -1,35 +1,98 @@
 # MineAdmin-React
 
-React 19 + Vite + TypeScript + Tailwind CSS + Zustand + ReUI 的 MineAdmin 前端。
+MineAdmin 3.2 的 React 前端，使用 React 19、Vite、TypeScript、Tailwind CSS、Zustand 和 ReUI 构建。
 
-## 开发
+## 快速开始
+
+环境要求：Node.js `>=20.19.0`，pnpm `11.7.0`。
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
-开发端口为 `2777`，API 通过 `/dev` 代理到后端 `9601`。项目统一使用 `pnpm`，Node.js 要求 `>=20.19.0`。
+开发服务器默认监听 `http://127.0.0.1:2777`。开发环境请求通过 `/dev` 代理到 MineAdmin 后端 `http://127.0.0.1:9601`；请先从父仓库启动后端服务。
 
-## 基础架构
+## 常用命令
 
-- `src/components/ui` 和 `src/components/reui` 只保留官方 registry 组件；业务表单、验证码和页面布局放在 `src/modules` 或 `src/layouts`。
-- `src/components/ma-form`、`src/components/ma-search`、`src/components/ma-table`、`src/components/ma-pro-table` 是独立的 MineAdmin 通用组件包；每个目录通过 `index.ts` 暴露组件，通过 `types.ts` 暴露公开接口，业务页面不得修改其内部实现。
-- `MaForm` 负责字段模型与校验，`MaSearch` 负责搜索交互，`MaTable` 负责表格展示，`MaProTable` 负责三者之外的查询请求与组合；页面专属列、字段、工具栏和标签页必须留在对应业务模块。
-- `src/store/modules` 对应 Vue 版 Pinia 的用户、菜单、运行时路由、标签页和 KeepAlive 状态。
-- `src/hooks` 提供缓存、权限、对话框、消息、主题色、水印和资源 URL 等通用能力。
-- `src/provider` 提供设置、字典和插件注册；`src/i18n` 提供中英文运行时翻译。
-- Vue 版的 ECharts provider 在 React 侧由已安装的 Recharts 组件替代，图表页面只通过组件组合使用，不再引入第二套图表运行时。
-- 登录后启动链依次加载 `getInfo`、权限菜单和角色，并生成动态路由；刷新页面会重新初始化，不依赖内存状态。
-- `src/modules/base/api` 已按 Vue 版接口补齐认证、权限、用户、角色、组织、日志和附件请求契约；权限管理下的用户、角色、菜单、部门页面已接入真实 CRUD 和授权接口。
+| 命令 | 作用 |
+| --- | --- |
+| `pnpm run dev` | 启动 Vite 开发服务器 |
+| `pnpm run typecheck` | 执行 TypeScript 项目检查 |
+| `pnpm run lint` | 执行 ESLint 严格检查 |
+| `pnpm run build` | 类型检查并构建生产包到 `dist/` |
+| `pnpm run serve` | 使用静态服务器预览 `dist/` |
 
-Vue 版中尚未迁移为 React 页面组件的业务视图，会由动态菜单安全占位页承接；新增业务页面时只需在对应 `modules/<module>/views` 下实现，并保持基础组件与业务组装分层。
+## 环境配置
 
-## 检查
+- `.env.development` 使用 `2777` 端口、Hash 路由和 `/dev` API 代理。
+- `.env.production` 将 API 目标设置为容器内的 `http://hyperf:9601`，生产构建默认输出 gzip 和 Brotli 压缩配置。
+- `VITE_APP_API_BASEURL`、`VITE_PROXY_PREFIX` 和 `VITE_OPEN_PROXY` 控制请求目标；环境文件属于本地配置，不要提交密钥或覆盖用户现有值。
+
+## 目录与架构
+
+```text
+src/
+├── components/
+│   ├── reui/           # ReUI registry 原始组件
+│   ├── ui/             # shadcn/Base UI 基础组件
+│   ├── common/         # 项目级通用封装，例如 Toast
+│   └── ma-*/           # MineAdmin 通用表单、搜索、表格组件
+├── layouts/            # 应用布局、导航、账户中心布局
+├── modules/base/       # 已纳入仓库的基础业务模块
+├── plugins/            # 本地插件扩展目录
+├── provider/           # 设置、字典、插件注册和生命周期
+├── router/             # 静态路由、动态菜单和插件路由
+├── store/              # 用户、菜单、路由、标签页和 KeepAlive 状态
+└── utils/              # HTTP、权限、资源和 API 响应辅助函数
+```
+
+### 基础组件
+
+- `MaForm` 负责字段模型与校验，`MaSearch` 负责搜索交互，`MaTable` 负责表格展示，`MaProTable` 组合搜索、请求、响应解析和表格。
+- 每个 `ma-*` 目录通过 `index.ts` 暴露公开组件和类型；公开接口放在 `types/`，渲染和状态逻辑放在 `components/`，辅助逻辑放在 `utils/`。
+- `MaDialog`、`MaDrawer` 和 Toast 是项目级封装；业务页面只组合这些封装，不修改 `components/reui` 或 `components/ui` 的原始源码。
+
+### 业务模块
+
+`src/modules/base` 按业务子模块维护 `api/`、`locales/`、`views/` 和按需创建的注册文件。新增业务使用以下结构，并将页面专属组件放到对应 `views/components/`：
+
+```text
+src/modules/<业务域>/<业务子类>/
+├── api/
+├── locales/
+├── register-*.ts
+└── views/
+    ├── components/
+    ├── data/
+    └── index.tsx
+```
+
+尚未迁移为 React 页面组件的 Vue 版视图由动态菜单占位页承接；页面路由、权限和菜单仍由后端返回的数据驱动。
+
+### 插件系统
+
+插件入口位于 `src/plugins/<vendor>/<name>/index.ts`，可以注册视图、字典、安装逻辑和生命周期钩子。插件启动时会按 `config.enable` 和 `config.info` 合并配置，再依次执行安装和初始化；网络请求与路由跳转也会触发对应钩子。
+
+## 仓库边界
+
+- 当前 Git 仓库只跟踪 `src/modules/base` 以及公共组件、布局、Provider 和基础设施代码。
+- `src/plugins/` 与 `src/modules/` 下除 `base` 以外的业务目录由 `.gitignore` 忽略，作为本地业务扩展保留；要把某个插件或业务模块发布到仓库，需先明确调整忽略规则并单独审核其依赖。
+- `node_modules/`、`dist/`、`.env.*` 和构建临时文件不纳入提交。
+
+## 开发约定
+
+- ReUI 组件通过 `components.json` 中的 `@reui` registry 安装；不要新增未经 registry 提供的替代组件或第二套 UI primitive。
+- 请求统一经过 `src/utils/http.ts`，由现有认证、刷新 Token、语言和插件网络钩子链路处理。
+- 操作成功、失败、校验和筛选重置等短反馈使用 `src/components/common/toast.tsx`；持续上下文信息才使用 Alert。
+- 图表使用已安装的 Recharts；不要另行引入 ECharts 运行时。
+
+## 验证
+
+提交前至少运行：
 
 ```bash
 pnpm run typecheck
 pnpm run lint
+pnpm run build
 ```
-
-# MineAdmin-Recat

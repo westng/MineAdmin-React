@@ -5,7 +5,10 @@ import { bootstrap } from './bootstrap'
 import './assets/styles/globals.css'
 
 // 注册自定义二级菜单面板
-import './modules/base/views/permission/user/register-pane'
+import './plugins/mine-admin/dictionary/register-pane'
+import './modules/base/permission/user/register-pane'
+import './modules/marketing/schedule/register-pane'
+import './modules/marketing/calendar/register-pane'
 
 bootstrap()
   .then(() => {
