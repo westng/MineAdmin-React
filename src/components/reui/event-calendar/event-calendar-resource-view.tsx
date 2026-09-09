@@ -390,10 +390,7 @@ function EventCalendarResourceAllDayCell({
       data-drop-target={isDropTarget ?? undefined}
       data-off={isOff || undefined}
       className={cn(
-        // reserve one bar row so the all-day row keeps the same height with or
-        // without events, matching the time-grid all-day row (which reserves
-        // the same via its bars-grid minHeight)
-        "relative flex min-h-[calc(var(--ec-month-bar-h,1.625rem)+0.625rem)] min-w-0 flex-col gap-0.5 border-e px-1 py-1.5 last:border-e-0",
+        "relative flex min-h-0 min-w-0 flex-col gap-0.5 border-e px-1 py-1.5 last:border-e-0",
         isOff && offClassName,
         viewConfig.dayClassName?.(day),
         inDraft &&
@@ -431,9 +428,7 @@ function EventCalendarResourceAllDayCell({
         <EventCalendarEvent
           key={segment.occurrence.key}
           segment={segment}
-          // one bar-row tall, matching the time-grid all-day bars so the row
-          // height stays identical across views (and equals the reserved min)
-          className="h-[calc(var(--ec-month-bar-h,1.625rem)-0.125rem)]"
+          className="h-auto min-h-0"
         />
       ))}
       {isDropTarget && (

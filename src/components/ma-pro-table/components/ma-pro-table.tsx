@@ -1,6 +1,8 @@
 import * as React from 'react'
 import { RefreshCw } from 'lucide-react'
+import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import { MaSearch } from '../../ma-search'
 import { MaTable } from '../../ma-table'
 import { cn } from '@/lib/utils'
@@ -10,12 +12,14 @@ import type { MaProTableApi, MaProTableColumns, MaProTableExpose, MaProTableMode
 
 type MaModel = MaProTableModel
 
-function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptions = {}, variant = 'default', className, header, tabs, toolbar, toolbarLeft, toolbarRight, beforeToolbar, afterToolbar, empty, onSelectionChange }: MaProTableProps<T>, ref: React.ForwardedRef<MaProTableExpose<T>>) {
+function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptions = {}, variant = 'default', data: controlledData, loading: controlledLoading, className, header, tabs, toolbarCenter, toolbar, toolbarLeft, toolbarRight, beforeToolbar, afterToolbar, empty, onSelectionChange }: MaProTableProps<T>, ref: React.ForwardedRef<MaProTableExpose<T>>) {
   const [options, setOptionsState] = React.useState<MaProTableOptions<T>>(initialOptions)
   const [columns, setColumnsState] = React.useState<MaProTableColumns<T>[]>(schema.tableColumns ?? [])
-  const [data, setData] = React.useState<T[]>(initialOptions.tableOptions?.data ?? [])
+  const [requestedData, setData] = React.useState<T[]>(initialOptions.tableOptions?.data ?? [])
   const [total, setTotal] = React.useState(initialOptions.tableOptions?.pagination?.total ?? 0)
-  const [loading, setLoading] = React.useState(initialOptions.requestOptions?.autoRequest !== false && Boolean(initialOptions.requestOptions?.api))
+  const [requestLoading, setLoading] = React.useState(initialOptions.requestOptions?.autoRequest !== false && Boolean(initialOptions.requestOptions?.api))
+  const data = controlledData ?? requestedData
+  const loading = controlledLoading ?? requestLoading
   const [error, setError] = React.useState('')
   const [currentPage, setCurrentPage] = React.useState(initialOptions.tableOptions?.pagination?.currentPage ?? 1)
   const [pageSize, setPageSize] = React.useState(initialOptions.requestOptions?.requestPage?.size ?? initialOptions.tableOptions?.pagination?.pageSize ?? 10)
@@ -25,6 +29,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
   const tableRef = React.useRef<MaTableExpose<T>>(null)
   const optionsRef = React.useRef(options)
   const requestParamsRef = React.useRef<Record<string, unknown>>(initialOptions.requestOptions?.requestParams ?? {})
+  const searchParamsRef = React.useRef<Record<string, unknown>>((initialOptions.searchOptions?.defaultValue ?? {}) as Record<string, unknown>)
   const searchFormRef = React.useRef(searchForm)
   const currentPageRef = React.useRef(currentPage)
   const pageSizeRef = React.useRef(pageSize)
@@ -67,7 +72,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     const params: Record<string, unknown> = {
       ...requestOptions.requestParams,
       ...requestParamsRef.current,
-      ...searchFormRef.current,
+      ...searchParamsRef.current,
       [pageName]: currentPageRef.current,
       [sizeName]: pageSizeRef.current,
     }
@@ -102,30 +107,34 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     return () => window.clearTimeout(timer)
   }, [initialOptions.requestOptions?.api, initialOptions.requestOptions?.autoRequest, requestData])
 
-  const handleSearch = React.useCallback((form: T) => {
-    const nextParams = optionsRef.current.onSearchSubmit?.(form)
-    searchFormRef.current = { ...form, ...(nextParams ?? {}) } as T
-    setSearchFormState(searchFormRef.current)
-    currentPageRef.current = 1
-    setCurrentPage(1)
-    void requestData()
-  }, [requestData])
-
-  const handleReset = React.useCallback((form: T) => {
-    const nextParams = optionsRef.current.onSearchReset?.(form)
-    searchFormRef.current = { ...form, ...(nextParams ?? {}) } as T
-    setSearchFormState(searchFormRef.current)
-    currentPageRef.current = 1
-    setCurrentPage(1)
-    void requestData()
-  }, [requestData])
-
   const handlePageChange = React.useCallback((nextPage: number, nextPageSize = pageSizeRef.current) => {
     currentPageRef.current = nextPage
     pageSizeRef.current = nextPageSize
     setCurrentPage(nextPage)
     setPageSize(nextPageSize)
     void requestData()
+  }, [requestData])
+
+  const submitSearch = React.useCallback(async (form: T) => {
+    const nextParams = optionsRef.current.onSearchSubmit?.(form)
+    searchFormRef.current = form
+    searchParamsRef.current = { ...((nextParams ?? form) as unknown as Record<string, unknown>) }
+    setSearchFormState(form)
+    requestSequenceRef.current += 1
+    currentPageRef.current = 1
+    setCurrentPage(1)
+    await requestData()
+  }, [requestData])
+
+  const resetSearch = React.useCallback(async (form: T) => {
+    const nextParams = optionsRef.current.onSearchReset?.(form)
+    searchFormRef.current = form
+    searchParamsRef.current = { ...((nextParams ?? form) as unknown as Record<string, unknown>) }
+    setSearchFormState(form)
+    requestSequenceRef.current += 1
+    currentPageRef.current = 1
+    setCurrentPage(1)
+    await requestData()
   }, [requestData])
 
   const handleSelectionChange = React.useCallback((rows: T[]) => {
@@ -154,12 +163,12 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     loading,
     pagination: {
       ...options.tableOptions?.pagination,
-      total,
+      total: controlledData === undefined ? total : options.tableOptions?.pagination?.total ?? controlledData.length,
       currentPage,
       pageSize,
       onChange: handlePageChange,
     } as MaTablePagination,
-  }), [currentPage, data, handlePageChange, loading, options.tableOptions, pageSize, total])
+  }), [controlledData, currentPage, data, handlePageChange, loading, options.tableOptions, pageSize, total])
 
   React.useImperativeHandle(ref, () => ({
     getSearchRef: () => searchRef.current,
@@ -183,6 +192,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     setSearchForm: form => {
       searchRef.current?.setSearchForm(form)
       searchFormRef.current = (form ?? {}) as T
+      searchParamsRef.current = (form ?? {}) as Record<string, unknown>
       setSearchFormState(searchFormRef.current)
     },
     getSearchForm: () => searchFormRef.current,
@@ -204,31 +214,44 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
 
   const headerConfig = options.header
   const showHeader = resolveVisible(headerConfig?.show, Boolean(header || headerConfig?.mainTitle || headerConfig?.subTitle))
-  const showToolbar = resolveVisible(options.toolbar, Boolean(toolbar || toolbarLeft || toolbarRight || beforeToolbar || afterToolbar))
+  const showToolbar = resolveVisible(options.toolbar, Boolean(toolbarCenter || toolbar || toolbarLeft || toolbarRight || beforeToolbar || afterToolbar))
   const title = resolveText(headerConfig?.mainTitle, '数据列表')
   const subtitle = resolveText(headerConfig?.subTitle, '')
-  const toolbarContent = <>{beforeToolbar}{toolbarLeft}{toolbar ?? <Button type="button" variant="outline" size="sm" onClick={() => void requestData()} disabled={loading}><RefreshCw className={cn('size-4', loading && 'animate-spin')} aria-hidden="true" />刷新</Button>}{toolbarRight}{afterToolbar}</>
-  const headerContent = header ?? <><h2 className="text-lg font-semibold">{title}</h2>{subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}</>
+  const tableToolbarLeft = <>{beforeToolbar}{toolbarLeft}</>
+  const hasToolbarCenter = toolbarCenter != null || toolbar != null
+  const tableToolbarCenter = toolbarCenter ?? toolbar
+  const tableToolbarRight = <>{toolbarRight}{!hasToolbarCenter && toolbarRight == null && <Button type="button" variant="outline" size="sm" onClick={() => void requestData()} disabled={loading}><RefreshCw className={cn('size-4', loading && 'animate-spin')} aria-hidden="true" />刷新</Button>}{afterToolbar}</>
+  const headerContent = header ?? <><FrameTitle>{title}</FrameTitle>{subtitle && <FrameDescription>{subtitle}</FrameDescription>}</>
+  const searchItems = schema.searchItems ?? []
+  const showSearch = searchItems.length > 0 && resolveVisible(options.searchOptions?.show, true)
+  const tableToolbarProps = showToolbar
+    ? { toolbarLeft: tableToolbarLeft, toolbarCenter: tableToolbarCenter, toolbarRight: tableToolbarRight }
+    : {}
+  const selectionContent = selectedRows.length > 0 && options.selection
+    ? <div className="bg-muted/25 flex flex-col gap-3 border-b px-3 py-3 lg:flex-row lg:items-center lg:justify-between lg:px-4">
+      <div className="flex min-w-0 flex-col gap-0.5"><span className="text-sm font-medium">{typeof options.selection.selectedText === 'function' ? options.selection.selectedText(selectedRows.length) : options.selection.selectedText?.replace('{number}', String(selectedRows.length)) ?? `已选择 ${selectedRows.length} 项`}</span></div>
+      <div className="flex flex-wrap items-center gap-2"><Button type="button" variant="ghost" size="sm" onClick={clearSelectedRows}>{resolveText(options.selection.clearText, '清除选择')}</Button></div>
+    </div>
+    : undefined
 
   return (
-    <section className={cn('flex w-full flex-col gap-4', className)} data-ma-pro-table-id={tableId}>
-      {variant === 'card' ? <div className="overflow-hidden rounded-xl border bg-card">
-        {showHeader && <header className="px-3 pt-2 pb-1"><div>{headerContent}</div></header>}
+    <Frame
+      dense
+      variant="default"
+      spacing="sm"
+      className={cn('w-full min-w-0', options.className, className)}
+      data-ma-pro-table-id={tableId}
+      data-variant={variant}
+    >
+      {showHeader && <FrameHeader className="min-w-0 flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">{headerContent}</div>
+      </FrameHeader>}
+      <FramePanel className="min-w-0 bg-card p-0! shadow-none!">
         {tabs && <div className="border-b px-3">{tabs}</div>}
-        {showToolbar && <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">{toolbarContent}</div>}
-        <MaSearch ref={searchRef} className="rounded-none border-0 border-b bg-transparent p-2" options={options.searchOptions} formOptions={options.searchFormOptions} searchItems={schema.searchItems} onSearch={handleSearch} onReset={handleReset} />
         {error && <div role="alert" className="border-b border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div>}
-        <MaTable ref={tableRef} className="rounded-none border-0" columns={columns} options={tableOptions} onSelectionChange={handleSelectionChange} empty={empty} />
-        {selectedRows.length > 0 && options.selection && <div className="flex items-center justify-between border-t bg-muted/30 px-3 py-2 text-sm text-muted-foreground"><span>{typeof options.selection.selectedText === 'function' ? options.selection.selectedText(selectedRows.length) : options.selection.selectedText?.replace('{number}', String(selectedRows.length)) ?? `已选择 ${selectedRows.length} 项`}</span><Button type="button" variant="ghost" size="sm" onClick={clearSelectedRows}>{resolveText(options.selection.clearText, '清除选择')}</Button></div>}
-      </div> : <>
-        {showHeader && <header className="flex flex-wrap items-start justify-between gap-3"><div>{headerContent}</div>{showToolbar && <div className="flex flex-wrap items-center gap-2">{toolbarContent}</div>}</header>}
-        {!showHeader && showToolbar && <div className="flex flex-wrap items-center justify-end gap-2">{toolbarContent}</div>}
-        <MaSearch ref={searchRef} options={options.searchOptions} formOptions={options.searchFormOptions} searchItems={schema.searchItems} onSearch={handleSearch} onReset={handleReset} />
-        {error && <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div>}
-        <MaTable ref={tableRef} columns={columns} options={tableOptions} onSelectionChange={handleSelectionChange} empty={empty} />
-        {selectedRows.length > 0 && options.selection && <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground"><span>{typeof options.selection.selectedText === 'function' ? options.selection.selectedText(selectedRows.length) : options.selection.selectedText?.replace('{number}', String(selectedRows.length)) ?? `已选择 ${selectedRows.length} 项`}</span><Button type="button" variant="ghost" size="sm" onClick={clearSelectedRows}>{resolveText(options.selection.clearText, '清除选择')}</Button></div>}
-      </>}
-    </section>
+        <MaTable ref={tableRef} columns={columns} options={tableOptions} onSelectionChange={handleSelectionChange} empty={empty} headerContent={showSearch ? <><MaSearch ref={searchRef} searchItems={searchItems} options={options.searchOptions} formOptions={options.searchFormOptions} className="rounded-none border-0 bg-transparent p-3 shadow-none" onSearch={submitSearch} onReset={resetSearch} /><Separator /></> : undefined} footerContent={selectionContent} {...tableToolbarProps} />
+      </FramePanel>
+    </Frame>
   )
 }
 

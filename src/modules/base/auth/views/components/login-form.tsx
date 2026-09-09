@@ -6,6 +6,8 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { Separator } from '@/components/ui/separator'
+import { FeishuLoginDialog } from '@/modules/feishu/login/components/FeishuLoginDialog'
+import type { FeishuLoginResult } from '@/modules/feishu/login/api/login'
 import { VerifyCode, type VerifyCodeHandle } from './verify-code'
 
 export interface LoginFormValues {
@@ -21,6 +23,7 @@ interface LoginFormState {
 
 interface LoginFormProps {
   onSubmit: (values: LoginFormValues) => Promise<void>
+  onFeishuResult: (result: FeishuLoginResult) => Promise<void>
 }
 
 const initialState: LoginFormState = {
@@ -44,11 +47,12 @@ function validate(values: LoginFormValues): LoginFormState['fieldErrors'] {
   return fieldErrors
 }
 
-export function LoginForm({ onSubmit }: LoginFormProps) {
+export function LoginForm({ onSubmit, onFeishuResult }: LoginFormProps) {
   const captchaRef = useRef<VerifyCodeHandle>(null)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
+  const [feishuDialogOpen, setFeishuDialogOpen] = useState(false)
   const [state, formAction, isPending] = useActionState(
     async (_previousState: LoginFormState, formData: FormData): Promise<LoginFormState> => {
       const values: LoginFormValues = {
@@ -179,7 +183,7 @@ export function LoginForm({ onSubmit }: LoginFormProps) {
           </div>
         </div>
 
-        <Button className="mt-3 w-full" variant="outline" type="button" disabled={isPending}>
+        <Button className="mt-3 w-full" variant="outline" type="button" disabled={isPending} onClick={() => setFeishuDialogOpen(true)}>
           <Iconify icon="icon-park-outline:lark" className="size-4" aria-hidden="true" />
           使用飞书登录
         </Button>
@@ -189,6 +193,7 @@ export function LoginForm({ onSubmit }: LoginFormProps) {
           <Button type="button" variant="link" size="sm" disabled={isPending}>立即注册</Button>
         </p>
       </FieldGroup>
+      {feishuDialogOpen && <FeishuLoginDialog open onOpenChange={setFeishuDialogOpen} onResult={onFeishuResult} />}
     </form>
   )
 }

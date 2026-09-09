@@ -27,6 +27,13 @@ export function getMenuPath(menu: MenuVo) {
   return path.startsWith('/') ? path : `/${path}`
 }
 
+// Apply to cached and fetched menus while retired database entries await cleanup.
+export function removeRetiredMenus(menus: MenuVo[]): MenuVo[] {
+  return menus
+    .filter(menu => getMenuPath(menu)?.replace(/\/+$/, '') !== '/marketing/calendar')
+    .map(menu => menu.children ? { ...menu, children: removeRetiredMenus(menu.children) } : menu)
+}
+
 export function flattenVisibleMenus(menus: MenuVo[]): MenuVo[] {
   return menus.flatMap(menu => isVisibleMenu(menu) ? [menu, ...flattenVisibleMenus(menu.children || [])] : [])
 }

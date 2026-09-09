@@ -1,7 +1,7 @@
 import http from '@/utils/http'
 import type { PageList, ResponseStruct } from '@/types/api'
 
-export interface RoleVo {
+export type RoleVo = {
   id?: number
   name?: string
   code?: string

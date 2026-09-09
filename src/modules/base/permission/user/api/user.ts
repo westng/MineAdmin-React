@@ -2,6 +2,12 @@ import http from '@/utils/http'
 import type { PageList, ResponseStruct } from '@/types/api'
 import type { UserDepartmentInfo, UserPositionInfo, UserRoleInfo } from '@/modules/base/auth/api/user'
 
+export interface UserPolicy {
+  policy_type: 'DEPT_SELF' | 'DEPT_TREE' | 'ALL' | 'SELF' | 'CUSTOM_DEPT' | 'CUSTOM_FUNC'
+  is_default?: boolean
+  value?: unknown[]
+}
+
 export interface UserVo {
   id?: number
   username?: string
@@ -14,9 +20,13 @@ export interface UserVo {
   dashboard?: string
   status?: 1 | 2
   remark?: string
+  backend_setting?: unknown[]
+  policy?: UserPolicy | null
   departments?: UserDepartmentInfo[]
   positions?: UserPositionInfo[]
   roles?: UserRoleInfo[]
+  department?: number[]
+  position?: number[]
   [key: string]: unknown
 }
 

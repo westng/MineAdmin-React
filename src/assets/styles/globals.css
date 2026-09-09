@@ -3,6 +3,8 @@
 
 @source "../../plugins";
 @source "../../modules";
+@source "../../modules/marketing/schedule";
+@source "../../modules/notification";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -22,7 +24,7 @@
   --accent: oklch(97% 0 0);
   --accent-foreground: oklch(20.5% 0 0);
   --destructive: oklch(57.7% 0.245 27.325);
-  --destructive-foreground: oklch(98.5% 0 0);
+  --destructive-foreground: var(--color-red-800);
   --border: oklch(92.2% 0 0);
   --input: oklch(92.2% 0 0);
   --ring: oklch(70.8% 0 0);
@@ -63,7 +65,7 @@
   --accent: oklch(26.9% 0 0);
   --accent-foreground: oklch(98.5% 0 0);
   --destructive: oklch(70.4% 0.191 22.216);
-  --destructive-foreground: oklch(14.5% 0 0);
+  --destructive-foreground: var(--color-red-600);
   --border: oklch(100% 0 0 / 0.1);
   --input: oklch(100% 0 0 / 0.15);
   --ring: oklch(55.6% 0 0);
@@ -141,7 +143,6 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
-    font-family: Inter, "Alibaba PuHuiTi", "PingFang SC", "Microsoft YaHei", sans-serif;
   }
 
   button,

@@ -1,9 +1,11 @@
-import { Bell, BriefcaseBusiness, ChevronRight, CircleDot, LayoutDashboard, LogOut, Monitor, Moon, Palette, Search, Settings, Sun, UserRound } from 'lucide-react'
-import { Icon as Iconify } from '@iconify/react'
+import { usePermission } from '@/hooks/usePermission'
+import { NotificationBell } from '@/modules/notification/components/notification-bell'
+import { BriefcaseBusiness, ChevronRight, CircleDot, LayoutDashboard, LogOut, Monitor, Moon, Palette, Search, Settings, Sun, UserRound } from 'lucide-react'
+import { MaIcon } from '@/components/common/ma-icon'
 import * as React from 'react'
-import type { ComponentType } from 'react'
+import type { ComponentType, CSSProperties } from 'react'
 import { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Command, CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { useUserStore } from '@/store/modules/useUserStore'
 import { useSettingStore } from '@/provider/settings'
 import { useMenuStore } from '@/store/modules/useMenuStore'
@@ -81,7 +84,7 @@ function getMenuIcon(icon?: string): NavigationIcon {
 
 function NavigationIconView({ icon, className }: { icon?: NavigationIcon; className?: string }) {
   if (typeof icon === 'string') {
-    return <Iconify icon={icon} className={className} aria-hidden="true" />
+    return <MaIcon name={icon} className={cn('size-4', className)} />
   }
 
   const IconComponent = icon || CircleDot
@@ -249,6 +252,39 @@ function ProfileAvatar({ name, avatar, size = 'sm' }: { name: string; avatar?: s
   )
 }
 
+function NavigationSearchMenu({ items }: { items: RailItem[] }) {
+  const navigate = useNavigate()
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <SidebarMenuButton onClick={() => setOpen(true)} className="size-8! justify-center gap-0 p-2! [&>span]:hidden" tooltip={{ children: '搜索', hidden: false }} aria-label="搜索">
+        <Search />
+      </SidebarMenuButton>
+      <CommandDialog open={open} onOpenChange={nextOpen => {
+        setOpen(nextOpen)
+        if (!nextOpen) setSearch('')
+      }} title="搜索菜单" description="搜索并打开菜单页面">
+        <Command className="h-full rounded-none bg-background">
+          <CommandInput autoFocus value={search} onValueChange={setSearch} placeholder="搜索菜单" aria-label="搜索菜单" />
+          <CommandList className="max-h-none flex-1 p-3">
+            <CommandEmpty>没有匹配的菜单</CommandEmpty>
+            {items.map(item => (
+              <CommandItem key={`search-${item.to}`} value={item.label} onSelect={() => {
+                navigate(item.to)
+                setOpen(false)
+              }}>
+                {item.label}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </CommandDialog>
+    </>
+  )
+}
+
 const themeOptions = [
   { value: 'light' as const, label: '浅色', icon: Sun },
   { value: 'dark' as const, label: '深色', icon: Moon },
@@ -366,6 +402,7 @@ function ProfileMenu({
 
 export default function MainAside() {
   const location = useLocation()
+  const { hasAuth } = usePermission()
   const menus = useMenuStore(state => state.menus)
   const userInfo = useUserStore(state => state.userInfo)
   const logout = useUserStore(state => state.logout)
@@ -375,7 +412,9 @@ export default function MainAside() {
   const section = getSection(location.pathname, menus)
   const dynamicRailItems = getDynamicRailItems(menus)
   const navigationItems = [...railItems, ...dynamicRailItems.filter(item => !railItems.some(staticItem => staticItem.to === item.to))]
-  const navigationSectionItems = sectionItems[section] || getDynamicSectionItems(section, menus)
+  const navigationSectionItems = React.useMemo<MenuItem[]>(() => section === 'settings' && hasAuth('announcement:index')
+    ? [...sectionItems.settings, { label: '公告管理', to: '/settings/announcements', icon: CircleDot }]
+    : sectionItems[section] || getDynamicSectionItems(section, menus), [section, hasAuth, menus])
 
   // Auto-expand parent menus when navigating to a child route
   React.useEffect(() => {
@@ -401,211 +440,184 @@ export default function MainAside() {
   const currentPath = normalizeRoutePath(location.pathname)
   const customPane = customSectionPanes.find(pane => pane.path && normalizeRoutePath(pane.path) === currentPath)
     ?? customSectionPanes.find(pane => pane.section === section && !pane.path)
+  const hasSecondaryNavigation = Boolean(customPane) || navigationSectionItems.length > 0
 
   const displayName = userInfo?.nickname || userInfo?.username || '管理员'
   const email = userInfo?.email || userInfo?.username || '未绑定邮箱'
   const avatar = userInfo?.avatar || undefined
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar" className="overflow-hidden *:data-[sidebar=sidebar]:flex-row">
-      <div className="flex min-h-full flex-1">
-        <Sidebar collapsible="none" className="w-(--sidebar-width-icon)! border-r">
-          <SidebarHeader className="flex items-center justify-center py-3">
-            <RailTooltip label="ReUI Clinic">
-              <SidebarMenuButton
-                size="lg"
-                className="size-8! justify-center gap-0 p-0!"
-                render={<NavLink to="/dashboard" />}
-                aria-label="ReUI Clinic"
-              >
-                <div className="grid size-7 shrink-0 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                  <BriefcaseBusiness className="size-4" aria-hidden="true" />
-                </div>
-              </SidebarMenuButton>
-            </RailTooltip>
-          </SidebarHeader>
+    <>
+      <Sidebar
+        collapsible="icon"
+        variant="sidebar"
+        className="overflow-hidden *:data-[sidebar=sidebar]:flex-row"
+        style={{ '--sidebar-width': hasSecondaryNavigation ? '350px' : 'var(--sidebar-width-icon)' } as CSSProperties}
+      >
+        <div className="flex min-h-full flex-1">
+          <Sidebar collapsible="none" className="w-(--sidebar-width-icon)! border-r">
+            <SidebarHeader className="flex items-center justify-center py-3">
+              <RailTooltip label="ReUI Clinic">
+                <SidebarMenuButton
+                  size="lg"
+                  className="size-8! justify-center gap-0 p-0!"
+                  render={<NavLink to="/dashboard" />}
+                  aria-label="ReUI Clinic"
+                >
+                  <div className="grid size-7 shrink-0 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                    <BriefcaseBusiness className="size-4" aria-hidden="true" />
+                  </div>
+                </SidebarMenuButton>
+              </RailTooltip>
+            </SidebarHeader>
 
-          <SidebarContent>
-            <SidebarGroup className="p-2">
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5">
-                  {navigationItems.map(({ label, to, icon, section: itemSection }) => (
-                    <SidebarMenuItem key={to}>
-                      <RailTooltip label={label}>
+            <SidebarContent>
+              <SidebarGroup className="p-2">
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-0.5">
+                    {navigationItems.map(({ label, to, icon, section: itemSection }) => (
+                      <SidebarMenuItem key={to}>
+                        <RailTooltip label={label}>
+                          <SidebarMenuButton
+                            isActive={section === itemSection}
+                            className="size-8! justify-center gap-0 p-2!"
+                            render={<NavLink to={to} />}
+                            aria-label={label}
+                          >
+                            <NavigationIconView icon={icon} />
+                          </SidebarMenuButton>
+                        </RailTooltip>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+
+              <SidebarGroup className="mt-auto p-2">
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-0.5">
+                    <SidebarMenuItem>
+                      <NotificationBell />
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton onClick={() => {}} className="hidden" aria-hidden="true" />
+                      <NavigationSearchMenu items={navigationItems} />
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <RailTooltip label="Settings">
                         <SidebarMenuButton
-                          isActive={section === itemSection}
+                          isActive={section === 'settings'}
                           className="size-8! justify-center gap-0 p-2! [&>span]:hidden"
-                          render={<NavLink to={to} />}
-                          aria-label={label}
+                          render={<NavLink to="/settings" />}
+                          aria-label="Settings"
                         >
-                          <NavigationIconView icon={icon} />
+                          <Settings />
                         </SidebarMenuButton>
                       </RailTooltip>
                     </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </SidebarContent>
 
-            <SidebarGroup className="mt-auto p-2">
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5">
-                  <SidebarMenuItem>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <SidebarMenuButton className="size-8! justify-center gap-0 p-2! [&>span]:hidden" tooltip={{ children: '通知', hidden: false }} aria-label="通知">
-                            <Bell />
-                          </SidebarMenuButton>
-                        }
-                      />
-                      <DropdownMenuContent side="right" align="end" className="w-64">
-                        <DropdownMenuGroup>
-                          <DropdownMenuLabel>通知</DropdownMenuLabel>
-                          <DropdownMenuItem disabled>暂无新通知</DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <SidebarMenuButton className="size-8! justify-center gap-0 p-2! [&>span]:hidden" tooltip={{ children: '搜索', hidden: false }} aria-label="搜索">
-                            <Search />
-                          </SidebarMenuButton>
-                        }
-                      />
-                      <DropdownMenuContent side="right" align="end" className="w-56">
-                        <DropdownMenuGroup>
-                          <DropdownMenuLabel>搜索</DropdownMenuLabel>
-                          {navigationItems.map(item => (
-                            <DropdownMenuItem key={`search-${item.to}`} render={<NavLink to={item.to} />}>
-                              {item.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <RailTooltip label="Settings">
-                      <SidebarMenuButton
-                        isActive={section === 'settings'}
-                        className="size-8! justify-center gap-0 p-2! [&>span]:hidden"
-                        render={<NavLink to="/settings" />}
-                        aria-label="Settings"
-                      >
-                        <Settings />
-                      </SidebarMenuButton>
-                    </RailTooltip>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
+            <SidebarFooter className="p-2">
+              <ProfileMenu
+                displayName={displayName}
+                email={email}
+                avatar={avatar}
+                colorMode={settings.app.colorMode}
+                onChangeTheme={setColorMode}
+                onLogout={() => void logout()}
+              />
+            </SidebarFooter>
+          </Sidebar>
 
-          <SidebarFooter className="p-2">
-            <ProfileMenu
-              displayName={displayName}
-              email={email}
-              avatar={avatar}
-              colorMode={settings.app.colorMode}
-              onChangeTheme={setColorMode}
-              onLogout={() => void logout()}
-            />
-          </SidebarFooter>
-        </Sidebar>
+          {hasSecondaryNavigation && (
+            <Sidebar
+              collapsible="none"
+              className={cn(
+                'relative flex-1 overflow-hidden transition-[width] duration-200 ease-linear',
+                sidebarState === 'collapsed' ? 'w-0' : 'w-[calc(var(--sidebar-width)-var(--sidebar-width-icon))]',
+              )}
+            >
+              {customPane ? <customPane.component /> : (
+                <div className="relative flex flex-1 flex-col overflow-hidden bg-background">
+                  <div className="flex h-(--header-height) shrink-0 items-center justify-between border-b border-border px-3">
+                    <span className="text-sm font-semibold text-foreground">{navigationTitle}</span>
+                  </div>
+                  <SidebarContent>
+                    <SidebarGroup className="p-2">
+                      <SidebarGroupContent>
+                        <SidebarMenu>
+                          {navigationSectionItems.map((item, index) => {
+                            const hasChildren = item.children && item.children.length > 0
+                            const isExpanded = expandedMenus.has(item.to)
+                            const isParentActive = location.pathname.startsWith(item.to)
+                            const itemIcon = item.icon
 
-        <Sidebar
-          collapsible="none"
-          className={cn(
-            'relative flex-1 overflow-hidden transition-[width] duration-200 ease-linear',
-            sidebarState === 'collapsed' ? 'w-0' : 'w-[calc(var(--sidebar-width)-var(--sidebar-width-icon))]',
-          )}
-        >
-          {customPane ? <customPane.component /> : (
-            <div className="relative flex flex-1 flex-col overflow-hidden bg-background">
-              <div className="flex h-(--header-height) shrink-0 items-center justify-between border-b border-border px-3">
-                <span className="text-sm font-semibold text-foreground">{navigationTitle}</span>
-              </div>
-              <SidebarContent>
-                <SidebarGroup className="p-2">
-                  <SidebarGroupContent>
-                    {navigationSectionItems.length > 0 ? (
-                      <SidebarMenu>
-                        {navigationSectionItems.map((item, index) => {
-                          const hasChildren = item.children && item.children.length > 0
-                          const isExpanded = expandedMenus.has(item.to)
-                          const isParentActive = location.pathname.startsWith(item.to)
-                          const itemIcon = item.icon
+                            if (hasChildren) {
+                              return (
+                                <Collapsible
+                                  key={`${section}-${item.label}`}
+                                  open={isExpanded}
+                                  onOpenChange={open => {
+                                    setExpandedMenus(previous => {
+                                      const next = new Set(previous)
+                                      if (open) {
+                                        next.add(item.to)
+                                      } else {
+                                        next.delete(item.to)
+                                      }
+                                      return next
+                                    })
+                                  }}
+                                >
+                                  <SidebarMenuItem>
+                                    <CollapsibleTrigger asChild>
+                                      <SidebarMenuButton isActive={isParentActive}>
+                                        {itemIcon && <NavigationIconView icon={itemIcon} />}
+                                        <span>{item.label}</span>
+                                        <ChevronRight className={`ml-auto size-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                                      </SidebarMenuButton>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent>
+                                      <SidebarMenuSub>
+                                        {(item.children ?? []).map(child => (
+                                          <SidebarMenuSubItem key={child.to}>
+                                            <SidebarMenuSubButton isActive={location.pathname === child.to} render={<NavLink to={child.to} />}>
+                                              {child.icon && <NavigationIconView icon={child.icon} />}
+                                              <span>{child.label}</span>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+                                        ))}
+                                      </SidebarMenuSub>
+                                    </CollapsibleContent>
+                                  </SidebarMenuItem>
+                                </Collapsible>
+                              )
+                            }
 
-                          if (hasChildren) {
                             return (
-                              <Collapsible
-                                key={`${section}-${item.label}`}
-                                open={isExpanded}
-                                onOpenChange={open => {
-                                  setExpandedMenus(previous => {
-                                    const next = new Set(previous)
-                                    if (open) {
-                                      next.add(item.to)
-                                    } else {
-                                      next.delete(item.to)
-                                    }
-                                    return next
-                                  })
-                                }}
-                              >
-                                <SidebarMenuItem>
-                                  <CollapsibleTrigger asChild>
-                                    <SidebarMenuButton isActive={isParentActive}>
-                                      {itemIcon && <NavigationIconView icon={itemIcon} />}
-                                      <span>{item.label}</span>
-                                      <ChevronRight className={`ml-auto size-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
-                                    </SidebarMenuButton>
-                                  </CollapsibleTrigger>
-                                  <CollapsibleContent>
-                                    <SidebarMenuSub>
-                                      {(item.children ?? []).map(child => (
-                                        <SidebarMenuSubItem key={child.to}>
-                                          <SidebarMenuSubButton isActive={location.pathname === child.to} render={<NavLink to={child.to} />}>
-                                            {child.icon && <NavigationIconView icon={child.icon} />}
-                                            <span>{child.label}</span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                      ))}
-                                    </SidebarMenuSub>
-                                  </CollapsibleContent>
-                                </SidebarMenuItem>
-                              </Collapsible>
+                              <SidebarMenuItem key={`${section}-${item.label}`}>
+                                <SidebarMenuButton isActive={location.pathname === item.to || (section !== 'settings' && index === 0 && location.pathname.startsWith(`${item.to}/`))} render={<NavLink to={item.to} />}>
+                                  {itemIcon && <NavigationIconView icon={itemIcon} />}
+                                  <span>{item.label}</span>
+                                </SidebarMenuButton>
+                              </SidebarMenuItem>
                             )
-                          }
-
-                          return (
-                            <SidebarMenuItem key={`${section}-${item.label}`}>
-                              <SidebarMenuButton isActive={location.pathname === item.to || (section !== 'settings' && index === 0 && location.pathname.startsWith(`${item.to}/`))} render={<NavLink to={item.to} />}>
-                                {itemIcon && <NavigationIconView icon={itemIcon} />}
-                                <span>{item.label}</span>
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          )
-                        })}
-                      </SidebarMenu>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                        <CircleDot className="size-8 text-muted-foreground/40" aria-hidden="true" />
-                        <p className="text-sm text-muted-foreground">暂无子菜单</p>
-                      </div>
-                    )}
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              </SidebarContent>
-            </div>
+                          })}
+                        </SidebarMenu>
+                      </SidebarGroupContent>
+                    </SidebarGroup>
+                  </SidebarContent>
+                </div>
+              )}
+            </Sidebar>
           )}
-        </Sidebar>
-      </div>
-    </Sidebar>
+        </div>
+      </Sidebar>
+      {hasSecondaryNavigation && <SidebarCollapseRail />}
+    </>
   )
 }
 

@@ -1,78 +1,137 @@
-import { useCallback, useEffect, useState } from 'react'
-import { KeyRound, Pencil, Plus, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { create, deleteByIds, getRolePermission, page, setRolePermission, save, type RoleVo } from '@/modules/base/permission/role/api/role'
+import { create, deleteByIds, getRolePermission, setRolePermission, save, type RoleVo } from '@/modules/base/permission/role/api/role'
 import { page as pageMenus, type MenuVo } from '@/modules/base/permission/menu/api/menu'
-import { extractList, extractTotal } from '@/utils/api-data'
-import { flattenVisibleMenus, getMenuLabel } from '@/router/dynamic-menu'
+import { extractList } from '@/utils/api-data'
+import { getMenuLabel } from '@/router/dynamic-menu'
+
+import type { MaProTableExpose } from '@/components/ma-pro-table'
+import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
+import { useToast } from '@/components/common/use-toast'
+import RoleProTable from './RoleProTable'
 
 type RoleForm = RoleVo
-type RoleSearch = { name: string; code: string; status: string }
 
-const emptySearch: RoleSearch = { name: '', code: '', status: '' }
 const emptyForm: RoleForm = { name: '', code: '', status: 1, sort: 0, remark: '' }
 
 function responseMessage(response: { data?: { message?: string } }) {
   return response.data?.message || '操作失败'
 }
 
+function normalizeMenuTree(menus: MenuVo[]): MenuVo[] {
+  const allMenus: MenuVo[] = []
+  const visit = (menu: MenuVo, inheritedParentId?: number) => {
+    const normalized = {
+      ...menu,
+      parent_id: menu.parent_id ?? inheritedParentId,
+      children: [] as MenuVo[],
+    }
+    allMenus.push(normalized)
+    menu.children?.forEach(child => visit(child, menu.id))
+  }
+  menus.forEach(visit)
+
+  const byId = new Map<number, MenuVo>()
+  allMenus.forEach(menu => {
+    if (menu.id !== undefined) byId.set(menu.id, menu)
+  })
+
+  const roots: MenuVo[] = []
+  allMenus.forEach(menu => {
+    const parent = menu.parent_id ? byId.get(menu.parent_id) : undefined
+    if (parent) parent.children?.push(menu)
+    else roots.push(menu)
+  })
+  return roots
+}
+
+function filterMenuTree(menus: MenuVo[], keyword: string): MenuVo[] {
+  const query = keyword.trim().toLowerCase()
+  if (!query) return menus
+
+  return menus.flatMap(menu => {
+    const children = filterMenuTree(menu.children ?? [], query)
+    const searchableText = [getMenuLabel(menu), menu.name, menu.path, menu.route].filter(Boolean).join(' ').toLowerCase()
+    if (searchableText.includes(query)) return [{ ...menu, children: menu.children ?? [] }]
+    return children.length ? [{ ...menu, children }] : []
+  })
+}
+
+function PermissionMenuTree({ menus, permissionNames, onToggle }: {
+  menus: MenuVo[]
+  permissionNames: string[]
+  onToggle: (name: string) => void
+}) {
+  const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(() => new Set())
+
+  const renderMenus = (items: MenuVo[], level: number): ReactNode => (
+    <div className={level > 0 ? 'ml-4 border-l pl-2' : undefined}>
+      {items.map((menu, index) => {
+        const children = menu.children ?? []
+        const key = String(menu.id ?? `${menu.parent_id ?? 'root'}-${menu.name ?? menu.path ?? index}`)
+        const collapsed = collapsedKeys.has(key)
+        return (
+          <div key={key}>
+            <div className="flex min-w-0 items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+              {children.length > 0
+                ? <button type="button" className="flex size-5 shrink-0 items-center justify-center rounded hover:bg-background" aria-label={collapsed ? `展开${getMenuLabel(menu)}` : `收起${getMenuLabel(menu)}`} aria-expanded={!collapsed} onClick={() => setCollapsedKeys(current => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next })}>{collapsed ? <ChevronRight className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}</button>
+                : <span className="size-5 shrink-0" aria-hidden="true" />}
+              <label className="flex min-w-0 flex-1 items-center gap-2">
+                <Checkbox checked={Boolean(menu.name && permissionNames.includes(menu.name))} onCheckedChange={() => menu.name && onToggle(menu.name)} />
+                <span className={`min-w-0 flex-1 truncate ${children.length ? 'font-medium' : ''}`}>{getMenuLabel(menu)}</span>
+                <code className="max-w-48 truncate text-xs text-muted-foreground">{menu.name || menu.path}</code>
+              </label>
+            </div>
+            {children.length > 0 && !collapsed && renderMenus(children, level + 1)}
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  return <>{renderMenus(menus, 0)}</>
+}
+
 export default function PermissionRolePageView() {
-  const [roles, setRoles] = useState<RoleVo[]>([])
+  const tableRef = useRef<MaProTableExpose<RoleVo>>(null)
+  const { toast } = useToast()
   const [menus, setMenus] = useState<MenuVo[]>([])
-  const [search, setSearch] = useState<RoleSearch>(emptySearch)
-  const [pageIndex, setPageIndex] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [notice, setNotice] = useState('')
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const [permissionOpen, setPermissionOpen] = useState(false)
   const [form, setForm] = useState<RoleForm>(emptyForm)
   const [permissionRole, setPermissionRole] = useState<RoleVo | null>(null)
   const [permissionNames, setPermissionNames] = useState<string[]>([])
+  const [permissionSearch, setPermissionSearch] = useState('')
 
-  const loadRoles = useCallback(async (nextPage = 1, nextSearch = emptySearch) => {
-    setLoading(true)
-    try {
-      const response = await page({ ...nextSearch, page: nextPage, page_size: 20, status: nextSearch.status ? Number(nextSearch.status) : undefined })
-      const payload = response.data.data
-      const list = extractList<RoleVo>(payload)
-      setRoles(list)
-      setTotal(extractTotal(payload, list.length))
-      setPageIndex(nextPage)
-      setSelectedIds([])
-    }
-    catch (error) {
-      setNotice(error instanceof Error ? error.message : '角色列表加载失败')
-    }
-    finally {
-      setLoading(false)
-    }
+  const refreshRoles = useCallback(async () => {
+    tableRef.current?.getTableRef()?.clearSelection()
+    await tableRef.current?.refresh()
+  }, [])
+  const handleSelectionChange = useCallback((rows: RoleVo[]) => {
+    setSelectedIds(rows.flatMap(row => row.id ? [row.id] : []))
   }, [])
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void loadRoles() }, 0)
-    return () => window.clearTimeout(timer)
-  }, [loadRoles])
+  const openCreate = () => { setForm({ ...emptyForm }); setFormOpen(true) }
+
+  useHeaderActions(<Button onClick={openCreate}><Plus aria-hidden="true" />新增角色</Button>)
 
   async function submitForm() {
-    if (!form.name || !form.code) { setNotice('角色名称和编码不能为空'); return }
+    if (!form.name || !form.code) { toast('角色名称和编码不能为空', 'warning'); return }
     try {
       const response = form.id ? await save(form.id, form) : await create(form)
       if (response.data.code !== 200) throw new Error(responseMessage(response))
       setFormOpen(false)
-      setNotice(form.id ? '角色更新成功' : '角色创建成功')
-      await loadRoles(pageIndex, search)
+      toast(form.id ? '角色更新成功' : '角色创建成功', 'success')
+      await refreshRoles()
     }
-    catch (error) { setNotice(error instanceof Error ? error.message : '角色保存失败') }
+    catch (error) { toast(error instanceof Error ? error.message : '角色保存失败', 'destructive') }
   }
 
   async function removeRoles(ids: number[]) {
@@ -80,21 +139,22 @@ export default function PermissionRolePageView() {
     try {
       const response = await deleteByIds(ids)
       if (response.data.code !== 200) throw new Error(responseMessage(response))
-      setNotice('角色删除成功')
-      await loadRoles(pageIndex, search)
+      toast('角色删除成功', 'success')
+      await refreshRoles()
     }
-    catch (error) { setNotice(error instanceof Error ? error.message : '角色删除失败') }
+    catch (error) { toast(error instanceof Error ? error.message : '角色删除失败', 'destructive') }
   }
 
   async function openPermissions(role: RoleVo) {
     setPermissionRole(role)
     setPermissionOpen(true)
+    setPermissionSearch('')
     try {
       const [menuResponse, permissionResponse] = await Promise.all([pageMenus(), getRolePermission(role.id as number)])
-      setMenus(extractList<MenuVo>(menuResponse.data.data))
+      setMenus(normalizeMenuTree(extractList<MenuVo>(menuResponse.data.data)))
       setPermissionNames(extractList<{ name?: string }>(permissionResponse.data.data).map(item => item.name).filter((name): name is string => Boolean(name)))
     }
-    catch (error) { setNotice(error instanceof Error ? error.message : '权限数据加载失败') }
+    catch (error) { toast(error instanceof Error ? error.message : '权限数据加载失败', 'destructive') }
   }
 
   async function savePermissions() {
@@ -103,22 +163,30 @@ export default function PermissionRolePageView() {
       const response = await setRolePermission(permissionRole.id, permissionNames)
       if (response.data.code !== 200) throw new Error(responseMessage(response))
       setPermissionOpen(false)
-      setNotice('角色权限更新成功')
+      toast('角色权限更新成功', 'success')
     }
-    catch (error) { setNotice(error instanceof Error ? error.message : '角色权限更新失败') }
+    catch (error) { toast(error instanceof Error ? error.message : '角色权限更新失败', 'destructive') }
   }
 
   function togglePermission(name: string) {
     setPermissionNames(current => current.includes(name) ? current.filter(item => item !== name) : [...current, name])
   }
 
-  const permissionTree = flattenVisibleMenus(menus)
+  const filteredPermissionMenus = filterMenuTree(menus, permissionSearch)
 
   return (
     <>
-      <Card className="shadow-none"><CardHeader className="gap-1 border-b"><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle className="flex items-center gap-2"><ShieldCheck className="size-5" aria-hidden="true" />角色管理</CardTitle><CardDescription>维护角色编码并配置菜单权限。</CardDescription></div><div className="flex gap-2"><Button variant="outline" onClick={() => void loadRoles(pageIndex, search)}><RefreshCw className="size-4" aria-hidden="true" />刷新</Button><Button onClick={() => { setForm({ ...emptyForm }); setFormOpen(true) }}><Plus className="size-4" aria-hidden="true" />新增角色</Button></div></div><div className="grid gap-3 pt-3 md:grid-cols-3"><Field><FieldLabel>角色名称</FieldLabel><Input value={search.name} onChange={event => setSearch(current => ({ ...current, name: event.target.value }))} /></Field><Field><FieldLabel>角色编码</FieldLabel><Input value={search.code} onChange={event => setSearch(current => ({ ...current, code: event.target.value }))} /></Field><Field><FieldLabel>状态</FieldLabel><Select value={search.status} onValueChange={value => setSearch(current => ({ ...current, status: value || '' }))}><SelectTrigger><SelectValue placeholder="全部状态" /></SelectTrigger><SelectContent><SelectItem value="1">启用</SelectItem><SelectItem value="2">禁用</SelectItem></SelectContent></Select></Field></div><div className="flex flex-wrap gap-2 pt-3"><Button onClick={() => void loadRoles(1, search)}><Search className="size-4" aria-hidden="true" />查询</Button><Button variant="outline" onClick={() => { setSearch(emptySearch); void loadRoles(1, emptySearch) }}>重置</Button><Button variant="destructive" disabled={!selectedIds.length} onClick={() => void removeRoles(selectedIds)}><Trash2 className="size-4" aria-hidden="true" />批量删除</Button></div></CardHeader><CardContent className="p-0">{notice && <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2 text-sm text-muted-foreground"><span>{notice}</span><Button variant="ghost" size="icon-xs" aria-label="关闭提示" onClick={() => setNotice('')}><X className="size-3" /></Button></div>}<Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox checked={roles.length > 0 && roles.every(role => role.id && selectedIds.includes(role.id))} onCheckedChange={checked => setSelectedIds(checked ? roles.flatMap(role => role.id ? [role.id] : []) : [])} aria-label="选择全部" /></TableHead><TableHead>角色名称</TableHead><TableHead>角色编码</TableHead><TableHead>排序</TableHead><TableHead>状态</TableHead><TableHead>备注</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader><TableBody>{roles.map(role => <TableRow key={role.id || role.code}><TableCell><Checkbox checked={Boolean(role.id && selectedIds.includes(role.id))} onCheckedChange={checked => setSelectedIds(current => checked ? [...current, role.id as number] : current.filter(id => id !== role.id))} aria-label={`选择 ${role.name || '角色'}`} /></TableCell><TableCell className="font-medium">{role.name || '-'}</TableCell><TableCell><code className="text-xs">{role.code || '-'}</code></TableCell><TableCell>{role.sort ?? 0}</TableCell><TableCell><Badge variant={role.status === 1 ? 'default' : 'secondary'}>{role.status === 1 ? '启用' : '禁用'}</Badge></TableCell><TableCell className="max-w-56 truncate">{role.remark || '-'}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="sm" onClick={() => void openPermissions(role)}><KeyRound className="size-3.5" aria-hidden="true" />权限</Button><Button variant="ghost" size="sm" onClick={() => { setForm({ ...role }); setFormOpen(true) }}><Pencil className="size-3.5" aria-hidden="true" />编辑</Button><Button variant="ghost" size="sm" className="text-destructive" disabled={role.code === 'SuperAdmin'} onClick={() => void removeRoles(role.id ? [role.id] : [])}>删除</Button></div></TableCell></TableRow>)}{!roles.length && <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">{loading ? '加载中…' : '暂无角色数据'}</TableCell></TableRow>}</TableBody></Table><div className="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground"><span>共 {total} 条</span><div className="flex gap-2"><Button variant="outline" size="sm" disabled={pageIndex <= 1 || loading} onClick={() => void loadRoles(pageIndex - 1, search)}>上一页</Button><span className="px-2 py-1">第 {pageIndex} 页</span><Button variant="outline" size="sm" disabled={pageIndex * 20 >= total || loading} onClick={() => void loadRoles(pageIndex + 1, search)}>下一页</Button></div></div></CardContent></Card>
+      <RoleProTable
+        tableRef={tableRef}
+        selectedIds={selectedIds}
+        onSelectionChange={handleSelectionChange}
+        onCreate={openCreate}
+        onEdit={role => { setForm({ ...role }); setFormOpen(true) }}
+        onPermissions={openPermissions}
+        onDelete={removeRoles}
+      />
       <Dialog open={formOpen} onOpenChange={setFormOpen}><DialogContent className="sm:max-w-xl"><DialogHeader><DialogTitle>{form.id ? '编辑角色' : '新增角色'}</DialogTitle><DialogDescription>角色编码用于权限识别，保存后可继续配置菜单权限。</DialogDescription></DialogHeader><FieldGroup className="grid gap-4 md:grid-cols-2"><Field><FieldLabel>角色名称</FieldLabel><Input value={form.name || ''} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} /></Field><Field><FieldLabel>角色编码</FieldLabel><Input value={form.code || ''} disabled={Boolean(form.id)} onChange={event => setForm(current => ({ ...current, code: event.target.value }))} /></Field><Field><FieldLabel>排序</FieldLabel><Input type="number" value={String(form.sort ?? 0)} onChange={event => setForm(current => ({ ...current, sort: Number(event.target.value) }))} /></Field><Field><FieldLabel>状态</FieldLabel><Select value={String(form.status || 1)} onValueChange={value => setForm(current => ({ ...current, status: Number(value) as 1 | 2 }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">启用</SelectItem><SelectItem value="2">禁用</SelectItem></SelectContent></Select></Field><Field className="md:col-span-2"><FieldLabel>备注</FieldLabel><Input value={form.remark || ''} onChange={event => setForm(current => ({ ...current, remark: event.target.value }))} /></Field></FieldGroup><DialogFooter><Button variant="outline" onClick={() => setFormOpen(false)}>取消</Button><Button onClick={() => void submitForm()}>保存</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={permissionOpen} onOpenChange={setPermissionOpen}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>配置菜单权限</DialogTitle><DialogDescription>{permissionRole?.name || '当前角色'} 可以访问的菜单。</DialogDescription></DialogHeader><div className="max-h-[55vh] space-y-1 overflow-y-auto rounded-md border p-3">{permissionTree.map(menu => <label key={menu.id || menu.name || menu.path} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"><Checkbox checked={Boolean(menu.name && permissionNames.includes(menu.name))} onCheckedChange={() => menu.name && togglePermission(menu.name)} /><span>{getMenuLabel(menu)}</span><code className="ml-auto text-xs text-muted-foreground">{menu.name || menu.path}</code></label>)}{!permissionTree.length && <p className="py-8 text-center text-sm text-muted-foreground">暂无可配置菜单。</p>}</div><DialogFooter><Button variant="outline" onClick={() => setPermissionOpen(false)}>取消</Button><Button onClick={() => void savePermissions()}>保存权限</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={permissionOpen} onOpenChange={setPermissionOpen}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>配置菜单权限</DialogTitle><DialogDescription>{permissionRole?.name || '当前角色'} 可以访问的菜单。</DialogDescription></DialogHeader><div className="relative"><Input className="pr-9" value={permissionSearch} onChange={event => setPermissionSearch(event.target.value)} placeholder="搜索菜单名称、路径或权限编码" aria-label="搜索菜单权限" />{permissionSearch && <button type="button" className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setPermissionSearch('')} aria-label="清除菜单搜索"><X className="size-3.5" aria-hidden="true" /></button>}</div><div className="max-h-[55vh] overflow-y-auto rounded-md border p-3">{filteredPermissionMenus.length ? <PermissionMenuTree key={permissionSearch || 'all'} menus={filteredPermissionMenus} permissionNames={permissionNames} onToggle={togglePermission} /> : <p className="py-8 text-center text-sm text-muted-foreground">{menus.length ? '没有匹配的菜单权限。' : '暂无可配置菜单。'}</p>}</div><DialogFooter><Button variant="outline" onClick={() => setPermissionOpen(false)}>取消</Button><Button onClick={() => void savePermissions()}>保存权限</Button></DialogFooter></DialogContent></Dialog>
     </>
   )
 }

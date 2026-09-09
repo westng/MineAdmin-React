@@ -1,5 +1,7 @@
+import { NotificationPreference } from '@/modules/notification/components/notification-preference'
+import { toast } from '@/components/common/use-toast'
 import { useState, type ReactNode } from 'react'
-import { Check, KeyRound, LoaderCircle, MessageSquare, MessagesSquare, MonitorSmartphone, ShieldCheck } from 'lucide-react'
+import { KeyRound, LoaderCircle, MessageSquare, MessagesSquare, MonitorSmartphone, ShieldCheck } from 'lucide-react'
 import { Switch } from '@base-ui/react/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,7 +12,6 @@ import { useUserStore, type UserInfo } from '@/store/modules/useUserStore'
 import { PasswordForm } from '@/modules/base/user-center/views/components/password-form'
 
 interface AccountSettings {
-  receiveMessages: boolean
   multiDeviceLogin: boolean
   feishuAccount: string
 }
@@ -28,7 +29,6 @@ function readAccountSettings(userInfo: UserInfo | null | undefined): AccountSett
   const backendSetting = userInfo?.backend_setting
   const account = isRecord(backendSetting) && isRecord(backendSetting.account) ? backendSetting.account : {}
   return {
-    receiveMessages: typeof account.receiveMessages === 'boolean' ? account.receiveMessages : true,
     multiDeviceLogin: typeof account.multiDeviceLogin === 'boolean' ? account.multiDeviceLogin : false,
     feishuAccount: typeof account.feishuAccount === 'string' ? account.feishuAccount : '',
   }
@@ -36,7 +36,8 @@ function readAccountSettings(userInfo: UserInfo | null | undefined): AccountSett
 
 function mergeAccountSettings(userInfo: UserInfo | null | undefined, account: AccountSettings) {
   const backendSetting = isRecord(userInfo?.backend_setting) ? userInfo.backend_setting : {}
-  return { ...backendSetting, account }
+  const previous = isRecord(backendSetting.account) ? backendSetting.account : {}
+  return { ...backendSetting, account: { ...previous, ...account } }
 }
 
 function responseMessage(response: { data?: { code?: number; message?: string } }) {
@@ -98,16 +99,13 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   const [settings, setSettings] = useState(() => readAccountSettings(activeUserInfo))
   const [saving, setSaving] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   function updateSetting<Key extends keyof AccountSettings>(key: Key, value: AccountSettings[Key]) {
     setSettings(current => ({ ...current, [key]: value }))
-    setMessage(null)
   }
 
   async function saveSettings() {
     setSaving(true)
-    setMessage(null)
     try {
       const backendSetting = mergeAccountSettings(activeUserInfo, settings)
       const response = await updateCurrentUser({ backend_setting: backendSetting })
@@ -115,10 +113,10 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
       const nextUserInfo = { ...(activeUserInfo || {}), backend_setting: backendSetting }
       onUserInfoChange?.(nextUserInfo)
       if (!userInfo) setStoreUserInfo(nextUserInfo)
-      setMessage({ type: 'success', text: '账号设置已保存' })
+      toast.success('账号设置已保存')
     }
     catch (error) {
-      setMessage({ type: 'error', text: errorMessage(error, '账号设置保存失败') })
+      toast.error(errorMessage(error, '账号设置保存失败'))
     }
     finally {
       setSaving(false)
@@ -133,7 +131,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
           <CardDescription>这些设置仅作用于当前账号。</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <PreferenceRow icon={MessageSquare} label="是否接收消息" description="接收系统通知和工作区消息。" checked={settings.receiveMessages} onCheckedChange={checked => updateSetting('receiveMessages', checked)} />
+          <NotificationPreference />
           <PreferenceRow icon={MonitorSmartphone} label="是否多设备登录" description="允许账号同时在多个设备上保持登录。" checked={settings.multiDeviceLogin} onCheckedChange={checked => updateSetting('multiDeviceLogin', checked)} />
           <SettingsRow icon={MessagesSquare} label="飞书账号" description="绑定后可用于飞书通知和协作。">
             <div className="flex items-center gap-2">
@@ -143,12 +141,6 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
           </SettingsRow>
         </CardContent>
         <CardFooter className="justify-end gap-2">
-          {message && (
-            <div className={`mr-auto flex items-center gap-2 text-sm ${message.type === 'success' ? 'text-success-foreground' : 'text-destructive'}`} role="status">
-              {message.type === 'success' && <Check className="size-4" aria-hidden="true" />}
-              {message.text}
-            </div>
-          )}
           <Button variant="outline" onClick={() => setSettings(readAccountSettings(activeUserInfo))} disabled={saving}>取消</Button>
           <Button onClick={() => void saveSettings()} disabled={saving}>
             {saving && <LoaderCircle className="animate-spin" aria-hidden="true" />}

@@ -13,7 +13,7 @@ declare global {
 
   interface ImportMeta {
     readonly env: ImportMetaEnv
-    readonly glob: (pattern: string, options?: { eager?: boolean }) => Record<string, unknown>
+    readonly glob: import('vite').ImportGlobFunction
   }
 
   const __MINE_SYSTEM_INFO__: {

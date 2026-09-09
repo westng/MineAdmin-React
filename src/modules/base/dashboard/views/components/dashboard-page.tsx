@@ -1,9 +1,9 @@
 import { AlertTriangle, CalendarRange, RefreshCw, Search } from 'lucide-react'
 import { format, startOfMonth } from 'date-fns'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { zhCN } from 'date-fns/locale'
 import type { DateRange } from 'react-day-picker'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,18 +14,15 @@ import { Calendar } from '@/components/ui/calendar'
 import { useToast } from '@/components/common/use-toast'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
 import * as dashboardApi from '@/modules/base/dashboard/api/dashboard'
-import type { DashboardMetric, DashboardOverview, DashboardOverviewParams, DashboardOverviewTrendItem } from '@/modules/base/dashboard/api/dashboard'
+import type { DashboardOverview, DashboardOverviewParams, DashboardOverviewTrendItem } from '@/modules/base/dashboard/api/dashboard'
+import * as scheduleApi from '@/modules/marketing/schedule/api/schedule'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { marketingScheduleEventNames } from '@/modules/marketing/schedule/events'
 import {
   formatMetricValue,
-  formatMomRate,
   formatTrendDate,
   getMetric,
   kpiDefinitions,
-  type KpiDefinition,
-  marketingTypeChartConfig,
-  marketingTypeLabels,
-  metricNoteClass,
   numberFormatter,
   quickRange,
   quickRanges,
@@ -34,6 +31,24 @@ import {
   type BreakdownRow,
   type QuickRangeKey,
 } from '../data'
+import KpiCard from './dashboard-kpi-card'
+import DashboardDimensionFilter, { type DashboardDimensionFilters, type DashboardFilterOptions } from './dashboard-dimension-filter'
+
+function normalizeDashboardFilterOptions(value: unknown): DashboardFilterOptions {
+  const source = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+  const normalize = (items: unknown): DashboardFilterOptions['platform_channels'] => {
+    if (!Array.isArray(items)) return []
+    return items.filter((item): item is DashboardFilterOptions['platform_channels'][number] => {
+      if (!item || typeof item !== 'object') return false
+      const option = item as Record<string, unknown>
+      return typeof option.value === 'string' && typeof option.label === 'string'
+    })
+  }
+  return {
+    platform_channels: normalize(source.platform_channels),
+    business_types: normalize(source.business_types),
+  }
+}
 
 function CornerMarks() {
   return (
@@ -41,64 +56,6 @@ function CornerMarks() {
       <span aria-hidden="true" className="absolute left-0 top-0 size-2 border-l border-t border-foreground/65" />
       <span aria-hidden="true" className="absolute bottom-0 right-0 size-2 border-b border-r border-foreground/65" />
     </>
-  )
-}
-
-function KpiCard({ definition, metric }: { definition: KpiDefinition; metric: DashboardMetric }) {
-  const Icon = definition.icon
-
-  return (
-    <Card className="relative overflow-hidden p-0 shadow-none">
-      <CornerMarks />
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2.5">
-          <div className={`flex size-10 shrink-0 items-center justify-center rounded-md border-2 border-background bg-gradient-to-b from-white/30 to-transparent shadow-[0_1px_3px_0_rgba(0,0,0,0.14)] ${definition.iconClass}`}>
-            <Icon className="size-5 text-white" aria-hidden="true" />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <p className="truncate text-sm leading-tight text-muted-foreground">{definition.eyebrow}</p>
-            <h3 className="truncate text-sm font-medium leading-tight">{definition.title}</h3>
-          </div>
-        </div>
-        <div className="mt-5 space-y-1.5">
-          <p className="text-sm leading-tight text-muted-foreground">{definition.metricLabel}</p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xl font-medium tracking-tight tabular-nums">{formatMetricValue(metric.value, definition.format)}</span>
-            <span className={`text-sm font-medium ${metricNoteClass(metric)}`}>{formatMomRate(metric.mom_rate)}</span>
-          </div>
-          <p className="text-xs text-muted-foreground">较上一周期</p>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function MarketingTypeMixCard({ data }: { data: DashboardOverview['marketing_type_distribution'] }) {
-  const chartData = data.map(item => ({ name: marketingTypeLabels[item.marketing_type] || item.marketing_type || '未分类', count: item.count }))
-
-  return (
-    <Card className="relative overflow-hidden p-0 shadow-none">
-      <CornerMarks />
-      <CardContent className="flex flex-col gap-5 p-4">
-        <div className="space-y-0.5">
-          <CardTitle className="text-sm leading-4">营销类型分布</CardTitle>
-          <p className="text-xs leading-4 text-muted-foreground">按营销日程记录数统计</p>
-        </div>
-        {chartData.length > 0 ? (
-          <ChartContainer config={marketingTypeChartConfig} className="h-56 w-full min-w-0">
-            <BarChart accessibilityLayer data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: 4 }} barCategoryGap={18}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" strokeOpacity={0.75} />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tickMargin={10} tick={{ fontSize: 10 }} />
-              <YAxis hide allowDecimals={false} />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-              <Bar dataKey="count" fill="var(--color-blue-600, #2563eb)" stroke="var(--color-blue-600, #2563eb)" strokeWidth={1} radius={[5, 5, 5, 5]} isAnimationActive={false} />
-            </BarChart>
-          </ChartContainer>
-        ) : (
-          <div className="grid h-56 place-items-center text-sm text-muted-foreground">当前周期暂无营销类型数据</div>
-        )}
-      </CardContent>
-    </Card>
   )
 }
 
@@ -234,10 +191,10 @@ function DayBreakdown({ data, total }: { data: DashboardOverview; total: number 
 function DashboardLoading() {
   return (
     <div className="@container flex w-full flex-col gap-4" role="status" aria-label="加载数据">
-      <div className="grid gap-4 @2xl:grid-cols-2 @5xl:grid-cols-4">
-        {Array.from({ length: 8 }, (_, index) => <div key={index} className="h-36 animate-pulse rounded-lg border bg-muted/40" />)}
+      <div className="grid gap-3 @2xl:grid-cols-2 @5xl:grid-cols-4">
+        {kpiDefinitions.map(definition => <div key={definition.key} className="h-32 animate-pulse rounded-xl border bg-muted/40 motion-reduce:animate-none" />)}
       </div>
-      <div className="grid gap-4 @5xl:grid-cols-2"><div className="h-72 animate-pulse rounded-lg border bg-muted/40" /><div className="h-72 animate-pulse rounded-lg border bg-muted/40" /></div>
+      <div className="h-72 animate-pulse rounded-lg border bg-muted/40" />
       <div className="h-72 animate-pulse rounded-lg border bg-muted/40" />
     </div>
   )
@@ -300,7 +257,7 @@ function DashboardDateFilter({ onChange }: { onChange: (params?: DashboardOvervi
       <PopoverTrigger render={<Button type="button" variant="outline" size="sm" aria-label="选择统计周期" />}>
         <CalendarRange className="size-4" aria-hidden="true" />
         <span className="hidden sm:inline">统计周期：{label}</span>
-        <span className="sm:hidden">{label}</span>
+        <span className="max-w-24 truncate sm:hidden" title={label}>{label}</span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-auto overflow-auto p-0">
         <div className="flex max-h-[min(560px,calc(100vh-2rem))] min-w-max overflow-auto">
@@ -345,35 +302,93 @@ function DashboardDateFilter({ onChange }: { onChange: (params?: DashboardOvervi
 }
 
 export default function DashboardPageView() {
+  const appliedParamsRef = useRef<DashboardOverviewParams>({})
+  const overviewRequestIdRef = useRef(0)
   const [data, setData] = useState<DashboardOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [dimensionFilters, setDimensionFilters] = useState<DashboardDimensionFilters>({ platform_channel: [], business_type: [] })
+  const [filterOptions, setFilterOptions] = useState<DashboardFilterOptions>({ platform_channels: [], business_types: [] })
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(true)
+  const [filterOptionsError, setFilterOptionsError] = useState(false)
+  const [filterOptionsRetry, setFilterOptionsRetry] = useState(0)
   const { toast } = useToast()
 
-  const loadOverview = useCallback(async (params: DashboardOverviewParams = {}) => {
+  const loadOverview = useCallback(async (params: DashboardOverviewParams = appliedParamsRef.current) => {
+    appliedParamsRef.current = params
+    const requestId = ++overviewRequestIdRef.current
     setLoading(true)
     setError(null)
     try {
       const response = await dashboardApi.overview(params)
-      setData(response.data.data)
+      if (requestId === overviewRequestIdRef.current) setData(response.data.data)
     } catch (requestError) {
+      if (requestId !== overviewRequestIdRef.current) return
       const message = requestError instanceof Error ? requestError.message : '数据加载失败'
       setError(message)
       toast(message, 'destructive')
     } finally {
-      setLoading(false)
+      if (requestId === overviewRequestIdRef.current) setLoading(false)
     }
   }, [toast])
 
+  const handleDateFilterChange = useCallback((params?: DashboardOverviewParams) => {
+    void loadOverview({ ...appliedParamsRef.current, ...params })
+  }, [loadOverview])
+
+  const handleDimensionFilterChange = useCallback((patch: Partial<DashboardDimensionFilters>) => {
+    setDimensionFilters(current => ({ ...current, ...patch }))
+    void loadOverview({ ...appliedParamsRef.current, ...patch })
+    if (patch.platform_channel?.length === 0 && patch.business_type?.length === 0) toast('筛选条件已清除', 'success')
+  }, [loadOverview, toast])
+
+  useEffect(() => {
+    let active = true
+    const timer = window.setTimeout(() => {
+      setFilterOptionsLoading(true)
+      setFilterOptionsError(false)
+      void scheduleApi.dictionaries()
+        .then(response => {
+          if (active) setFilterOptions(normalizeDashboardFilterOptions(response.data.data))
+        })
+        .catch(() => {
+          if (active) setFilterOptionsError(true)
+        })
+        .finally(() => {
+          if (active) setFilterOptionsLoading(false)
+        })
+    }, 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [filterOptionsRetry])
+
   const headerActions = useMemo(() => (
-    <DashboardDateFilter onChange={params => void loadOverview(params)} />
-  ), [loadOverview])
+    <>
+      <DashboardDimensionFilter
+        filters={dimensionFilters}
+        options={filterOptions}
+        loading={filterOptionsLoading}
+        error={filterOptionsError}
+        onRetry={() => setFilterOptionsRetry(current => current + 1)}
+        onChange={handleDimensionFilterChange}
+      />
+      <DashboardDateFilter onChange={handleDateFilterChange} />
+    </>
+  ), [dimensionFilters, filterOptions, filterOptionsLoading, filterOptionsError, handleDateFilterChange, handleDimensionFilterChange])
 
   useHeaderActions(headerActions)
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadOverview(), 0)
-    return () => window.clearTimeout(timer)
+    const handleChanged = () => void loadOverview()
+    window.addEventListener(marketingScheduleEventNames.changed, handleChanged)
+    return () => {
+      window.clearTimeout(timer)
+      overviewRequestIdRef.current += 1
+      window.removeEventListener(marketingScheduleEventNames.changed, handleChanged)
+    }
   }, [loadOverview])
 
   if (loading && !data) return <DashboardLoading />
@@ -386,11 +401,10 @@ export default function DashboardPageView() {
   return (
     <div className="@container flex w-full flex-col gap-4 text-foreground" aria-busy={loading}>
       {error && <div className="flex items-center justify-between gap-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"><span>{error}</span><Button variant="ghost" size="sm" onClick={() => void loadOverview()}>重试</Button></div>}
-      <section aria-label="营销日程核心指标" className="grid gap-4 @2xl:grid-cols-2 @5xl:grid-cols-4">
-        {kpiDefinitions.map(definition => <KpiCard key={definition.key} definition={definition} metric={getMetric(summary, definition.key)} />)}
+      <section aria-label="营销日程核心指标" className="grid gap-3 @2xl:grid-cols-2 @5xl:grid-cols-4">
+        {kpiDefinitions.map(definition => <KpiCard key={definition.key} definition={definition} metric={getMetric(summary, definition.key)} trend={data.trend} />)}
       </section>
-      <section aria-label="营销日程趋势和类型" className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
-        <MarketingTypeMixCard data={data.marketing_type_distribution} />
+      <section aria-label="营销日程趋势">
         <TrendCard data={data.trend} />
       </section>
       <section aria-label="营销日程明细">

@@ -48,6 +48,8 @@ export interface MaProTableOptions<T extends MaProTableModel = MaProTableModel> 
     clearText?: string | (() => string)
   }
   toolbar?: boolean | (() => boolean)
+  /** Plugin controlled toolbar button visibility, e.g. import/export actions. */
+  toolStates?: Record<string, boolean>
   requestOptions?: {
     api: MaProTableApi
     autoRequest?: boolean
@@ -65,12 +67,15 @@ export interface MaProTableOptions<T extends MaProTableModel = MaProTableModel> 
 }
 
 export interface MaProTableProps<T extends MaProTableModel = MaProTableModel> {
+  data?: T[]
+  loading?: boolean
   schema?: MaProTableSchema<T>
   options?: MaProTableOptions<T>
   variant?: 'default' | 'card'
   className?: string
   header?: React.ReactNode
   tabs?: React.ReactNode
+  toolbarCenter?: React.ReactNode
   toolbar?: React.ReactNode
   toolbarLeft?: React.ReactNode
   toolbarRight?: React.ReactNode

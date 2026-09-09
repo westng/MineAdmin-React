@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { getMenus, getRoles, type MenuVo } from '@/modules/base/permission/menu/api/permission'
 import cache from '@/hooks/useCache'
-import { flattenVisibleMenus, getMenuPath } from '@/router/dynamic-menu'
+import { flattenVisibleMenus, getMenuPath, removeRetiredMenus } from '@/router/dynamic-menu'
 import { useRouteStore } from './useRouteStore'
 import { usePluginStore } from '@/provider/plugins'
 
@@ -21,7 +21,7 @@ interface MenuState {
 }
 
 export const useMenuStore = create<MenuState>((set, get) => ({
-  menus: cache.get<MenuVo[]>('menus', []),
+  menus: removeRetiredMenus(cache.get<MenuVo[]>('menus', [])),
   loading: false,
   initialized: false,
   error: null,
@@ -31,7 +31,7 @@ export const useMenuStore = create<MenuState>((set, get) => ({
     set({ loading: true, error: null, unauthorized: false })
     try {
       const response = await getMenus()
-      const menus = Array.isArray(response.data.data) ? response.data.data : []
+      const menus = removeRetiredMenus(Array.isArray(response.data.data) ? response.data.data : [])
       cache.set('menus', menus)
       const routes = useRouteStore.getState().build(menus)
       await usePluginStore.getState().callHooks('registerRoute', routes)

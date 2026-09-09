@@ -538,7 +538,11 @@ function EventCalendarMonthWeek({
           )}
           style={{
             gridTemplateColumns,
-            gridAutoRows: "var(--ec-month-bar-h, 1.75rem)",
+            // Let each event lane grow with its rendered content. The cell
+            // spacer still uses --ec-month-bar-h to keep timed events below
+            // the bar overlay.
+            gridAutoRows: "max-content",
+            rowGap: "0.125rem",
           }}
         >
           {visibleBars.map((bar) => {
@@ -559,7 +563,7 @@ function EventCalendarMonthWeek({
                 {/* lane height minus the 2px inter-lane gap */}
                 <EventCalendarEvent
                   segment={bar}
-                  className="h-[calc(var(--ec-month-bar-h,1.75rem)-0.125rem)]"
+                  className="h-auto min-h-0"
                 />
               </div>
             )

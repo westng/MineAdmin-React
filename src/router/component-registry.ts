@@ -9,7 +9,7 @@ const pluginViews = import.meta.glob('../plugins/**/views/**/*.{tsx,jsx}', {
   eager: true,
 }) as Record<string, ViewModule>
 
-const legacyBaseViewAliases: Record<string, string> = {
+const legacyViewAliases: Record<string, string> = {
   'base/views/login/index': 'base/auth/views/index',
   'base/views/dashboard/index': 'base/dashboard/views/index',
   'base/views/clinic/index': 'base/clinic/views/index',
@@ -21,6 +21,11 @@ const legacyBaseViewAliases: Record<string, string> = {
   'base/views/permission/menu/index': 'base/permission/menu/views/index',
   'base/views/permission/role/index': 'base/permission/role/views/index',
   'base/views/permission/user/index': 'base/permission/user/views/index',
+  'base/views/log/userLogin': 'base/permission/log/views/userLogin',
+  'base/views/log/userOperation': 'base/permission/log/views/userOperation',
+  'base/views/dataCenter/attachment/index': 'base/data-center/attachment/views/index',
+  'feishu/views/index': 'feishu/connection/views/index',
+  'west/importExportPro/views/index': 'plugins/west/importExportPro/views/ImportExportTaskPage',
 }
 
 function normalize(value: string) {
@@ -34,7 +39,7 @@ function normalize(value: string) {
 export function resolveView(component?: string): ComponentType | null {
   if (!component) return null
   const normalizedTarget = normalize(component)
-  const target = legacyBaseViewAliases[normalizedTarget] || normalizedTarget
+  const target = legacyViewAliases[normalizedTarget] || normalizedTarget
   const candidates = Object.entries({ ...moduleViews, ...pluginViews })
   for (const [file, module] of candidates) {
     const normalizedFile = normalize(file)

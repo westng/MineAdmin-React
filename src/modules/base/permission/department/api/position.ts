@@ -9,7 +9,7 @@ export interface PositionVo {
   [key: string]: unknown
 }
 
-export function page(params: { name?: string } = {}) {
+export function page(params: { name?: string; dept_id?: number; page?: number; page_size?: number } = {}) {
   return http.get<ResponseStruct<PageList<PositionVo>>>('/admin/position/list', { params })
 }
 

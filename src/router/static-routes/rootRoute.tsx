@@ -1,3 +1,6 @@
+import InboxPage from '@/modules/notification/views'
+import NotificationDetailPage from '@/modules/notification/views/detail'
+import AnnouncementPage from '@/modules/notification/views/announcements'
 import { Navigate, Outlet } from 'react-router-dom'
 import type { AppRoute } from '@/router/types'
 import AppLayout from '@/layouts'
@@ -22,6 +25,9 @@ const rootRoutes: AppRoute[] = [
         element: <Navigate to="dashboard" replace />,
       },
       dashboardRoute,
+      { name: 'notifications', path: 'notifications', element: <InboxPage />, meta: { title: '通知中心' } },
+      { name: 'notification-announcements', path: 'settings/announcements', element: <AnnouncementPage />, meta: { title: '公告管理' } },
+      { name: 'notification-detail', path: 'notifications/:id', element: <NotificationDetailPage />, meta: { title: '通知详情', hidden: true } },
       {
         name: 'calendar',
         path: 'calendar',

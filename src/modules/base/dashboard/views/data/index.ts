@@ -1,20 +1,18 @@
-import { BadgeCheck, CalendarCheck2, DollarSign, Eye, Flag, Radio } from 'lucide-react'
+import { BadgeCheck, CalendarCheck2, DollarSign, Eye, Flag, Radio, Target, TrendingUp, type LucideIcon } from 'lucide-react'
 import { endOfMonth, endOfYear, startOfDay, startOfMonth, startOfYear, subDays, subMonths, subYears } from 'date-fns'
-import type { ComponentType } from 'react'
 import type { DateRange } from 'react-day-picker'
 import type { ChartConfig } from '@/components/ui/chart'
-import type { DashboardMetric, DashboardOverview, DashboardOverviewParams } from '@/modules/base/dashboard/api/dashboard'
+import type { DashboardMetric, DashboardOverview, DashboardOverviewParams, DashboardOverviewTrendItem } from '@/modules/base/dashboard/api/dashboard'
 
 export type MetricFormat = 'count' | 'currency' | 'decimal'
 
 export type KpiDefinition = {
   key: string
-  eyebrow: string
   title: string
   metricLabel: string
   format: MetricFormat
-  icon: ComponentType<{ className?: string }>
-  iconClass: string
+  icon: LucideIcon
+  trendKey?: Exclude<keyof DashboardOverviewTrendItem, 'date'>
 }
 
 export type BreakdownRow = {
@@ -28,17 +26,17 @@ export type BreakdownRow = {
 }
 
 export const kpiDefinitions: KpiDefinition[] = [
-  { key: 'schedule_count_total', eyebrow: '日程', title: '营销日程总数', metricLabel: '统计周期记录', format: 'count', icon: CalendarCheck2, iconClass: 'bg-neutral-950' },
-  { key: 'seeding_session_count', eyebrow: '种草', title: '种草场次', metricLabel: '种草日程记录', format: 'count', icon: Eye, iconClass: 'bg-indigo-600' },
-  { key: 'affiliate_live_session_count', eyebrow: '达播', title: '达播场次', metricLabel: '达播日程记录', format: 'count', icon: Radio, iconClass: 'bg-cyan-600' },
-  { key: 'marketing_node_count', eyebrow: '节点', title: '营销节点数', metricLabel: '节点日程记录', format: 'count', icon: Flag, iconClass: 'bg-violet-600' },
-  { key: 'official_activity_count', eyebrow: '官方活动', title: '官方活动数', metricLabel: '去重后的活动', format: 'count', icon: BadgeCheck, iconClass: 'bg-emerald-600' },
-  { key: 'exposure_count_total', eyebrow: '种草指标', title: '总曝光数', metricLabel: '已录入曝光量', format: 'count', icon: Eye, iconClass: 'bg-blue-600' },
-  { key: 'estimated_sales_amount_total', eyebrow: '达播指标', title: '预估销售额', metricLabel: '达播预估金额', format: 'currency', icon: DollarSign, iconClass: 'bg-amber-500' },
-  { key: 'actual_sales_amount_total', eyebrow: '达播指标', title: '实际销售额', metricLabel: '达播实际金额', format: 'currency', icon: DollarSign, iconClass: 'bg-teal-600' },
-  { key: 'quotation_amount_total', eyebrow: '种草指标', title: '报价合计', metricLabel: '种草报价金额', format: 'currency', icon: DollarSign, iconClass: 'bg-orange-500' },
-  { key: 'cpm_average', eyebrow: '种草指标', title: '平均 CPM', metricLabel: '种草 CPM 均值', format: 'decimal', icon: DollarSign, iconClass: 'bg-pink-600' },
-  { key: 'a3_average', eyebrow: '种草指标', title: '平均 A3', metricLabel: '种草 A3 均值', format: 'decimal', icon: DollarSign, iconClass: 'bg-rose-600' },
+  { key: 'schedule_count_total', title: '营销日程总数', metricLabel: '统计周期记录', format: 'count', icon: CalendarCheck2, trendKey: 'schedule_count' },
+  { key: 'seeding_session_count', title: '达人种草场次', metricLabel: '达人种草日程记录', format: 'count', icon: Eye },
+  { key: 'affiliate_live_session_count', title: '达人直播/短直场次', metricLabel: '达人直播与短直日程记录', format: 'count', icon: Radio },
+  { key: 'marketing_node_count', title: '营销节点数', metricLabel: '营销节点日程记录', format: 'count', icon: Flag },
+  { key: 'official_activity_count', title: '官方活动数', metricLabel: '去重后的活动', format: 'count', icon: BadgeCheck },
+  { key: 'exposure_count_total', title: '总曝光数', metricLabel: '已录入曝光量', format: 'count', icon: Eye, trendKey: 'exposure_count_total' },
+  { key: 'estimated_sales_amount_total', title: '预估销售额', metricLabel: '达播预估金额', format: 'currency', icon: TrendingUp, trendKey: 'estimated_sales_amount_total' },
+  { key: 'actual_sales_amount_total', title: '实际销售额', metricLabel: '达播实际金额', format: 'currency', icon: DollarSign, trendKey: 'actual_sales_amount_total' },
+  { key: 'quotation_amount_total', title: '报价合计', metricLabel: '种草报价金额', format: 'currency', icon: DollarSign },
+  { key: 'cpm_average', title: '平均 CPM', metricLabel: '种草 CPM 均值', format: 'decimal', icon: TrendingUp },
+  { key: 'a3_average', title: '平均 A3', metricLabel: '种草 A3 均值', format: 'decimal', icon: Target },
 ]
 
 export const marketingTypeLabels: Record<string, string> = {
@@ -57,6 +55,7 @@ export const scheduleStatusLabels: Record<string, string> = {
 
 export const numberFormatter = new Intl.NumberFormat('zh-CN')
 export const decimalFormatter = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const compactFormatter = new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 2 })
 
 export function formatMetricValue(value: number | string | null, format: MetricFormat, emptyLabel = '未录入') {
   if (value === null || value === '') return emptyLabel
@@ -70,10 +69,22 @@ export function formatMomRate(rate: number | null) {
   return `${rate > 0 ? '+' : ''}${decimalFormatter.format(rate)}%`
 }
 
-export function metricNoteClass(metric: DashboardMetric) {
-  if (metric.mom_direction === 'up') return 'text-teal-600'
-  if (metric.mom_direction === 'down') return 'text-rose-600'
-  return 'text-muted-foreground'
+export function formatKpiValue(value: DashboardMetric['value'], format: MetricFormat) {
+  if (value === null || value === '' || Math.abs(Number(value)) < 10000) return formatMetricValue(value, format)
+  return `${format === 'currency' ? '¥' : ''}${compactFormatter.format(Number(value))}`
+}
+
+export function getKpiChart(definition: KpiDefinition, metric: DashboardMetric, trend: DashboardOverviewTrendItem[]) {
+  const { trendKey } = definition
+  const isTrend = Boolean(trendKey && trend.length > 1)
+  const source = trendKey && isTrend
+    ? trend.slice(-12).map(item => ({ label: item.date, value: item[trendKey] }))
+    : [{ label: '上期', value: metric.previous_value }, { label: '本期', value: metric.value }]
+  const points = source.map(point => ({
+    label: point.label,
+    value: point.value === null || point.value === '' || !Number.isFinite(Number(point.value)) ? null : Number(point.value),
+  }))
+  return { isTrend, points }
 }
 
 export function getMetric(summary: DashboardOverview['summary'], key: string): DashboardMetric {

@@ -21,11 +21,13 @@ const messages: Record<string, Messages> = {
     'dictionary.base.normalUser': '普通用户',
     'dictionary.system.statusEnabled': '启用',
     'dictionary.system.statusDisabled': '禁用',
+    'importExportPro.menu': '导入导出任务',
   },
   en_US: {
     ...authLocaleMessages.en_US,
     ...dashboardLocaleMessages.en_US,
     ...dynamicMenuLocaleMessages.en_US,
+    'importExportPro.menu': 'Import/export tasks',
   },
 }
 

@@ -606,7 +606,8 @@ function EventCalendarAllDayBars({
           className="pointer-events-none absolute inset-x-0 top-0 grid pt-1.5"
           style={{
             gridTemplateColumns,
-            gridAutoRows: "var(--ec-month-bar-h, 1.625rem)",
+            gridAutoRows: "max-content",
+            rowGap: "0.125rem",
           }}
         >
           {bars.map((segment) => (
@@ -623,7 +624,7 @@ function EventCalendarAllDayBars({
             >
               <EventCalendarEvent
                 segment={segment}
-                className="h-[calc(var(--ec-month-bar-h,1.625rem)-0.125rem)]"
+                className="h-auto min-h-0"
               />
             </div>
           ))}

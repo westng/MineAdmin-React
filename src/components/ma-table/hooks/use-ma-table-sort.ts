@@ -11,6 +11,7 @@ export interface UseMaTableSortOptions<T extends MaTableModel> {
 export interface UseMaTableSortResult<T extends MaTableModel> {
   sortState: { prop: string; order: MaTableSortOrder }
   sortedRows: T[]
+  setSort: (prop: string, order: MaTableSortOrder) => void
   toggleSort: (column: MaTableColumn<T>) => void
 }
 
@@ -35,6 +36,11 @@ export function useMaTableSort<T extends MaTableModel>({ rows, visibleColumns, o
     })
   }, [rows, sortState, visibleColumns])
 
+  const setSort = React.useCallback((prop: string, order: MaTableSortOrder) => {
+    setSortState({ prop, order })
+    onSortChange?.(prop, order)
+  }, [onSortChange])
+
   const toggleSort = React.useCallback((column: MaTableColumn<T>) => {
     if (!column.sortable || typeof column.prop !== 'string') return
     setSortState(current => {
@@ -44,5 +50,5 @@ export function useMaTableSort<T extends MaTableModel>({ rows, visibleColumns, o
     })
   }, [onSortChange])
 
-  return { sortState, sortedRows, toggleSort }
+  return { sortState, sortedRows, setSort, toggleSort }
 }

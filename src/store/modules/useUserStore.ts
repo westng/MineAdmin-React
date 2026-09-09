@@ -25,6 +25,7 @@ interface UserState {
   roles: string[]
   permissions: string[]
   login: (data: { username: string; password: string; code?: string }) => Promise<LoginResult>
+  loginWithTokens: (result: LoginResult, userInfo?: UserInfo) => Promise<LoginResult>
   hydrate: () => Promise<boolean>
   refreshToken: () => Promise<boolean>
   logout: () => Promise<void>
@@ -81,6 +82,16 @@ export const useUserStore = create<UserState>((set, get) => ({
     useMenuStore.getState().clearMenus()
     set({ token: result.access_token, userInfo, initialized: false, error: null, roles: [], permissions: [] })
     await usePluginStore.getState().callHooks('login', { username: data.username, ...result })
+    return result
+  },
+  loginWithTokens: async (result, userInfo = { nickname: '飞书用户' }) => {
+    localStorage.setItem(tokenKey, result.access_token)
+    localStorage.setItem(refreshTokenKey, result.refresh_token)
+    localStorage.setItem(expireKey, String(Date.now() + result.expire_at * 1000))
+    localStorage.setItem(userInfoKey, JSON.stringify(userInfo))
+    useMenuStore.getState().clearMenus()
+    set({ token: result.access_token, userInfo, initialized: false, error: null, roles: [], permissions: [] })
+    await usePluginStore.getState().callHooks('login', { provider: 'feishu', ...result })
     return result
   },
   hydrate: async () => {

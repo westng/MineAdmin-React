@@ -1,36 +1,58 @@
 import http from '@/utils/http'
 import type { ResponseStruct } from '@/types/api'
 
-export interface UserLoginLogVo {
+export type UserLoginLogVo = {
   id: number
   username: string
-  ip: string
-  os: string
-  browser: string
+  ip: string | null
+  os: string | null
+  browser: string | null
   status: number
-  message: string
+  message: string | null
   login_time: string
-  remark: string
+  remark: string | null
 }
 
-export interface UserOperationLogVo {
+export type UserOperationLogVo = {
   id: number
   username: string
   method: string
   router: string
   service_name: string
-  ip: string
-  created_at: string
-  updated_at: string
-  remark: string
+  ip: string | null
+  created_at: string | null
+  updated_at: string | null
+  remark: string | null
+}
+
+export type LogPage<T> = { list: T[]; total: number }
+
+type LogPageParams = { page?: number; page_size?: number }
+
+export type LoginLogParams = LogPageParams & {
+  username?: string
+  ip?: string
+  os?: string
+  browser?: string
+  status?: 1 | 2
+  login_time?: [string, string]
+}
+
+export type OperationLogParams = LogPageParams & {
+  username?: string
+  ip?: string
+  method?: string
+  router?: string
+  service_name?: string
+  created_at?: [string, string]
 }
 
 export const userLoginLogApi = {
-  page: (params: Partial<UserLoginLogVo> = {}) => http.get<ResponseStruct<UserLoginLogVo[]>>('/admin/user-login-log/list', { params }),
+  page: (params: LoginLogParams = {}) => http.get<ResponseStruct<LogPage<UserLoginLogVo>>>('/admin/user-login-log/list', { params }),
   delete: (ids: number[]) => http.delete<ResponseStruct<null>>('/admin/user-login-log', { data: { ids } }),
 }
 
 export const userOperationLogApi = {
-  page: (params: Partial<UserOperationLogVo> = {}) => http.get<ResponseStruct<UserOperationLogVo[]>>('/admin/user-operation-log/list', { params }),
+  page: (params: OperationLogParams = {}) => http.get<ResponseStruct<LogPage<UserOperationLogVo>>>('/admin/user-operation-log/list', { params }),
   delete: (ids: number[]) => http.delete<ResponseStruct<null>>('/admin/user-operation-log', { data: { ids } }),
 }

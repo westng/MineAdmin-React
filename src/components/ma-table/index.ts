@@ -1,4 +1,5 @@
 export { MaTable } from './components/ma-table'
+export { MaTableToolbar } from './components/ma-table-toolbar'
 export type {
   MaTableCellContext,
   MaTableColumn,
@@ -13,3 +14,4 @@ export type {
   PaginationProps,
   TableColumnType,
 } from './types'
+export type { MaTableToolbarProps } from './components/ma-table-toolbar'

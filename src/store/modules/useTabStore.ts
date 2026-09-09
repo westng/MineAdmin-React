@@ -24,7 +24,7 @@ interface TabState {
 }
 
 const storedTabs = cache.get<TabItem[]>('tabs', [])
-const removedRoutePaths = new Set(['/welcome', '/dashboard/workbench', '/dashboard/analysis', '/dashboard/report'])
+const removedRoutePaths = new Set(['/welcome', '/dashboard/workbench', '/dashboard/analysis', '/dashboard/report', '/marketing/calendar'])
 
 function persist(tabs: TabItem[]) {
   cache.set('tabs', tabs)
@@ -34,13 +34,13 @@ export const useTabStore = create<TabState>((set, get) => ({
   tabs: Array.isArray(storedTabs) ? storedTabs : [],
   initialized: false,
   init: defaultTab => {
-    const validTabs = get().tabs.filter(tab => !removedRoutePaths.has(tab.path))
+    const validTabs = get().tabs.filter(tab => !removedRoutePaths.has(tab.path.replace(/\/+$/, '')))
     const tabs = validTabs.length ? validTabs : [defaultTab]
     set({ tabs, initialized: true })
     persist(tabs)
   },
   add: tab => {
-    if (!tab.fullPath || tab.name === 'MineSystemError') return
+    if (!tab.fullPath || tab.name === 'MineSystemError' || removedRoutePaths.has(tab.path.replace(/\/+$/, ''))) return
     const current = get().tabs
     if (current.some(item => item.fullPath === tab.fullPath)) return
     const tabs = [...current, tab]

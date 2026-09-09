@@ -8,7 +8,6 @@ import './assets/styles/globals.css'
 import './plugins/mine-admin/dictionary/register-pane'
 import './modules/base/permission/user/register-pane'
 import './modules/marketing/schedule/register-pane'
-import './modules/marketing/calendar/register-pane'
 
 bootstrap()
   .then(() => {

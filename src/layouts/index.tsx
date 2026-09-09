@@ -7,9 +7,10 @@ import { useSettingStore } from '@/provider/settings'
 import Watermark from '@/components/Watermark'
 import BackTop from './components/back-top'
 import Header from './components/header'
-import MainAside, { SidebarCollapseRail } from './components/main-aside'
+import MainAside from './components/main-aside'
 import { HeaderActionsProvider } from './components/bars/toolbar'
 import { cn } from '@/lib/utils'
+import MarketingScheduleDrawer from '@/modules/marketing/schedule/components/MarketingScheduleDrawer'
 
 function getSidebarDefaultOpen() {
   if (typeof document === 'undefined') return true
@@ -23,7 +24,7 @@ export default function AppLayout() {
   const watermark = useSettingStore(state => state.settings.app.enableWatermark)
   const watermarkText = useSettingStore(state => state.settings.app.watermarkText)
   const [sidebarDefaultOpen] = useState(getSidebarDefaultOpen)
-  const isMarketingWorkspace = location.pathname === '/marketing/schedule' || location.pathname === '/marketing/calendar'
+  const isMarketingWorkspace = location.pathname === '/marketing/schedule'
 
   return (
     <SidebarProvider
@@ -33,7 +34,6 @@ export default function AppLayout() {
     >
       <TooltipProvider>
         <MainAside />
-        <SidebarCollapseRail />
         <SidebarInset className="min-w-0">
           <HeaderActionsProvider>
             <Header />
@@ -44,6 +44,7 @@ export default function AppLayout() {
         </SidebarInset>
         {watermark && <Watermark text={watermarkText} />}
         <BackTop />
+        <MarketingScheduleDrawer />
       </TooltipProvider>
     </SidebarProvider>
   )

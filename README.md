@@ -52,6 +52,7 @@ src/
 - `MaForm` 负责字段模型与校验，`MaSearch` 负责搜索交互，`MaTable` 负责表格展示，`MaProTable` 组合搜索、请求、响应解析和表格。
 - 每个 `ma-*` 目录通过 `index.ts` 暴露公开组件和类型；公开接口放在 `types/`，渲染和状态逻辑放在 `components/`，辅助逻辑放在 `utils/`。
 - `MaDialog`、`MaDrawer` 和 Toast 是项目级封装；业务页面只组合这些封装，不修改 `components/reui` 或 `components/ui` 的原始源码。
+- Toast 使用官方 Sonner，支持其完整 API 并兼容 `toast(message, variant)`；调用示例与全局配置见 [Toast 文档](./src/components/common/toast.md)。
 
 ### 业务模块
 

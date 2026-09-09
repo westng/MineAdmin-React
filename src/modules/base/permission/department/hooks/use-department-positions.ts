@@ -1,0 +1,99 @@
+import { useCallback, useRef, useState } from 'react'
+import type { MaProTableExpose } from '@/components/ma-pro-table'
+import { useToast } from '@/components/common/use-toast'
+import { hasAuth, usePermission } from '@/hooks/usePermission'
+import * as positionApi from '../api/position'
+import type { PositionVo } from '../api/position'
+import { departmentErrorMessage } from '../utils/department-error'
+
+type PositionForm = { id?: number; name: string }
+
+export function useDepartmentPositions(departmentId: number, onChanged: () => Promise<void>) {
+  const tableRef = useRef<MaProTableExpose<PositionVo>>(null)
+  const busyRef = useRef(false)
+  const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState<PositionForm | null>(null)
+  const { toast } = useToast()
+  const { hasAuth: canAccess } = usePermission()
+
+  const request = useCallback(async (params: Record<string, unknown>) => {
+    if (!hasAuth('permission:position:index')) throw new Error('暂无查看岗位权限，请联系管理员')
+    try {
+      const response = await positionApi.page({
+        dept_id: departmentId,
+        name: typeof params.name === 'string' ? params.name.trim() : undefined,
+        page: Number(params.page ?? 1),
+        page_size: Number(params.page_size ?? 10),
+      })
+      if (response.data.code !== 200) throw new Error(response.data.message || '岗位列表加载失败')
+      return response
+    }
+    catch (error) {
+      throw new Error(departmentErrorMessage(error, '岗位列表加载失败，请重试'), { cause: error })
+    }
+  }, [departmentId])
+
+  async function savePosition() {
+    if (busyRef.current || !form) return
+    if (!hasAuth(form.id ? 'permission:position:update' : 'permission:position:save')) {
+      toast('暂无保存岗位权限，请联系管理员', 'destructive')
+      return
+    }
+    const name = form.name.trim()
+    if (!name || [...name].length > 50) {
+      toast('岗位名称不能为空，且不能超过 50 个字符', 'warning')
+      return
+    }
+    busyRef.current = true
+    setBusy(true)
+    try {
+      const payload = { dept_id: departmentId, name }
+      const response = form.id ? await positionApi.save(form.id, payload) : await positionApi.create(payload)
+      if (response.data.code !== 200) throw new Error(response.data.message || '岗位保存失败')
+      setForm(null)
+      toast(form.id ? '岗位更新成功' : '岗位创建成功', 'success')
+      tableRef.current?.search()
+      await onChanged()
+    }
+    catch (error) {
+      toast(departmentErrorMessage(error, '岗位保存失败，请重试'), 'destructive')
+    }
+    finally {
+      busyRef.current = false
+      setBusy(false)
+    }
+  }
+
+  async function removePosition(position: PositionVo) {
+    if (busyRef.current || !position.id || tableRef.current?.getElTableStates().loading) return
+    if (!hasAuth('permission:position:delete')) {
+      toast('暂无删除岗位权限，请联系管理员', 'destructive')
+      return
+    }
+    if (!window.confirm(`确认删除当前部门的岗位“${position.name || position.id}”吗？`)) return
+    busyRef.current = true
+    setBusy(true)
+    try {
+      const response = await positionApi.deleteByIds([position.id])
+      if (response.data.code !== 200) throw new Error(response.data.message || '岗位删除失败')
+      if (form?.id === position.id) setForm(null)
+      toast('岗位删除成功', 'success')
+      tableRef.current?.search()
+      await onChanged()
+    }
+    catch (error) {
+      toast(departmentErrorMessage(error, '岗位删除失败，请重试'), 'destructive')
+    }
+    finally {
+      busyRef.current = false
+      setBusy(false)
+    }
+  }
+
+  return {
+    tableRef, request, busy, form, setForm, savePosition, removePosition,
+    canCreate: canAccess('permission:position:save'),
+    canEdit: canAccess('permission:position:update'),
+    canDelete: canAccess('permission:position:delete'),
+  }
+}

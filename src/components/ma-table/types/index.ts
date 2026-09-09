@@ -59,6 +59,7 @@ export interface MaTableOptions<T extends MaTableModel = MaTableModel> {
   maxHeight?: string | number
   stripe?: boolean
   border?: boolean
+  dense?: boolean
   showHeader?: boolean
   highlightCurrentRow?: boolean
   rowKey?: string | ((row: T) => string | number)
@@ -93,9 +94,12 @@ export interface MaTableProps<T extends MaTableModel = MaTableModel> {
   data?: T[]
   options?: MaTableOptions<T>
   className?: string
+  toolbarCenter?: React.ReactNode
   toolbar?: React.ReactNode
   toolbarLeft?: React.ReactNode
   toolbarRight?: React.ReactNode
+  headerContent?: React.ReactNode
+  footerContent?: React.ReactNode
   loading?: boolean
   onSelectionChange?: (rows: T[]) => void
   onRowClick?: (row: T, index: number) => void
