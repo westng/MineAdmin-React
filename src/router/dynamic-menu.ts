@@ -27,10 +27,12 @@ export function getMenuPath(menu: MenuVo) {
   return path.startsWith('/') ? path : `/${path}`
 }
 
-// Apply to cached and fetched menus while retired database entries await cleanup.
+const retiredMenuPaths = new Set(['/marketing/calendar', '/live', '/yuntu', '/comp'])
+
+// Apply to cached and fetched menus so retired entries cannot reappear from stale client data.
 export function removeRetiredMenus(menus: MenuVo[]): MenuVo[] {
   return menus
-    .filter(menu => getMenuPath(menu)?.replace(/\/+$/, '') !== '/marketing/calendar')
+    .filter(menu => !retiredMenuPaths.has(getMenuPath(menu)?.replace(/\/+$/, '') || ''))
     .map(menu => menu.children ? { ...menu, children: removeRetiredMenus(menu.children) } : menu)
 }
 

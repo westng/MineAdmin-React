@@ -26,6 +26,8 @@ const legacyViewAliases: Record<string, string> = {
   'base/views/dataCenter/attachment/index': 'base/data-center/attachment/views/index',
   'feishu/views/index': 'feishu/connection/views/index',
   'west/importExportPro/views/index': 'plugins/west/importExportPro/views/ImportExportTaskPage',
+  'fastflow': 'plugins/west/workflow/views/index',
+  'visboard': 'plugins/west/visboard/views/index',
 }
 
 function normalize(value: string) {
