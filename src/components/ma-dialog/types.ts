@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react'
+import type { Dialog } from '@base-ui/react/dialog'
+
+export type InteractionType = Parameters<Extract<NonNullable<Dialog.Popup.Props['initialFocus']>, (...args: never[]) => unknown>>[0]
 
 export type MaDialogAction = 'ok' | 'cancel'
 
@@ -16,13 +19,14 @@ export type MaDialogActionErrorHandler = (
   action: MaDialogAction,
 ) => void
 
-export interface MaDialogProps {
-  open?: boolean
-  defaultOpen?: boolean
-  onOpenChange?: (open: boolean) => void
+export type MaDialogSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full'
+
+export type DialogRootActions = Dialog.Root.Actions
+
+export interface MaDialogProps<Payload = unknown> extends Dialog.Root.Props<Payload> {
+  // Ma custom props
   title?: ReactNode
   description?: ReactNode
-  children?: ReactNode
   footer?: ReactNode | false
   footerBefore?: ReactNode
   footerAfter?: ReactNode
@@ -37,11 +41,19 @@ export interface MaDialogProps {
   onFullscreenChange?: (fullscreen: boolean) => void
   showFullscreenButton?: boolean
   showCloseButton?: boolean
-  disablePointerDismissal?: boolean
+  size?: MaDialogSize
   contentClassName?: string
   headerClassName?: string
   bodyClassName?: string
   footerClassName?: string
+
+  // DialogContent (Popup) props
+  initialFocus?: Dialog.Popup.Props['initialFocus']
+  finalFocus?: Dialog.Popup.Props['finalFocus']
+  popupProps?: Omit<Dialog.Popup.Props, 'children'>
+  portalProps?: Omit<Dialog.Portal.Props, 'children'>
+  backdropProps?: Dialog.Backdrop.Props
+  closeProps?: Dialog.Close.Props
 }
 
 export type MaDialogStaticProps = Omit<

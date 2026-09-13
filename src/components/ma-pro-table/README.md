@@ -62,6 +62,7 @@ MaProTable
 └── Frame
     └── FramePanel
         └── MaTable   schema.tableColumns / options.tableOptions
+            ├── tabs: 标签配置或自定义内容
             ├── headerContent: MaSearch + Separator
             └── table / toolbar / pagination
 ```
@@ -79,7 +80,7 @@ MaProTable
 | `variant` | 兼容保留的外观标识；当前布局统一使用 `Frame` + `FramePanel`，不会覆盖表格自身样式 | `'default' | 'card'` | `'default'` |
 | `className` | 组件根节点 class | `string` | - |
 | `header` | 自定义头部内容 | `ReactNode` | - |
-| `tabs` | 头部下方标签区域 | `ReactNode` | - |
+| `tabs` | 透传给 `MaTable` 的标签配置或自定义内容 | `MaTableTabsConfig \| ReactNode` | - |
 | `toolbarLeft` | 工具栏左侧内容 | `ReactNode` | - |
 | `toolbarCenter` | 工具栏中间内容 | `ReactNode` | - |
 | `toolbarRight` | 工具栏右侧内容 | `ReactNode` | - |
@@ -98,7 +99,7 @@ MaProTable
 | `searchItems` | 搜索区字段配置；存在可见字段时渲染 `MaSearch` | `MaSearchItem<T>[]` |
 | `tableColumns` | 透传给 `MaTable` 的列配置 | `MaProTableColumns<T>[]` |
 
-`MaProTableColumns<T>` 继承 `MaTableColumn<T>`。类型中额外保留 `toolHide`、`cellRenderTo` 和 `operationConfigure`，但当前 React 实现不会自动生成列设置、渲染插件或操作列；需要这些行为时，请直接使用 `cellRender`、`headerRender` 和业务组件组合。
+`MaProTableColumns<T>` 继承 `MaTableColumn<T>`，包括 `cellRenderTo`。单元格插件由底层 `MaTable` 使用共享注册表执行，配置与注册方式见 [MaTable 单元格渲染插件](../ma-table/README.md#单元格渲染插件)。操作列使用 `type: 'operation'` 和 `operationConfigure` 配置；`type: 'auto'` 默认展示前 2 个操作，其余操作收进“更多”，列宽会按操作文字和图标自动设置最小宽度。
 
 ## MaProTableOptions
 
@@ -117,6 +118,34 @@ MaProTable
 | `className` | 配置项中的根 class | `string` | - |
 
 `actionBtnPosition` 和 `adaptionOffsetBottom` 仍存在于类型中，但当前 React 组件不会读取它们；页面动作位置应直接使用 `header`、`toolbarLeft` 或 `toolbarRight` 插槽。
+
+## 标签切换
+
+`MaProTable` 将 `tabs` 原样传给 `MaTable`，标签样式和选中态由 `MaTable` 负责。支持标签标题、数量、禁用状态、受控 `value`、非受控 `defaultValue` 和 `onValueChange` 回调；原先 `tabs={<Tabs ... />}` 的用法继续兼容。
+
+```tsx
+<MaProTable
+  ref={tableRef}
+  schema={schema}
+  options={options}
+  tabs={{
+    value: resultStatus,
+    ariaLabel: '授权结果',
+    items: [
+      { value: 'success', label: '成功', count: summary.suc },
+      { value: 'fail', label: '失败', count: summary.fail },
+    ],
+    onValueChange: value => {
+      setResultStatus(value)
+      tableRef.current?.search({ result_status: value })
+    },
+  }}
+/>
+```
+
+切换事件只通知调用方；需要重新查询时，在回调中调用 `search()`，将页码重置为 1 并带上新的筛选条件。初次请求的筛选条件仍通过 `options.requestOptions.requestParams` 设置。`data` 由页面控制时，由页面更新对应数据。
+
+完整字段见 [MaTable 标签切换](../ma-table/README.md#标签切换)。`MaTableTabsConfig`、`MaTableTabItem` 和 `MaTableTabValue` 均可从两个组件的公共入口导入。当前任务页 `src/modules/creator/views/task/index.tsx` 的授权明细抽屉使用此配置。
 
 ## 搜索区
 
@@ -167,6 +196,10 @@ const options: MaProTableOptions<UserRow> = {
 3. 请求序列号保证较早返回的响应不会覆盖较新的请求结果。
 
 `setRequestParams(params, requestNow)` 和 `changeApi(api, requestNow)` 的 `requestNow` 默认值为 `true`；传 `false` 可以只更新配置而不立即请求。
+
+`schema.tableColumns`、`schema.searchItems` 和 `options` 的新 props 会同步到子组件；ref 修改保留到对应 props 换成新引用。新的请求配置使旧请求失效，并在下次 `refresh/search` 时使用新 API 与参数；不会因为配置对象重建而反复自动请求。`tableOptions.pagination.onChange/onCurrentChange/onSizeChange` 会保留并调用，`onChange` 在内部页码更新后、请求发出前执行。
+
+ReUI 和 TanStack 扩展配置放在 `options.tableOptions` 内，沿用 [MaTable 的类型化入口](../ma-table/README.md)。例如 `options.tableOptions.dataGridProps.tableLayout.columnsResizable`，原生实例通过 `ref.getTableRef()?.getTableInstance()` 获取。
 
 ## 工具栏
 
@@ -267,6 +300,6 @@ await tableRef.current?.refresh()
 
 ## 受控数据展示
 
-`data?: T[]` 和 `loading?: boolean` 可由页面传入，分别优先于组件内部的请求数据和加载状态；`getElTableStates()` 返回实际展示的数据与状态。受控模式下总数取 `tableOptions.pagination.total`，未指定时取 `data.length`，分页仍使用服务端分页约定，不会自动切分传入数据。
+`data?: T[]` 和 `loading?: boolean` 可由页面传入，分别优先于内部请求数据和加载状态。受控模式下总数取 `tableOptions.pagination.total`，未指定时取 `data.length`；默认保留服务端分页约定。完整本地数组可通过 `tableOptions.manualPagination: false` 分页，隐藏分页器则展示整份数组。
 
-部门树表由模块管理组织树、折叠、请求和分页：先按顶级部门切页，再展开当前页子树，将结果通过 `data={visibleRows}` 传入。配置 `tableOptions.showPagination: true`，使用公开的 `getTableRef().setPagination()` 同步页码、每页数量、顶级部门总数、禁用状态和 `onChange` 回调；子部门不单独占用分页名额。搜索通过 `onSearchSubmit`、`onSearchReset` 通知页面并回到第一页，刷新通过 `toolbarRight` 提供。此类页面不配置 `requestOptions.api`，避免同时维护两套请求。
+部门树表由模块管理组织树、折叠、请求和分页：先按顶级部门切页，再展开当前页子树，通过 `data={visibleRows}` 传入。页码、每页数量、顶级部门总数、禁用状态及 `onChange` 可直接放在 `options.tableOptions.pagination`；既有 `getTableRef().setPagination()` 调用继续保留。子部门不单独占用分页名额。搜索使用 `onSearchSubmit/onSearchReset`，刷新通过 `toolbarRight` 提供，此类页面不配置 `requestOptions.api`。

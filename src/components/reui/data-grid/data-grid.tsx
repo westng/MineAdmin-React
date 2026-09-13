@@ -8,7 +8,7 @@ import {
   useMemo,
   useRef,
 } from "react"
-import type { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import {
   mergeDataGridI18n,
   type DataGridI18nConfig,
@@ -709,6 +709,8 @@ export interface DataGridProps<
   recordCount: number
   children?: ReactNode
   onRowClick?: (row: TData) => void
+  /** 行级 DOM 扩展，供业务包装层传递样式、事件和可访问性属性。 */
+  getRowProps?: (row: TData, rowIndex: number) => ComponentProps<'tr'>
   /**
    * Receives every spreadsheet write batch (paste, cut, clear, fill, edit).
    * Served through the props getter like `onRowClick`, so an inline identity

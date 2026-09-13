@@ -1549,17 +1549,20 @@ function DataGridTableBodyRow<TData extends object>({
   const { props, table } = useDataGrid()
   const isRowPinned = row.getIsPinned()
   const rowStatus = props.getRowStatus?.(row.original)
+  const rowProps = props.getRowProps?.(row.original, row.index)
 
   const bodyRowBottomBorderClasses =
     "[&:not(:last-child)>td]:border-b [tbody:has(+tfoot)_&:last-child>td]:border-b [*:has(>[data-slot=data-grid]+[data-slot=data-grid-pagination])_[data-slot=data-grid]_&:last-child>td]:border-b"
 
   return (
     <tr
+      {...rowProps}
       ref={(node) => {
         assignRef(rowRef, node)
         assignRef(dndRef, node)
+        assignRef(rowProps?.ref, node)
       }}
-      style={{ ...(dndStyle ? dndStyle : null) }}
+      style={{ ...rowProps?.style, ...dndStyle }}
       data-state={
         table.options.enableRowSelection && row.getIsSelected()
           ? "selected"
@@ -1576,7 +1579,10 @@ function DataGridTableBodyRow<TData extends object>({
       aria-rowindex={
         props.tableLayout?.cellSelection ? row.index + 2 : undefined
       }
-      onClick={() => props.onRowClick && props.onRowClick(row.original)}
+      onClick={(event) => {
+        rowProps?.onClick?.(event)
+        if (!event.defaultPrevented) props.onRowClick?.(row.original)
+      }}
       className={cn(
         "hover:bg-muted/40 data-[state=selected]:bg-muted/50",
         /* Pinned cells hide scrolled content behind an OPAQUE background,
@@ -1624,7 +1630,8 @@ function DataGridTableBodyRow<TData extends object>({
         props.tableLayout?.rowsPinnable &&
           isRowPinned &&
           props.tableClassNames?.rowPinned,
-        props.tableClassNames?.bodyRow
+        props.tableClassNames?.bodyRow,
+        rowProps?.className
       )}
     >
       {children}
@@ -1816,10 +1823,11 @@ function DataGridTableBodyRowCell<TData extends object>({
           !isPinned &&
           column.getIsLastColumn("center") &&
           "border-e-0",
-        props.tableLayout?.columnsResizable &&
-          column.getCanResize() &&
-          !cellSelectionOn &&
-          "truncate",
+        // Keep cell content inside its resolved column width.  Previously
+        // truncation was only enabled for resizable columns, while MaTable
+        // deliberately disables column resizing by default.  That made the
+        // ordinary table path render long values without an ellipsis.
+        !cellSelectionOn && "truncate",
         cell.column.columnDef.meta?.cellClassName,
         props.tableLayout?.columnsPinnable &&
           column.getCanPin() &&
@@ -1839,9 +1847,7 @@ function DataGridTableBodyRowCell<TData extends object>({
           the selection chrome 1px outside the cell), so the resize
           truncation moves to an inner wrapper that clips at the same
           boundary the td used to. */}
-      {cellSelectionOn &&
-      props.tableLayout?.columnsResizable &&
-      column.getCanResize() ? (
+      {cellSelectionOn ? (
         <div
           className={bodyCellTruncateWrapVariants({
             size: props.tableLayout?.dense ? "dense" : "default",

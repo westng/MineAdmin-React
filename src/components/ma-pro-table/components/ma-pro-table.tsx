@@ -1,34 +1,56 @@
 import * as React from 'react'
-import { RefreshCw } from 'lucide-react'
+import { MoreHorizontal, RefreshCw } from 'lucide-react'
 import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { MaSearch } from '../../ma-search'
 import { MaTable } from '../../ma-table'
 import { cn } from '@/lib/utils'
 import { getPathValue } from '../../shared/path'
+import { usePropState } from '../../shared/use-prop-state'
 import { readResponseList, readResponseTotal, resolveText, resolveVisible } from '../utils/pro-table-utils'
-import type { MaProTableApi, MaProTableColumns, MaProTableExpose, MaProTableModel, MaProTableOptions, MaProTableProps, MaSearchExpose, MaTableExpose, MaTablePagination } from '../types'
+import type { MaProTableApi, MaProTableColumns, MaProTableExpose, MaProTableModel, MaProTableOperationAction, MaProTableOptions, MaProTableProps, MaSearchExpose, MaTableExpose, MaTablePagination } from '../types'
 
 type MaModel = MaProTableModel
+const emptyOptions: MaProTableOptions = {}
+const emptyColumns: MaProTableColumns[] = []
+const emptyData: MaModel[] = []
 
-function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptions = {}, variant = 'default', data: controlledData, loading: controlledLoading, className, header, tabs, toolbarCenter, toolbar, toolbarLeft, toolbarRight, beforeToolbar, afterToolbar, empty, onSelectionChange }: MaProTableProps<T>, ref: React.ForwardedRef<MaProTableExpose<T>>) {
-  const [options, setOptionsState] = React.useState<MaProTableOptions<T>>(initialOptions)
-  const [columns, setColumnsState] = React.useState<MaProTableColumns<T>[]>(schema.tableColumns ?? [])
-  const [requestedData, setData] = React.useState<T[]>(initialOptions.tableOptions?.data ?? [])
-  const [total, setTotal] = React.useState(initialOptions.tableOptions?.pagination?.total ?? 0)
-  const [requestLoading, setLoading] = React.useState(initialOptions.requestOptions?.autoRequest !== false && Boolean(initialOptions.requestOptions?.api))
+function getOperationActionWidth<T extends MaModel>(action: MaProTableOperationAction<T>) {
+  const text = typeof action.text === 'string' ? action.text : action.name ?? '操作'
+  const textWidth = [...text].reduce((width, character) => width + (character.charCodeAt(0) > 255 ? 14 : 8), 0)
+  return Math.max(44, textWidth + (action.icon ? 20 : 0) + 24)
+}
+
+function getOperationMinWidth<T extends MaModel>(column: MaProTableColumns<T>, actions: MaProTableOperationAction<T>[]) {
+  const mode = column.operationConfigure?.type ?? 'auto'
+  const fold = Math.max(0, column.operationConfigure?.fold ?? 2)
+  const actionCount = mode === 'dropdown' ? 1 : Math.min(actions.length, fold) + (mode === 'auto' && actions.length > fold ? 1 : 0)
+  const directActions = mode === 'dropdown' ? [] : actions.slice(0, mode === 'auto' ? fold : actions.length)
+  const actionsWidth = directActions.reduce((total, action) => total + getOperationActionWidth(action), 0)
+  const moreWidth = mode === 'dropdown' || (mode === 'auto' && actions.length > fold) ? 36 : 0
+  return Math.max(72, actionsWidth + moreWidth + Math.max(0, actionCount - 1) * 4 + 24)
+}
+
+function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptions = emptyOptions as MaProTableOptions<T>, variant = 'default', data: controlledData, loading: controlledLoading, className, header, tabs, toolbarCenter, toolbar, toolbarLeft, toolbarRight, beforeToolbar, afterToolbar, empty, onSelectionChange }: MaProTableProps<T>, ref: React.ForwardedRef<MaProTableExpose<T>>) {
+  const [options, setOptionsState] = usePropState(initialOptions)
+  const [columns, setColumnsState] = usePropState(schema.tableColumns ?? emptyColumns as MaProTableColumns<T>[])
+  const [requestedData, setData] = usePropState(options.tableOptions?.data ?? emptyData as T[])
+  const [total, setTotal] = usePropState(options.tableOptions?.pagination?.total ?? 0)
+  const [requestState, setRequestState] = React.useState({ options: initialOptions.requestOptions, loading: initialOptions.requestOptions?.autoRequest !== false && Boolean(initialOptions.requestOptions?.api) })
+  const requestLoading = requestState.options === options.requestOptions && requestState.loading
   const data = controlledData ?? requestedData
   const loading = controlledLoading ?? requestLoading
   const [error, setError] = React.useState('')
-  const [currentPage, setCurrentPage] = React.useState(initialOptions.tableOptions?.pagination?.currentPage ?? 1)
-  const [pageSize, setPageSize] = React.useState(initialOptions.requestOptions?.requestPage?.size ?? initialOptions.tableOptions?.pagination?.pageSize ?? 10)
+  const [currentPage, setCurrentPage] = usePropState(options.tableOptions?.pagination?.currentPage ?? 1)
+  const [pageSize, setPageSize] = usePropState(options.tableOptions?.pagination?.pageSize ?? options.requestOptions?.requestPage?.size ?? 10)
   const [searchForm, setSearchFormState] = React.useState<T>((initialOptions.searchOptions?.defaultValue ?? {}) as T)
   const [selectedRows, setSelectedRows] = React.useState<T[]>([])
   const searchRef = React.useRef<MaSearchExpose<T>>(null)
   const tableRef = React.useRef<MaTableExpose<T>>(null)
+  const operationExposeRef = React.useRef<MaProTableExpose<T> | null>(null)
   const optionsRef = React.useRef(options)
-  const requestParamsRef = React.useRef<Record<string, unknown>>(initialOptions.requestOptions?.requestParams ?? {})
   const searchParamsRef = React.useRef<Record<string, unknown>>((initialOptions.searchOptions?.defaultValue ?? {}) as Record<string, unknown>)
   const searchFormRef = React.useRef(searchForm)
   const currentPageRef = React.useRef(currentPage)
@@ -40,7 +62,8 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
   const reactId = React.useId().replace(/:/g, '')
   const tableId = options.id ?? `ma-pro-table-${reactId}`
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    if (optionsRef.current.requestOptions !== options.requestOptions) requestSequenceRef.current += 1
     optionsRef.current = options
     searchFormRef.current = searchForm
     currentPageRef.current = currentPage
@@ -60,7 +83,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     if (nextOptions.requestOptions) requestSequenceRef.current += 1
     optionsRef.current = merged
     setOptionsState(merged)
-  }, [])
+  }, [setOptionsState])
 
   const requestData = React.useCallback(async () => {
     const requestOptions = optionsRef.current.requestOptions
@@ -71,15 +94,15 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     const sizeName = requestOptions.requestPage?.sizeName ?? 'page_size'
     const params: Record<string, unknown> = {
       ...requestOptions.requestParams,
-      ...requestParamsRef.current,
       ...searchParamsRef.current,
       [pageName]: currentPageRef.current,
       [sizeName]: pageSizeRef.current,
     }
-    setLoading(true)
+    setRequestState({ options: requestOptions, loading: true })
     setError('')
     try {
       const response = await Promise.resolve(requestOptions.api(params))
+      if (requestSequence !== requestSequenceRef.current) return
       const dataKey = requestOptions.response?.dataKey ?? 'list'
       const totalKey = requestOptions.response?.totalKey ?? 'total'
       const extracted = readResponseList<T>(response, dataKey)
@@ -93,9 +116,9 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
       setData([])
       setTotal(0)
     } finally {
-      if (requestSequence === requestSequenceRef.current) setLoading(false)
+      if (requestSequence === requestSequenceRef.current) setRequestState({ options: requestOptions, loading: false })
     }
-  }, [])
+  }, [setData, setTotal])
 
   React.useEffect(() => {
     if (autoRequestedRef.current || initialOptions.requestOptions?.autoRequest === false || !initialOptions.requestOptions?.api) return
@@ -107,13 +130,16 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     return () => window.clearTimeout(timer)
   }, [initialOptions.requestOptions?.api, initialOptions.requestOptions?.autoRequest, requestData])
 
+  React.useEffect(() => () => { requestSequenceRef.current += 1 }, [])
+
   const handlePageChange = React.useCallback((nextPage: number, nextPageSize = pageSizeRef.current) => {
     currentPageRef.current = nextPage
     pageSizeRef.current = nextPageSize
     setCurrentPage(nextPage)
     setPageSize(nextPageSize)
+    optionsRef.current.tableOptions?.pagination?.onChange?.(nextPage, nextPageSize)
     void requestData()
-  }, [requestData])
+  }, [requestData, setCurrentPage, setPageSize])
 
   const submitSearch = React.useCallback(async (form: T) => {
     const nextParams = optionsRef.current.onSearchSubmit?.(form)
@@ -124,7 +150,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     currentPageRef.current = 1
     setCurrentPage(1)
     await requestData()
-  }, [requestData])
+  }, [requestData, setCurrentPage])
 
   const resetSearch = React.useCallback(async (form: T) => {
     const nextParams = optionsRef.current.onSearchReset?.(form)
@@ -135,7 +161,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     currentPageRef.current = 1
     setCurrentPage(1)
     await requestData()
-  }, [requestData])
+  }, [requestData, setCurrentPage])
 
   const handleSelectionChange = React.useCallback((rows: T[]) => {
     const getSelectionKey = (row: T) => {
@@ -163,14 +189,15 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     loading,
     pagination: {
       ...options.tableOptions?.pagination,
-      total: controlledData === undefined ? total : options.tableOptions?.pagination?.total ?? controlledData.length,
+      total: controlledData === undefined && options.requestOptions?.api ? total : options.tableOptions?.pagination?.total ?? data.length,
       currentPage,
       pageSize,
       onChange: handlePageChange,
     } as MaTablePagination,
-  }), [controlledData, currentPage, data, handlePageChange, loading, options.tableOptions, pageSize, total])
+  }), [controlledData, currentPage, data, handlePageChange, loading, options.requestOptions?.api, options.tableOptions, pageSize, total])
 
-  React.useImperativeHandle(ref, () => ({
+  React.useImperativeHandle(ref, () => {
+    const expose: MaProTableExpose<T> = {
     getSearchRef: () => searchRef.current,
     getTableRef: () => tableRef.current,
     getElTableStates: () => ({ data, loading, selectedRows }),
@@ -182,9 +209,8 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
       if (requestNow) void requestData()
     },
     setRequestParams: (params, requestNow = true) => {
-      requestParamsRef.current = { ...requestParamsRef.current, ...params }
       requestSequenceRef.current += 1
-      if (optionsRef.current.requestOptions) updateOptions({ requestOptions: { ...optionsRef.current.requestOptions, requestParams: requestParamsRef.current } })
+      if (optionsRef.current.requestOptions) updateOptions({ requestOptions: { ...optionsRef.current.requestOptions, requestParams: { ...optionsRef.current.requestOptions.requestParams, ...params } } })
       if (requestNow) void requestData()
     },
     setTableColumns: nextColumns => { columnsRef.current = nextColumns; setColumnsState(nextColumns) },
@@ -198,8 +224,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     getSearchForm: () => searchFormRef.current,
     search: params => {
       if (params) {
-        requestParamsRef.current = { ...requestParamsRef.current, ...params }
-        if (optionsRef.current.requestOptions) updateOptions({ requestOptions: { ...optionsRef.current.requestOptions, requestParams: requestParamsRef.current } })
+        if (optionsRef.current.requestOptions) updateOptions({ requestOptions: { ...optionsRef.current.requestOptions, requestParams: { ...optionsRef.current.requestOptions.requestParams, ...params } } })
       }
       requestSequenceRef.current += 1
       currentPageRef.current = 1
@@ -210,7 +235,39 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     getProTableOptions: () => optionsRef.current,
     resizeHeight: async () => { await Promise.resolve() },
     getCurrentId: () => tableId,
-  }), [data, loading, requestData, selectedRows, tableId, updateOptions])
+    }
+    operationExposeRef.current = expose
+    return expose
+  }, [data, loading, requestData, selectedRows, setColumnsState, setCurrentPage, tableId, updateOptions])
+
+  const operationColumns = React.useMemo(() => columns.map(column => {
+    const actions = column.operationConfigure?.actions
+    if (!actions?.length) return column
+    const sortedActions = [...actions].sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+    const operationMinWidth = getOperationMinWidth(column, actions)
+    return {
+      ...column,
+      minWidth: operationMinWidth,
+      width: operationMinWidth,
+      align: 'center' as const,
+      headerAlign: 'center' as const,
+      className: cn(column.className, 'whitespace-nowrap'),
+      cellRender: (context: Parameters<NonNullable<MaProTableColumns<T>['cellRender']>>[0]) => {
+        const visibleActions = sortedActions.filter(action => action.show?.(context) ?? true)
+        const renderText = (action: MaProTableOperationAction<T>) => typeof action.text === 'function' ? action.text(context) : action.text ?? action.name ?? '操作'
+        const renderButton = (action: MaProTableOperationAction<T>, index: number) => <Button key={action.name ?? `${String(action.text ?? 'operation')}-${index}`} type="button" variant={action.variant ?? 'ghost'} size={action.size ?? 'sm'} className={cn('whitespace-nowrap', action.className)} disabled={action.disabled?.(context) ?? false} onClick={event => action.onClick?.(context, operationExposeRef.current as MaProTableExpose<T>, event)}>{action.icon}{renderText(action)}</Button>
+        const renderMenu = (actionsToRender: MaProTableOperationAction<T>[]) => <DropdownMenu><DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label="更多操作"><MoreHorizontal aria-hidden="true" /></Button>} /><DropdownMenuContent align="end">{actionsToRender.map((action, index) => <React.Fragment key={action.name ?? `${String(action.text ?? 'operation')}-${index}`}>{action.variant === 'destructive' && index > 0 && <DropdownMenuSeparator />}<DropdownMenuItem className="whitespace-nowrap" variant={action.variant === 'destructive' ? 'destructive' : 'default'} disabled={action.disabled?.(context) ?? false} onClick={event => action.onClick?.(context, operationExposeRef.current as MaProTableExpose<T>, event)}>{action.icon}{renderText(action)}</DropdownMenuItem></React.Fragment>)}</DropdownMenuContent></DropdownMenu>
+        const mode = column.operationConfigure?.type ?? 'auto'
+        const fold = Math.max(0, column.operationConfigure?.fold ?? 2)
+        if (mode === 'dropdown' || (mode === 'auto' && visibleActions.length > fold)) {
+          const primary = mode === 'auto' ? visibleActions.slice(0, fold) : []
+          const overflow = mode === 'auto' ? visibleActions.slice(fold) : visibleActions
+          return <div className="flex flex-wrap justify-end gap-1">{primary.map(renderButton)}{overflow.length > 0 && renderMenu(overflow)}</div>
+        }
+        return <div className="flex flex-wrap justify-end gap-1">{visibleActions.map(renderButton)}</div>
+      },
+    }
+  }), [columns])
 
   const headerConfig = options.header
   const showHeader = resolveVisible(headerConfig?.show, Boolean(header || headerConfig?.mainTitle || headerConfig?.subTitle))
@@ -247,9 +304,20 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
         <div className="min-w-0">{headerContent}</div>
       </FrameHeader>}
       <FramePanel className="min-w-0 bg-card p-0! shadow-none!">
-        {tabs && <div className="border-b px-3">{tabs}</div>}
-        {error && <div role="alert" className="border-b border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div>}
-        <MaTable ref={tableRef} columns={columns} options={tableOptions} onSelectionChange={handleSelectionChange} empty={empty} headerContent={showSearch ? <><MaSearch ref={searchRef} searchItems={searchItems} options={options.searchOptions} formOptions={options.searchFormOptions} className="rounded-none border-0 bg-transparent p-3 shadow-none" onSearch={submitSearch} onReset={resetSearch} /><Separator /></> : undefined} footerContent={selectionContent} {...tableToolbarProps} />
+        <MaTable
+          ref={tableRef}
+          columns={operationColumns}
+          options={tableOptions}
+          tabs={tabs}
+          onSelectionChange={handleSelectionChange}
+          empty={empty}
+          headerContent={error || showSearch ? <>
+            {error && <div role="alert" className="border-b border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div>}
+            {showSearch && <><MaSearch ref={searchRef} searchItems={searchItems} options={options.searchOptions} formOptions={options.searchFormOptions} className="rounded-none border-0 bg-transparent p-3 shadow-none" onSearch={submitSearch} onReset={resetSearch} /><Separator /></>}
+          </> : undefined}
+          footerContent={selectionContent}
+          {...tableToolbarProps}
+        />
       </FramePanel>
     </Frame>
   )

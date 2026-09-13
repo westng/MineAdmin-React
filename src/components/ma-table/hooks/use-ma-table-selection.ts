@@ -24,7 +24,17 @@ export function useMaTableSelection<T extends MaTableModel>({ rows, selectableRo
   const allSelected = selectableRows.length > 0 && selectableRows.every((row, index) => selectedKeys.has(getRowKey(row, index)))
   const partiallySelected = !allSelected && selectableRows.some((row, index) => selectedKeys.has(getRowKey(row, index)))
 
-  React.useEffect(() => onSelectionChange?.(selectedRows), [onSelectionChange, selectedRows])
+  const onSelectionChangeRef = React.useRef(onSelectionChange)
+  const notifiedSelectionRef = React.useRef<T[] | null>(null)
+  React.useLayoutEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange
+  }, [onSelectionChange])
+  React.useEffect(() => {
+    const previous = notifiedSelectionRef.current
+    if (previous && previous.length === selectedRows.length && previous.every((row, index) => row === selectedRows[index])) return
+    notifiedSelectionRef.current = selectedRows
+    onSelectionChangeRef.current?.(selectedRows)
+  }, [selectedRows])
 
   const updateSelection = React.useCallback((row: T, checked: boolean, index: number) => {
     const key = getRowKey(row, index)

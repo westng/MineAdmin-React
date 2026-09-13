@@ -4,6 +4,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { TableBody, TableCell, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { getColumnValue, resolveRowClass, resolveRowStyle } from '../utils/table-utils'
+import { renderTableCell } from '../utils/render-cell'
+import { useTableCellRenderers } from '../hooks/use-table-cell-renderers'
 import type { MaTableCellContext, MaTableColumn, MaTableModel, MaTableOptions } from '../types'
 
 export interface MaTableBodyProps<T extends MaTableModel> {
@@ -23,6 +25,7 @@ export interface MaTableBodyProps<T extends MaTableModel> {
 }
 
 export function MaTableBody<T extends MaTableModel>({ rows, columns, options, currentPage, pageSize, loading, empty, selectedKeys, expandedKeys, getRowKey, onSelectionChange, onExpandChange, onRowClick }: MaTableBodyProps<T>) {
+  const cellRenderers = useTableCellRenderers()
   function handleRowClick(event: React.MouseEvent<HTMLTableRowElement>, row: T, rowIndex: number) {
     const target = event.target as HTMLElement
     if (target.closest('button, input, select, textarea, a, [role="button"], [role="checkbox"]')) return
@@ -35,9 +38,7 @@ export function MaTableBody<T extends MaTableModel>({ rows, columns, options, cu
     if (column.type === 'selection') return <Checkbox checked={selectedKeys.has(getRowKey(row, rowIndex))} onCheckedChange={checked => onSelectionChange(row, checked === true, rowIndex)} aria-label={`选择第 ${rowIndex + 1} 行`} />
     if (column.type === 'index') return (currentPage - 1) * pageSize + rowIndex + 1
     if (column.type === 'expand') return <Button type="button" variant="ghost" size="icon-xs" aria-label={expandedKeys.has(getRowKey(row, rowIndex)) ? '收起行' : '展开行'} onClick={() => onExpandChange(row, rowIndex)}>{expandedKeys.has(getRowKey(row, rowIndex)) ? '−' : '+'}</Button>
-    if (column.cellRender) return column.cellRender(context)
-    if (column.formatter) return column.formatter(row, column, value, rowIndex)
-    return value == null || value === '' ? '-' : String(value)
+    return renderTableCell(context, cellRenderers)
   }
 
   return <TableBody className="[&_tr:last-child>td]:border-b">{rows.length ? rows.map((row, rowIndex) => {

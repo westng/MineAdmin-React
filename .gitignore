@@ -9,7 +9,11 @@ dist*
 .env
 .env.*
 !.env.example
-src/plugins/
+# 本地维护的插件源码
+src/plugins/*
+!src/plugins/west/
+src/plugins/west/*
+!src/plugins/west/cell-enhance/
 src/modules/*
 !src/modules/base/
 !src/modules/base/**

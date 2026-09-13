@@ -1,5 +1,7 @@
 import type * as React from 'react'
 import type { MaModel } from '../../shared/types'
+import type { MaFormControlPropsMap, MaFormInputProps } from './controls'
+export type * from './controls'
 
 export type MaFormModel = MaModel
 
@@ -45,7 +47,7 @@ export interface MaFormRenderContext<T extends MaFormModel = MaFormModel> {
 
 export type MaFormRender<T extends MaFormModel = MaFormModel> = (context: MaFormRenderContext<T>) => React.ReactNode
 
-export interface MaFormItem<T extends MaFormModel = MaFormModel> {
+export interface MaFormItemBase<T extends MaFormModel = MaFormModel> {
   label?: string | (() => string) | React.ReactNode
   showLabel?: boolean
   prop?: string | ((model: T) => string)
@@ -59,11 +61,22 @@ export interface MaFormItem<T extends MaFormModel = MaFormModel> {
     extra?: (context: MaFormRenderContext<T>) => React.ReactNode
     error?: (context: MaFormRenderContext<T>) => React.ReactNode
   }
-  render?: MaFormRender<T> | MaFormComponentName | React.ComponentType<MaFormRenderContext<T>>
-  component?: MaFormComponentName | React.ComponentType<Record<string, unknown>>
-  renderProps?: Record<string, unknown>
   children?: MaFormItem<T>[]
 }
+
+type MaFormBuiltInConfig = {
+  [Name in MaFormComponentName]: (
+    { render: Name; component?: Name } | { component: Name; render?: Name }
+  ) & { renderProps?: MaFormControlPropsMap[Name] }
+}[MaFormComponentName]
+
+export type MaFormItem<T extends MaFormModel = MaFormModel> = MaFormItemBase<T> & (
+  MaFormBuiltInConfig |
+  { render?: MaFormComponentName; component?: MaFormComponentName; renderProps?: undefined } |
+  { render?: undefined; component?: undefined; renderProps?: MaFormInputProps } |
+  { render: MaFormRender<T> | React.ComponentType<MaFormRenderContext<T>>; component?: React.ComponentType<Record<string, unknown>>; renderProps?: Record<string, unknown> } |
+  { render?: undefined; component: React.ComponentType<Record<string, unknown>>; renderProps?: Record<string, unknown> }
+)
 
 export interface MaFormOptions {
   loading?: boolean

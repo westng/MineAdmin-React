@@ -1,4 +1,5 @@
 export { MaForm } from './components/ma-form'
+export type * from './types/controls'
 export type {
   MaFormComponentName,
   MaFormExpose,

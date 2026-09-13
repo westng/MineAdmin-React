@@ -4,10 +4,14 @@ import { Button } from '@/components/ui/button'
 import { MaForm } from '../../ma-form'
 import { readLabel, resolveProp } from '../../ma-form/utils/form-utils'
 import { cn } from '@/lib/utils'
+import { usePropState } from '../../shared/use-prop-state'
 import { readText } from '../utils/search-utils'
 import type { MaFormExpose, MaFormOptions, MaSearchExpose, MaSearchItem, MaSearchModel, MaSearchOptions, MaSearchProps } from '../types'
 
 type MaModel = MaSearchModel
+const emptyItems: MaSearchItem[] = []
+const emptyOptions: MaSearchOptions = {}
+const emptyFormOptions: MaFormOptions = {}
 
 function resolveShow(show: MaSearchOptions['show']): boolean {
   return typeof show === 'function' ? show() : show !== false
@@ -59,17 +63,16 @@ function supportsLabelPrefix<T extends MaModel>(item: MaSearchItem<T>): boolean 
   return typeof component !== 'string' || !['Select', 'Checkbox', 'Switch', 'Radio'].includes(component)
 }
 
-function MaSearchInner<T extends MaModel>({ options: initialOptions = {}, formOptions: initialFormOptions = {}, searchItems, items, className, children, beforeActions, afterActions, actions, onSearch, onReset, onFold }: MaSearchProps<T>, ref: React.ForwardedRef<MaSearchExpose<T>>) {
-  const [options, setOptionsState] = React.useState<MaSearchOptions>(initialOptions)
-  const [formOptions, setFormOptionsState] = React.useState<MaFormOptions>(initialFormOptions)
-  const [currentItems, setCurrentItems] = React.useState<MaSearchItem<T>[]>(searchItems ?? items ?? [])
-  const [folded, setFolded] = React.useState(initialOptions.fold ?? false)
+function MaSearchInner<T extends MaModel>({ options: initialOptions = emptyOptions, formOptions: initialFormOptions = emptyFormOptions, searchItems, items, className, children, beforeActions, afterActions, actions, onSearch, onReset, onFold }: MaSearchProps<T>, ref: React.ForwardedRef<MaSearchExpose<T>>) {
+  const [options, setOptionsState] = usePropState(initialOptions)
+  const [formOptions, setFormOptionsState] = usePropState(initialFormOptions)
+  const [currentItems, setCurrentItems] = usePropState(searchItems ?? items ?? emptyItems as MaSearchItem<T>[])
+  const [folded, setFolded] = usePropState(options.fold ?? false)
   const [viewportColumns, setViewportColumns] = React.useState(() => typeof window === 'undefined' ? 1 : getViewportColumns(initialOptions, window.innerWidth))
   const formRef = React.useRef<MaFormExpose<T>>(null)
   const optionsRef = React.useRef(options)
   const formOptionsRef = React.useRef(formOptions)
   const itemsRef = React.useRef(currentItems)
-  const foldedRef = React.useRef(folded)
   React.useEffect(() => {
     optionsRef.current = options
     formOptionsRef.current = formOptions
@@ -80,29 +83,25 @@ function MaSearchInner<T extends MaModel>({ options: initialOptions = {}, formOp
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  }, [options.cols])
 
   const updateOptions = React.useCallback((nextOptions: MaSearchOptions) => {
     const merged = { ...optionsRef.current, ...nextOptions }
     optionsRef.current = merged
     setOptionsState(merged)
     if (typeof window !== 'undefined') setViewportColumns(getViewportColumns(merged, window.innerWidth))
-  }, [])
+  }, [setOptionsState])
 
   const updateFormOptions = React.useCallback((nextOptions: MaFormOptions) => {
     const merged = { ...formOptionsRef.current, ...nextOptions }
     formOptionsRef.current = merged
     setFormOptionsState(merged)
-  }, [])
+  }, [setFormOptionsState])
 
   const toggleFold = React.useCallback(() => {
-    setFolded(current => {
-      const next = !current
-      foldedRef.current = next
-      onFold?.(next)
-      return next
-    })
-  }, [onFold])
+    setFolded(!folded)
+    onFold?.(!folded)
+  }, [folded, onFold, setFolded])
 
   const visibleItems = React.useMemo(() => {
     const foldRows = options.foldRows ?? 2
@@ -125,7 +124,7 @@ function MaSearchInner<T extends MaModel>({ options: initialOptions = {}, formOp
           return hiddenByItem || (folded && getFoldRow(currentItems, index, viewportColumns) >= foldRows)
         },
         cols: item.cols ?? { span: item.span ? item.span * 24 / viewportColumns : 24 / viewportColumns },
-      }
+      } as MaSearchItem<T>
     })
   }, [currentItems, folded, options.foldRows, options.labelPlacement, viewportColumns])
 
@@ -146,7 +145,7 @@ function MaSearchInner<T extends MaModel>({ options: initialOptions = {}, formOp
   React.useImperativeHandle(ref, () => ({
     getMaFormRef: () => formRef.current,
     foldToggle: toggleFold,
-    getFold: () => foldedRef.current,
+    getFold: () => folded,
     setSearchForm: form => { if (form === null) formRef.current?.setValues(null); else formRef.current?.setValues(form) },
     getSearchForm: () => formRef.current?.getValues() ?? {} as T,
     setShowState: show => updateOptions({ show }),
@@ -162,7 +161,7 @@ function MaSearchInner<T extends MaModel>({ options: initialOptions = {}, formOp
     getItemByProp: prop => itemsRef.current.find(item => resolveProp(item.prop, formRef.current?.getValues() ?? {} as T) === prop) ?? null,
     setSearchBtnProps: props => updateOptions({ searchBtnProps: { ...optionsRef.current.searchBtnProps, ...props } }),
     setResetBtnProps: props => updateOptions({ resetBtnProps: { ...optionsRef.current.resetBtnProps, ...props } }),
-  }), [toggleFold, updateFormOptions, updateOptions])
+  }), [folded, setCurrentItems, toggleFold, updateFormOptions, updateOptions])
 
   if (!resolveShow(options.show)) return null
 

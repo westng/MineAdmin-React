@@ -134,7 +134,7 @@ export function UserSearchPanel() {
 
 ## 折叠行为
 
-`fold: true` 表示初始折叠；运行时 `getFold()` 返回 `true` 也表示当前折叠。`foldToggle()` 会切换状态，折叠按钮同步更新 `aria-expanded`。
+`fold: true` 表示折叠；运行时 `getFold()` 返回 `true` 也表示当前折叠。`foldToggle()` 会切换状态，折叠按钮同步更新 `aria-expanded`，字段显隐会传到实际表单。新的 `searchItems/items/options/formOptions` props 会生效，ref 修改保留到对应 props 换成新引用。`options.fold` 改变时同步折叠状态，其他配置更新不重置用户已切换的状态。字段的内置控件参数遵循 [MaForm 类型契约](../ma-form/README.md)。
 
 ```tsx
 searchRef.current?.foldToggle()

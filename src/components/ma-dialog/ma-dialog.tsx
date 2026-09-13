@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useImperativeHandle, useRef, useState, type ReactNode } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { MaDialogAction, MaDialogActionContext, MaDialogProps } from './types'
 
-function MaDialog({
+function MaDialog<Payload = unknown>({
   open: openProp,
   defaultOpen = false,
   onOpenChange,
@@ -34,11 +34,22 @@ function MaDialog({
   showFullscreenButton = true,
   showCloseButton = true,
   disablePointerDismissal = true,
+  size = 'md',
   contentClassName,
   headerClassName,
   bodyClassName,
   footerClassName,
-}: MaDialogProps) {
+  initialFocus,
+  finalFocus,
+  popupProps,
+  portalProps,
+  backdropProps,
+  closeProps,
+  actionsRef: actionsRefProp,
+  ...dialogRootProps
+}: MaDialogProps<Payload>) {
+  const actionsRef = useRef<import('./types').DialogRootActions>(null)
+  useImperativeHandle(actionsRefProp, () => ({ close: () => actionsRef.current?.close(), unmount: () => actionsRef.current?.unmount() }), [])
   const [internalOpen, setInternalOpen] = useState(defaultOpen)
   const [internalFullscreen, setInternalFullscreen] = useState(defaultFullscreen)
   const [okLoading, setOkLoading] = useState(false)
@@ -47,16 +58,17 @@ function MaDialog({
   const fullscreen = fullscreenProp ?? internalFullscreen
   const actionLoading = loading || okLoading || cancelLoading
 
-  const setOpen = useCallback((nextOpen: boolean) => {
+  const setOpen = useCallback<NonNullable<MaDialogProps['onOpenChange']>>((nextOpen, eventDetails) => {
+    onOpenChange?.(nextOpen, eventDetails)
+    if (eventDetails.isCanceled) return
     if (openProp === undefined) setInternalOpen(nextOpen)
     if (!nextOpen) {
       setOkLoading(false)
       setCancelLoading(false)
     }
-    onOpenChange?.(nextOpen)
   }, [onOpenChange, openProp])
 
-  const close = useCallback(() => setOpen(false), [setOpen])
+  const close = useCallback(() => actionsRef.current?.close(), [])
 
   const setFullscreen = useCallback((nextFullscreen: boolean) => {
     if (fullscreenProp === undefined) setInternalFullscreen(nextFullscreen)
@@ -94,18 +106,14 @@ function MaDialog({
 
   const handleOk = useCallback(() => runAction('ok', onOk), [onOk, runAction])
   const handleCancel = useCallback(() => runAction('cancel', onCancel), [onCancel, runAction])
-
-  useEffect(() => {
-    if (!isOpen || !onOk) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-        event.preventDefault()
-        handleOk()
-      }
+  const popupOnKeyDown = popupProps?.onKeyDown
+  const handleKeyDown = useCallback<NonNullable<NonNullable<MaDialogProps['popupProps']>['onKeyDown']>>(event => {
+    popupOnKeyDown?.(event)
+    if (!event.defaultPrevented && onOk && (event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault()
+      handleOk()
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleOk, isOpen, onOk])
+  }, [handleOk, onOk, popupOnKeyDown])
 
   const defaultFooter = (
     <>
@@ -114,14 +122,30 @@ function MaDialog({
     </>
   )
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setOpen} disablePointerDismissal={disablePointerDismissal}>
+  const sizeClasses: Record<string, string> = {
+    xs: 'sm:max-w-xs',
+    sm: 'sm:max-w-sm md:max-w-md',
+    md: 'sm:max-w-md md:max-w-lg lg:max-w-xl',
+    lg: 'sm:max-w-lg md:max-w-xl lg:max-w-2xl',
+    xl: 'sm:max-w-xl md:max-w-2xl lg:max-w-4xl',
+    full: 'max-w-[calc(100vw-2rem)]',
+  }
+
+  const renderContent = (body: ReactNode) => (
       <DialogContent
+        {...popupProps}
+        onKeyDown={handleKeyDown}
+        portalProps={portalProps}
+        backdropProps={backdropProps}
+        closeProps={closeProps}
         showCloseButton={showCloseButton}
-        className={cn(
-          'sm:max-w-sm',
+        initialFocus={initialFocus ?? popupProps?.initialFocus}
+        finalFocus={finalFocus ?? popupProps?.finalFocus}
+        className={state => cn(
+          sizeClasses[size],
           fullscreen && 'top-0! left-0! h-svh! max-w-none! translate-x-0! translate-y-0! rounded-none',
           contentClassName,
+          typeof popupProps?.className === 'function' ? popupProps.className(state) : popupProps?.className,
         )}
       >
         <DialogHeader className={cn('pr-10', headerClassName)}>
@@ -144,7 +168,7 @@ function MaDialog({
           </div>
         </DialogHeader>
         <div className={cn('relative min-h-0', fullscreen && 'flex-1 overflow-y-auto', bodyClassName)} aria-busy={actionLoading || undefined}>
-          {children}
+          {body}
         </div>
         {footer !== false && (
           <DialogFooter className={footerClassName}>
@@ -154,6 +178,17 @@ function MaDialog({
           </DialogFooter>
         )}
       </DialogContent>
+  )
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={setOpen}
+      disablePointerDismissal={disablePointerDismissal}
+      actionsRef={actionsRef}
+      {...dialogRootProps}
+    >
+      {typeof children === 'function' ? payload => renderContent(children(payload)) : renderContent(children)}
     </Dialog>
   )
 }

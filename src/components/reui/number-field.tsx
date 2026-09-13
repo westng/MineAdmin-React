@@ -78,7 +78,7 @@ function NumberField({
   return (
     <NumberFieldContext.Provider value={{ fieldId, size: sizeValue }}>
       <NumberFieldPrimitive.Root
-        className={cn("flex w-full flex-col items-start gap-2", className)}
+        className={state => cn("flex w-full flex-col items-start gap-2", typeof className === 'function' ? className(state) : className)}
         data-size={sizeValue}
         data-slot="number-field"
         id={fieldId}
@@ -104,7 +104,7 @@ function NumberFieldGroup({
 
   return (
     <NumberFieldPrimitive.Group
-      className={cn(numberFieldGroupVariants({ size }), className)}
+      className={state => cn(numberFieldGroupVariants({ size }), typeof className === 'function' ? className(state) : className)}
       data-slot="number-field-group"
       {...props}
     />
@@ -130,10 +130,10 @@ function NumberFieldDecrement({
 
   return (
     <NumberFieldPrimitive.Decrement
-      className={cn(
+      className={state => cn(
         numberFieldButtonVariants({ size }),
         "rounded-s-lg border-e-0",
-        className
+        typeof className === 'function' ? className(state) : className
       )}
       data-slot="number-field-decrement"
       {...props}
@@ -165,10 +165,10 @@ function NumberFieldIncrement({
 
   return (
     <NumberFieldPrimitive.Increment
-      className={cn(
+      className={state => cn(
         numberFieldButtonVariants({ size }),
         "rounded-e-lg border-s-0",
-        className
+        typeof className === 'function' ? className(state) : className
       )}
       data-slot="number-field-increment"
       {...props}
@@ -197,7 +197,7 @@ function NumberFieldInput({
 
   return (
     <NumberFieldPrimitive.Input
-      className={cn(numberFieldInputVariants({ size }), className)}
+      className={state => cn(numberFieldInputVariants({ size }), typeof className === 'function' ? className(state) : className)}
       data-slot="number-field-input"
       {...props}
     />

@@ -52,6 +52,7 @@ export function UserTable() {
 | `data` | 表格数据；优先于 `options.data` | `T[]` | `[]` |
 | `options` | 表格行为、分页和样式配置 | `MaTableOptions<T>` | `{}` |
 | `className` | 表格根容器 class | `string` | - |
+| `tabs` | 工具栏和搜索区上方的标签配置，兼容自定义 JSX | `MaTableTabsConfig \| ReactNode` | - |
 | `toolbarLeft` | 工具栏左侧插槽 | `ReactNode` | - |
 | `toolbarCenter` | 工具栏中间插槽 | `ReactNode` | - |
 | `toolbarRight` | 工具栏右侧插槽 | `ReactNode` | - |
@@ -90,9 +91,36 @@ export function UserTable() {
 | `tableLayout` | 表格布局算法 | `'fixed' | 'auto'` | `'fixed'` |
 | `className` | 表格内容 class | `string` | - |
 
-未提供 `pagination.total` 时，组件会对当前完整数据执行本地分页；提供 `total` 时，当前 `data` 被视为接口返回的当前页数据。分页默认每页选项为 `[10, 20, 50, 100]`，由官方 DataGrid 分页器渲染，并在 `MaProTable` 的 `FrameFooter` 中继承面板左右内边距。
+提供分页配置且未提供 `pagination.total` 时，组件对完整数据执行本地分页；提供 `total` 时，默认将 `data` 视为接口返回的当前页。`manualPagination: false` 可显式启用本地分页，`true` 则保留接口数据。`showPagination: false` 或没有分页配置时不切分本地数据；隐藏分页器不会替接口请求其他页。默认每页选项为 `[10, 20, 50, 100]`。
 
-类型中还保留了 `showOverflowTooltip`、`adaption`、`adaptionOffsetBottom`、`highlightCurrentRow`、`rowClassName`、`rowStyle` 和 `on` 字段，但当前 DataGrid 渲染器不会读取这些字段；不要依赖它们产生额外行为。
+`rowClassName`、`rowStyle` 作用于实际 DataGrid 数据行；`on.sortChange` 保留兼容回调。历史字段 `showOverflowTooltip`、`adaption`、`adaptionOffsetBottom`、`highlightCurrentRow` 不产生额外行为；新代码通过下述类型化入口设置对应布局或自行渲染单元格。
+
+## 配置更新与 ReUI 扩展
+
+新的 `columns/options/data` props 会更新组件。ref 方法可修改当前配置；对应 props 换成新引用后，以新 props 为准，不重新套用旧的 ref 修改。`pagination` 更新同样遵守此规则。推荐通过 `useMemo` 保持未变化的配置引用。
+
+| 入口 | 用途 |
+| --- | --- |
+| `options.dataGridProps` | DataGrid 布局、国际化、单元格编辑事件、行扩展属性等；布局与 class 配置在 Ma 默认值上合并 |
+| `options.tableOptions` | TanStack v9 的列显示、列顺序、固定列、筛选、元数据等配置和状态 |
+| `column.columnDef` | 原生 ColumnDef，例如 `meta.cellEdit`、`meta.fillWidth`、`enableResizing` 和自定义 accessor/cell |
+| `options.gridTableProps` | 标准表体的 `renderHeader/footerContent` |
+| `options.scrollAreaProps` | ScrollArea 属性和样式 |
+| `options.paginationProps` | 官方 DataGridPagination 的展示配置 |
+| `options.renderTable(table)` | 在 DataGrid 上下文中使用 Dnd、Virtual 等表体变体 |
+| `ref.getTableInstance()` | 当前 TanStack 实例，例如 `setColumnOrder`、`setColumnVisibility`、`setColumnSizing` |
+
+```tsx
+const options: MaTableOptions<UserRow> = {
+  dataGridProps: {
+    tableLayout: { columnsResizable: true, columnsMovable: true, columnsPinnable: true, headerSticky: true },
+    getRowProps: row => ({ 'aria-label': row.name }),
+  },
+  tableOptions: { initialState: { columnVisibility: { status: false } } },
+}
+```
+
+Ma 管理数据源、列结构、行键、分页、排序、行选择及展开状态，这些配置不能从 `tableOptions` 再覆盖。`dataGridProps` 不接收重复的 `table/recordCount/isLoading/children`；使用 Ma 的对应属性。官方拖动和虚拟表体需要通过 `renderTable` 组合对应组件和回调，单独开启 `columnsDraggable/rowsDraggable` 不会自动切换表体。表格仍是业务适配层，不等同于任意 TanStack 功能组合。
 
 ## MaTableColumn
 
@@ -109,11 +137,61 @@ export function UserTable() {
 | `className` / `headerClassName` | 单元格和表头 class | `string` |
 | `formatter` | 默认值格式化函数 | `(row, column, value, index) => ReactNode` |
 | `cellRender` | 单元格渲染函数 | `(context) => ReactNode` |
+| `cellRenderTo` | 调用已注册的单元格渲染器，`props` 支持按行求值 | `{ name, props?: object \| unknown[] \| ((context) => object \| unknown[]) }` |
 | `headerRender` | 表头渲染函数 | `(column) => ReactNode` |
 | `children` | 多级列配置 | `MaTableColumn<T>[]` |
 | `expandedRender` | 展开行内容渲染函数 | `(context) => ReactNode` |
 
-`cellRender` 优先于 `formatter`；没有自定义渲染器时，空值显示为 `-`。`fixed` 当前只存在于类型契约中，组件不会额外改变列布局。
+普通数据列的优先级为 `cellRender` → 已注册的 `cellRenderTo` → `formatter` → 原始值。未知渲染器回退到 `formatter` 或原始值，空值显示为 `-`；渲染器主动返回 `null` 时保留空白。显式设置 `columnDef.cell` 时使用该原生渲染器。`children` 保留分组表头，隐藏父分组会隐藏其子列；`fixed: true/'left'` 映射为起始侧固定，`'right'` 映射为末尾侧固定，分组固定设置向子列继承。
+
+### 单元格渲染插件
+
+```tsx
+const columns = [{
+  label: '状态',
+  prop: 'status',
+  cellRenderTo: {
+    name: 'west/cell-enhance',
+    props: { type: 'badge', props: { variant: 'success-light' } },
+  },
+}]
+```
+
+插件在 `install` 中调用 `registerTableCellRenderer({ name, render })` 注册。`render(context, props)` 接收行、列、索引、原始值和已求值的配置，返回 React 节点。`props` 可写为 `(context) => 配置对象`。同一注册表由 `MaTable` 和 `MaProTable` 共用；注册、替换、移除后，已挂载表格会更新。
+
+`registerTableCellRenderer` 返回本次注册的注销函数，也可使用 `removeTableCellRenderer(name)` 主动移除。注销旧注册不会移除后来替换的实现。注册接口及相关类型均从两类表格的入口导出。
+
+## 标签切换
+
+`tabs` 传入配置后，由 `MaTable` 渲染下划线标签和数量角标，标签栏位于 `headerContent` 与工具栏上方。未传或 `items` 为空时不占空间；已有 JSX 插槽仍然可用。
+
+```tsx
+<MaTable
+  columns={columns}
+  data={data}
+  tabs={{
+    value: activeTab,
+    items: [
+      { value: 'members', label: 'Members', count: 5 },
+      { value: 'roles', label: 'Roles', count: 4 },
+      { value: 'billing', label: 'Billing', count: 4, disabled: true },
+    ],
+    onValueChange: value => setActiveTab(value),
+  }}
+/>
+```
+
+| 字段 | 说明 | 类型 |
+| --- | --- | --- |
+| `items` | 标签列表，`value` 必须唯一 | `readonly MaTableTabItem[]` |
+| `value` | 受控选中值，由页面在回调中更新 | `string \| number` |
+| `defaultValue` | 非受控初始值；缺省或选项失效时选中首个可用标签 | `string \| number` |
+| `ariaLabel` | 标签栏的无障碍名称，默认“表格标签” | `string` |
+| `onValueChange` | 切换回调，传回选中值及对应配置 | `(value: MaTableTabValue, item: MaTableTabItem) => void` |
+
+每个标签支持 `value`、`label: ReactNode`、`count?: number | string` 和 `disabled?: boolean`。数量为 `0` 时仍显示角标，未提供数量时不显示。标签值和数量可以随页面状态更新。
+
+组件复用 Base UI Tabs 的焦点和键盘操作：方向键移动焦点，Enter/空格激活标签。标签对应同一个表格面板；数据筛选、请求和分页策略由调用方处理，不根据标签值自行猜测接口字段。
 
 ## 工具栏插槽
 
@@ -146,6 +224,8 @@ export function UserTable() {
 - `type: 'expand'`：显示展开按钮，并使用该列的 `expandedRender` 渲染展开行。
 - 行内按钮、输入框、链接和复选框不会冒泡触发行点击回调。
 
+`onSelectionChange` 在挂载和当前页已选行变化后通知调用方；只替换回调、行键函数或包含相同行对象的数据数组不会再次通知。选中行替换为新的数据对象时会通知。后续选择使用最新回调，回调返回值被忽略。需要跨页保留业务选择时，使用 `MaProTable.selection.crossPage`。
+
 ## 实例方法
 
 ```tsx
@@ -173,6 +253,7 @@ tableRef.current?.clearSelection()
 | `getSelectionRows()` | 获取当前页已选行 | `T[]` |
 | `clearSelection()` | 清除当前选择 | `void` |
 | `getElTableRef()` | 获取原生 `HTMLTableElement` | `HTMLTableElement | null` |
+| `getTableInstance()` | 获取 TanStack v9 表格实例 | `DataGridTableInstance<T>` |
 
 ## 目录职责
 
@@ -183,6 +264,7 @@ tableRef.current?.clearSelection()
 - `components/ma-table-body.tsx`：基础 Table 兼容实现（由旧调用保留）。
 - `components/ma-table-pagination.tsx`：基础 Table 兼容分页实现（由旧调用保留）。
 - `components/ma-table-toolbar.tsx`：左、中、右工具栏布局。
+- `components/ma-table-tabs.tsx`：标签配置、选中态、数量角标和兼容插槽。
 - `hooks/`：选择和排序状态逻辑。
 - `utils/table-utils.ts`：字段、列和行样式辅助函数。
 

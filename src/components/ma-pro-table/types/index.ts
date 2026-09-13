@@ -1,14 +1,13 @@
 import type * as React from 'react'
 import type { MaFormOptions } from '../../ma-form/types'
 import type { MaSearchItem, MaSearchExpose, MaSearchOptions } from '../../ma-search/types'
-import type { MaTableCellContext, MaTableColumn, MaTableExpose, MaTableOptions, MaTablePagination } from '../../ma-table/types'
+import type { MaTableCellContext, MaTableColumn, MaTableExpose, MaTableOptions, MaTablePagination, MaTableTabsConfig } from '../../ma-table/types'
 import type { MaModel } from '../../shared/types'
 
 export type MaProTableModel = MaModel
 
 export interface MaProTableColumns<T extends MaProTableModel = MaProTableModel> extends MaTableColumn<T> {
   toolHide?: boolean
-  cellRenderTo?: { name: string; props?: unknown | unknown[] }
   operationConfigure?: {
     type?: 'auto' | 'dropdown' | 'tile'
     fold?: number
@@ -19,6 +18,10 @@ export interface MaProTableColumns<T extends MaProTableModel = MaProTableModel> 
 export interface MaProTableOperationAction<T extends MaProTableModel = MaProTableModel> {
   name?: string
   text?: string | ((context: MaTableCellContext<T>) => string)
+  icon?: React.ReactNode
+  variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link'
+  size?: 'default' | 'sm' | 'xs'
+  className?: string
   order?: number
   disabled?: (context: MaTableCellContext<T>) => boolean
   show?: (context: MaTableCellContext<T>) => boolean
@@ -74,7 +77,7 @@ export interface MaProTableProps<T extends MaProTableModel = MaProTableModel> {
   variant?: 'default' | 'card'
   className?: string
   header?: React.ReactNode
-  tabs?: React.ReactNode
+  tabs?: MaTableTabsConfig | React.ReactNode
   toolbarCenter?: React.ReactNode
   toolbar?: React.ReactNode
   toolbarLeft?: React.ReactNode
@@ -107,3 +110,5 @@ export interface MaProTableExpose<T extends MaProTableModel = MaProTableModel> {
 export type { MaFormOptions }
 export type { MaSearchExpose, MaSearchItem, MaSearchOptions }
 export type { MaTableCellContext, MaTableColumn, MaTableExpose, MaTableOptions, MaTablePagination }
+export type { MaTableCellRenderer, MaTableCellRenderProps, MaTableCellRenderTo } from '../../ma-table/types'
+export type { MaTableTabItem, MaTableTabsConfig, MaTableTabValue } from '../../ma-table/types'

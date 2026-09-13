@@ -22,7 +22,7 @@ export interface MaSearchOptions {
   resetBtnProps?: Record<string, unknown>
 }
 
-export interface MaSearchItem<T extends MaSearchModel = MaSearchModel> extends MaFormItem<T> {
+export type MaSearchItem<T extends MaSearchModel = MaSearchModel> = MaFormItem<T> & {
   span?: number
   offset?: number
 }

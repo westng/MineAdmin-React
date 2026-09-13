@@ -110,7 +110,7 @@ import {
 | `itemSlots` | 自定义标签、帮助、附加说明和错误内容 | `MaFormItem<T>['itemSlots']` |
 | `render` | 内置控件名、自定义渲染函数或组件 | `MaFormRender<T> | MaFormComponentName | ComponentType` |
 | `component` | 内置控件名或自定义组件；优先于 `render` | `MaFormComponentName | ComponentType` |
-| `renderProps` | 传给控件的属性 | `Record<string, unknown>` |
+| `renderProps` | 随内置控件类型检查参数；自定义渲染器保留开放配置 | `MaFormControlPropsMap[组件名]` |
 | `children` | 自定义渲染项的子配置 | `MaFormItem<T>[]` |
 
 `show` 和 `hide` 的区别是：`show` 为假时字段不挂载，`hide` 为真时字段保留在表单树中但使用隐藏样式。`MaForm` 当前只使用 `cols.span` 和 `cols.offset`，响应式 `xs`、`sm`、`md`、`lg`、`xl` 字段只是类型保留。`children` 当前只对带函数式 `render` 的自定义子项执行渲染。
@@ -123,16 +123,48 @@ import {
 | --- | --- | --- |
 | `Input` | 文本输入框 | `string` |
 | `Password` | 密码输入框 | `string` |
-| `InputNumber` | 数字输入框 | `number | undefined` |
+| `InputNumber` | ReUI NumberField | `number | undefined` |
 | `Textarea` | 多行文本框 | `string` |
-| `Select` | 选择器 | `string` |
+| `Select` | Base UI Select，支持多选 | 选项原值，多选为数组 |
 | `Checkbox` | 复选框 | `boolean` |
-| `Switch` | 开关语义的复选控件 | `boolean` |
-| `DatePicker` | 日期输入框 | `string` |
-| `TimePicker` | 时间输入框 | `string` |
-| `Radio` | 单选组 | `string` |
+| `Switch` | Base UI Switch | `boolean` |
+| `DatePicker` | Calendar + Popover | 默认日期字符串，支持范围、数组或 Date |
+| `TimePicker` | 分段 Select | `HH:mm` 或 `HH:mm:ss` |
+| `Radio` | Base UI RadioGroup / Radio | 选项原值 |
 
-`Select` 和 `Radio` 从 `renderProps.options` 或 `renderProps.items` 读取选项。选项可以是字符串、数字，或包含 `label`、`name`、`title`、`value`、`id` 的对象。
+`Select` 和 `Radio` 从 `renderProps.options` 或 `renderProps.items` 读取选项。选项可以是字符串、数字、布尔值或包含 `label/name/title/value/id` 的对象；保留原值类型，不再强制转成字符串。选中后展示 label，提交仍使用 value。旧业务如果自行依赖字符串数值，应将选项 value 明确配置为字符串。
+
+## 配置、事件和高级控件
+
+新的 `items/options` props 会立即生效。`setItems/setOptions` 的运行时修改保留到对应 props 换成新引用；`defaultValue` 只初始化模型，持续控制模型请使用 `modelValue`。表单级 `disabled/loading` 对内置控件优先，控件不能用 `disabled: false` 覆盖。
+
+```tsx
+const items: MaFormItem[] = [
+  { prop: 'tags', render: 'Select', renderProps: {
+    multiple: true,
+    options: [{ label: '研发', value: 1 }, { label: '运营', value: 2 }],
+    onValueChange: (value, details) => { if (!canChange(value)) details.cancel() },
+    triggerProps: { className: 'w-full' },
+    popupProps: { sideOffset: 8, portalProps: { container: document.body } },
+  } },
+  { prop: 'count', render: 'InputNumber', renderProps: { min: 0, max: 100, step: 5 } },
+  { prop: 'date', render: 'DatePicker', renderProps: { valueFormat: 'yyyy-MM-dd', min: '2026-01-01' } },
+  { prop: 'time', render: 'TimePicker', renderProps: { minuteStep: 15, showSeconds: false } },
+]
+```
+
+| 控件 | 扩展入口 |
+| --- | --- |
+| Select | Root 参数直接写入 `renderProps`；各部位使用 `triggerProps/valueProps/popupProps/itemProps`；Popup 内支持 `portalProps/positionerProps/listProps` |
+| Checkbox / Switch | 保留 `onCheckedChange(checked, details)`、只读、必填和状态样式等原语属性 |
+| Radio | Root 参数与 `onValueChange`，选项部位使用 `itemProps` |
+| InputNumber | Root 的 `min/max/step/format/locale/onValueChange/onValueCommitted` 等；部位通过 `inputProps/groupProps/incrementProps/decrementProps`；`controls: false` 隐藏步进按钮 |
+| DatePicker | `mode: single/multiple/range`，`valueFormat` 使用 date-fns 格式或 `'date'`；`calendarProps/popoverProps/popupProps/triggerProps`；`min/max` 限制可选日期 |
+| TimePicker | `minuteStep/secondStep/showSeconds` 和 `hourProps/minuteProps/secondProps`，每段保留 Select Root、Trigger、Popup 配置 |
+
+内置控件的值由 MaForm 模型管理。值变化回调先收到完整 Base UI 事件详情，`details.cancel()` 可阻止模型更新；普通输入的 `onChange` 与模型更新会合并，`preventDefault()` 可取消更新。日期和时间属于组合控件，使用上表的适配契约；需要完全自定义的布局或其他模式时使用 `render/component`。
+
+`MaFormItem` 按 `render/component` 区分内置参数类型，例如 Select 的 `multiple` 必须是布尔值、InputNumber 的 `min` 必须是数字。自定义 renderer 的 `renderProps` 仍是开放对象。相关类型从 `@/components/ma-form` 导出。
 
 文本类控件支持 `renderProps.prefix` 和 `renderProps.suffix`，组件会将控件放入 `InputGroup`。这两个属性不会继续透传给底层输入控件。
 

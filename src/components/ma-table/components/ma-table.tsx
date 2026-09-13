@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useTable, type ColumnDef, type ExpandedState, type PaginationState, type RowSelectionState, type SortingState, type Updater } from '@tanstack/react-table'
+import { useTable, type ColumnDef, type ColumnPinningState, type ExpandedState, type PaginationState, type RowSelectionState, type SortingState, type Updater } from '@tanstack/react-table'
 import { DataGrid, dataGridFeatures, type DataGridFeatures } from '@/components/reui/data-grid/data-grid'
 import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header'
 import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination'
@@ -10,12 +10,33 @@ import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 import { FrameFooter } from '@/components/reui/frame'
 import { MaTableToolbar } from './ma-table-toolbar'
+import { MaTableTabs } from './ma-table-tabs'
 import { useMaTableSelection } from '../hooks/use-ma-table-selection'
 import { useMaTableSort } from '../hooks/use-ma-table-sort'
-import { flattenColumns, getColumnValue, resolveColumnLabel, resolveRowKey } from '../utils/table-utils'
+import { useTableCellRenderers } from '../hooks/use-table-cell-renderers'
+import { renderTableCell } from '../utils/render-cell'
+import { usePropState } from '../../shared/use-prop-state'
+import { flattenColumns, getColumnValue, resolveColumnLabel, resolveRowClass, resolveRowKey, resolveRowStyle } from '../utils/table-utils'
 import type { MaTableCellContext, MaTableColumn, MaTableExpose, MaTableModel, MaTableOptions, MaTablePagination as MaTablePaginationConfig, MaTableProps, MaTableSortOrder } from '../types'
 
 type MaModel = MaTableModel
+const emptyColumns: MaTableColumn[] = []
+const emptyRows: MaModel[] = []
+const emptyOptions: MaTableOptions = {}
+const emptyPagination: MaTablePaginationConfig = {}
+
+function filterColumns<T extends MaModel>(columns: MaTableColumn<T>[]): MaTableColumn<T>[] {
+  return columns.filter(column => typeof column.hide === 'function' ? !column.hide(column) : !column.hide)
+    .flatMap(column => {
+      if (!column.children?.length) return [column]
+      const children = filterColumns(column.children)
+      return children.length ? [{ ...column, children }] : []
+    })
+}
+
+function getColumnId<T extends MaModel>(column: MaTableColumn<T>, path: string): string {
+  return typeof column.prop === 'string' || typeof column.prop === 'number' ? String(column.prop) : column.type ?? `column-${path}`
+}
 
 function resolveColumnSize(width: string | number | undefined) {
   if (typeof width === 'number') return Number.isFinite(width) ? width : undefined
@@ -28,22 +49,18 @@ function resolveColumnSize(width: string | number | undefined) {
   return Number.isFinite(size) ? size : undefined
 }
 
-function MaTableInner<T extends MaModel>({ columns: initialColumns = [], data, options: initialOptions = {}, className, toolbarCenter, toolbar, toolbarLeft, toolbarRight, headerContent, footerContent, loading: loadingProp, onSelectionChange, onRowClick, onSortChange, empty }: MaTableProps<T>, ref: React.ForwardedRef<MaTableExpose<T>>) {
-  const [columnsOverride, setColumnsOverride] = React.useState<MaTableColumn<T>[] | null>(null)
-  const [internalRows, setRows] = React.useState<T[]>(initialOptions.data ?? data ?? [])
-  const [optionsOverrides, setOptionsOverrides] = React.useState<MaTableOptions<T>>({})
-  const options = React.useMemo(() => ({ ...initialOptions, ...optionsOverrides, pagination: { ...initialOptions.pagination, ...optionsOverrides.pagination } }), [initialOptions, optionsOverrides])
-  const rows = data ?? options.data ?? internalRows
-  const columns = columnsOverride ?? initialColumns
-  const [loadingOverride, setLoading] = React.useState<boolean | undefined>(undefined)
-  const [paginationOverrides, setPaginationOverrides] = React.useState<MaTablePaginationConfig>({})
-  const pagination = React.useMemo(() => ({ ...initialOptions.pagination, ...optionsOverrides.pagination, ...paginationOverrides }), [initialOptions.pagination, optionsOverrides.pagination, paginationOverrides])
+function MaTableInner<T extends MaModel>({ columns: initialColumns = emptyColumns as MaTableColumn<T>[], data, options: initialOptions = emptyOptions as MaTableOptions<T>, className, tabs, toolbarCenter, toolbar, toolbarLeft, toolbarRight, headerContent, footerContent, loading: loadingProp, onSelectionChange, onRowClick, onSortChange, empty }: MaTableProps<T>, ref: React.ForwardedRef<MaTableExpose<T>>) {
+  const cellRenderers = useTableCellRenderers()
+  const [columns, setColumns] = usePropState(initialColumns)
+  const [options, setOptions] = usePropState(initialOptions)
+  const [rows, setRows] = usePropState(data ?? options.data ?? emptyRows as T[])
+  const [isLoading, setLoading] = usePropState(loadingProp ?? Boolean(options.loading))
+  const [pagination, setPaginationState] = usePropState(options.pagination ?? emptyPagination)
   const [expandedState, setExpandedState] = React.useState<ExpandedState>({})
   const tableContainerRef = React.useRef<HTMLDivElement>(null)
 
-  const visibleColumns = React.useMemo(() => flattenColumns(columns).filter(column => {
-    return typeof column.hide === 'function' ? !column.hide(column) : column.hide !== true
-  }), [columns])
+  const columnTree = React.useMemo(() => filterColumns(columns), [columns])
+  const visibleColumns = React.useMemo(() => flattenColumns(columnTree), [columnTree])
 
   const getRowKey = React.useCallback((row: T, index: number) => resolveRowKey(row, index, options.rowKey), [options.rowKey])
   const handleSortChange = React.useCallback((prop: string, order: MaTableSortOrder) => {
@@ -54,42 +71,23 @@ function MaTableInner<T extends MaModel>({ columns: initialColumns = [], data, o
   const pageSize = Math.max(1, pagination.pageSize ?? 10)
   const total = pagination.total ?? sortedRows.length
   const currentPage = Math.min(Math.max(1, pagination.currentPage ?? 1), Math.max(1, Math.ceil(total / pageSize)))
-  const displayRows = pagination.total === undefined ? sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize) : sortedRows
+  const showPagination = options.showPagination !== false && (options.showPagination === true || options.pagination !== undefined || pagination !== emptyPagination)
+  const paginateLocally = showPagination && !(options.manualPagination ?? pagination.total !== undefined)
+  const displayRows = React.useMemo(() => paginateLocally ? sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize) : sortedRows, [currentPage, pageSize, paginateLocally, sortedRows])
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
   const getDisplayRowKey = React.useCallback((row: T, index: number) => getRowKey(row, (currentPage - 1) * pageSize + index), [currentPage, getRowKey, pageSize])
-  const selectableRows = displayRows.filter(row => row !== undefined)
+  const selectableRows = displayRows
   const { selectedKeys, selectedRows, updateSelection, clearSelection } = useMaTableSelection({ rows: displayRows, selectableRows, getRowKey: getDisplayRowKey, onSelectionChange })
 
-  const setPagination = React.useCallback((nextPagination: MaTablePaginationConfig) => setPaginationOverrides(current => ({ ...current, ...nextPagination })), [])
+  const setPagination = React.useCallback((nextPagination: MaTablePaginationConfig) => setPaginationState(current => ({ ...current, ...nextPagination })), [setPaginationState])
   const setCurrentPage = React.useCallback((page: number) => {
     const nextPage = Math.min(Math.max(1, page), pageCount)
-    setPaginationOverrides(current => {
+    setPaginationState(current => {
       return { ...current, currentPage: nextPage }
     })
     pagination.onCurrentChange?.(nextPage)
     pagination.onChange?.(nextPage, pagination.pageSize ?? 10)
-  }, [pageCount, pagination])
-
-  React.useImperativeHandle(ref, () => ({
-    setData: setRows,
-    setPagination,
-    setCurrentPage,
-    getCurrentPage: () => currentPage,
-    setLoadingState: setLoading,
-    setOptions: nextOptions => setOptionsOverrides(current => ({ ...current, ...nextOptions })),
-    getOptions: () => options,
-    setColumns: setColumnsOverride,
-    getColumns: () => columns,
-    appendColumn: column => setColumnsOverride(current => [...(current ?? initialColumns), column]),
-    removeColumn: prop => setColumnsOverride(current => (current ?? initialColumns).filter(column => column.prop !== prop)),
-    getColumnByProp: prop => columns.find(column => column.prop === prop) ?? null,
-    getSelectionRows: () => selectedRows,
-    clearSelection,
-    getElTableRef: () => tableContainerRef.current?.querySelector('table') ?? null,
-  }), [clearSelection, columns, currentPage, initialColumns, options, selectedRows, setCurrentPage, setPagination])
-
-  const showPagination = options.showPagination !== false && Boolean(options.pagination || pagination.total !== undefined)
-  const isLoading = loadingProp ?? loadingOverride ?? Boolean(options.loading)
+  }, [pageCount, pagination, setPaginationState])
   const selectionColumn = visibleColumns.find(column => column.type === 'selection')
   const expandedColumn = visibleColumns.find(column => column.type === 'expand')
   const selectionState = React.useMemo<RowSelectionState>(() => Object.fromEntries([...selectedKeys].map(key => [key, true])), [selectedKeys])
@@ -105,11 +103,11 @@ function MaTableInner<T extends MaModel>({ columns: initialColumns = [], data, o
     const nextPageSize = Math.max(1, next.pageSize)
     const pageSizeChanged = nextPageSize !== pageSize
     const nextPage = pageSizeChanged ? 1 : Math.min(Math.max(1, next.pageIndex + 1), pageCount)
-    setPaginationOverrides(previous => ({ ...previous, currentPage: nextPage, pageSize: nextPageSize }))
+    setPaginationState(previous => ({ ...previous, currentPage: nextPage, pageSize: nextPageSize }))
     if (nextPageSize !== pageSize) pagination.onSizeChange?.(nextPageSize)
     if (pageSizeChanged || nextPage !== currentPage) pagination.onCurrentChange?.(nextPage)
     pagination.onChange?.(nextPage, nextPageSize)
-  }, [currentPage, pageCount, pageSize, pagination])
+  }, [currentPage, pageCount, pageSize, pagination, setPaginationState])
   const handleGridSortingChange = React.useCallback((updater: Updater<SortingState>) => {
     const next = typeof updater === 'function' ? updater(sortingState) : updater
     const nextSort = next[0]
@@ -132,12 +130,27 @@ function MaTableInner<T extends MaModel>({ columns: initialColumns = [], data, o
     const next = typeof updater === 'function' ? updater(expandedStateValue) : updater
     setExpandedState(next)
   }, [expandedStateValue])
-  const gridColumns = React.useMemo<ColumnDef<DataGridFeatures, T, unknown>[]>(() => visibleColumns.map((column, columnIndex) => {
+  const configuredPinning = React.useMemo<ColumnPinningState>(() => {
+    const pinning: ColumnPinningState = { start: [], end: [] }
+    const visit = (items: MaTableColumn<T>[], parentPath = '', inheritedFixed?: MaTableColumn<T>['fixed']) => items.forEach((column, index) => {
+      const path = `${parentPath}${index}`
+      const fixed = column.fixed ?? inheritedFixed
+      if (column.children?.length) visit(column.children, `${path}-`, fixed)
+      else if (fixed) pinning[fixed === 'right' ? 'end' : 'start']?.push(getColumnId(column, path))
+    })
+    visit(columnTree)
+    return options.tableOptions?.initialState?.columnPinning ?? pinning
+  }, [columnTree, options.tableOptions?.initialState?.columnPinning])
+  const [columnPinning, setColumnPinning] = usePropState(configuredPinning)
+  const gridColumns = React.useMemo<ColumnDef<DataGridFeatures, T, unknown>[]>(() => {
+    const convert = (items: MaTableColumn<T>[], parentPath = ''): ColumnDef<DataGridFeatures, T, unknown>[] => items.map((column, columnIndex) => {
+    const path = `${parentPath}${columnIndex}`
     const columnAlign = column.align ?? options.columnAlign
     const headerAlign = column.headerAlign ?? options.headerAlign ?? options.columnAlign
-    const canSort = Boolean(column.sortable && typeof column.prop === 'string')
+    const canSort = Boolean((column.sortable ?? column.columnDef?.enableSorting) && typeof column.prop === 'string')
+    const defaultSkeleton = column.skeleton ?? <div className="h-4 w-full rounded bg-muted animate-pulse" />
     return {
-      id: String(column.prop ?? column.type ?? `column-${columnIndex}`),
+      id: getColumnId(column, path),
       header: ({ column: tableColumn }) => {
         const label = column.headerRender?.(column) ?? resolveColumnLabel(column)
         if (column.type === 'selection') return <DataGridTableRowSelectAll />
@@ -152,9 +165,9 @@ function MaTableInner<T extends MaModel>({ columns: initialColumns = [], data, o
             ? <div className="-ms-2 flex h-full items-center"><button type="button" className={cn('text-secondary-foreground/80 hover:bg-secondary hover:text-foreground inline-flex h-6 items-center gap-1.5 rounded-lg px-2 font-normal', headerAlign === 'center' && 'w-full justify-center text-center', headerAlign === 'right' && 'w-full justify-end text-right', column.headerClassName)} onClick={() => tableColumn.toggleSorting()} aria-label={`按${typeof label === 'string' ? label : '此列'}排序`}>{label}{sortIcon}</button></div>
             : <div className={cn('text-secondary-foreground/80 inline-flex h-full items-center gap-1.5 font-normal text-[0.8125rem] leading-[calc(1.125/0.8125)]', headerAlign === 'center' && 'justify-center text-center', headerAlign === 'right' && 'justify-end text-right')}>{label}</div>
         }
-        return <DataGridColumnHeader column={tableColumn} title={label} className={cn(headerAlign === 'center' && 'w-full justify-center text-center', headerAlign === 'right' && 'w-full justify-end text-right', column.headerClassName)} />
+        return <DataGridColumnHeader column={tableColumn} title={label} visibility={options.dataGridProps?.tableLayout?.columnsVisibility} className={cn(headerAlign === 'center' && 'w-full justify-center text-center', headerAlign === 'right' && 'w-full justify-end text-right', column.headerClassName)} />
       },
-      accessorFn: row => String(getColumnValue(row, column) ?? ''),
+      accessorFn: row => getColumnValue(row, column),
       cell: ({ row }) => {
         const item = row.original
         const rowIndex = row.index
@@ -163,22 +176,27 @@ function MaTableInner<T extends MaModel>({ columns: initialColumns = [], data, o
         if (column.type === 'selection') return <DataGridTableRowSelect row={row} />
         if (column.type === 'index') return (currentPage - 1) * pageSize + rowIndex + 1
         if (column.type === 'expand') return <DataGridTableRowExpand row={row} />
-        if (column.cellRender) return column.cellRender(context)
-        if (column.formatter) return column.formatter(item, column, value, rowIndex)
-        return value == null || value === '' ? '-' : String(value)
+        return renderTableCell(context, cellRenderers)
       },
+      size: resolveColumnSize(column.width),
+      minSize: resolveColumnSize(column.minWidth),
+      enableSorting: canSort,
+      ...column.columnDef,
       meta: {
         headerTitle: typeof column.label === 'string' ? column.label : undefined,
         headerClassName: cn(column.headerClassName, headerAlign === 'center' && 'text-center', headerAlign === 'right' && 'text-right'),
         cellClassName: cn(column.className, columnAlign === 'center' && 'text-center', columnAlign === 'right' && 'text-right'),
         expandedContent: column.type === 'expand' && column.expandedRender ? (row: T) => column.expandedRender?.({ row, rowIndex: displayRows.indexOf(row), column, value: undefined }) : undefined,
+        skeleton: defaultSkeleton,
+        ...column.columnDef?.meta,
       },
-      size: resolveColumnSize(column.width),
-      minSize: resolveColumnSize(column.minWidth),
-      enableSorting: canSort,
+      ...(column.children?.length ? { columns: convert(column.children, `${path}-`) } : {}),
     }
-  }), [currentPage, displayRows, options.columnAlign, options.headerAlign, pageSize, visibleColumns])
+    })
+    return convert(columnTree)
+  }, [cellRenderers, columnTree, currentPage, displayRows, options.columnAlign, options.dataGridProps?.tableLayout?.columnsVisibility, options.headerAlign, pageSize])
   const gridTable = useTable<DataGridFeatures, T>({
+    ...options.tableOptions,
     features: dataGridFeatures,
     data: displayRows,
     columns: gridColumns,
@@ -186,31 +204,71 @@ function MaTableInner<T extends MaModel>({ columns: initialColumns = [], data, o
     manualPagination: true,
     pageCount,
     rowCount: total,
-    state: { pagination: { pageIndex: currentPage - 1, pageSize }, sorting: sortingState, rowSelection: selectionState, expanded: expandedStateValue },
+    state: { ...options.tableOptions?.state, columnPinning: options.tableOptions?.state?.columnPinning ?? columnPinning, pagination: { pageIndex: currentPage - 1, pageSize }, sorting: sortingState, rowSelection: selectionState, expanded: expandedStateValue },
+    onColumnPinningChange: options.tableOptions?.onColumnPinningChange ?? setColumnPinning,
     onPaginationChange: handleGridPaginationChange,
     onSortingChange: handleGridSortingChange,
     onRowSelectionChange: handleGridRowSelectionChange,
     onExpandedChange: handleGridExpandedChange,
     manualSorting: true,
-    enableRowSelection: Boolean(selectionColumn),
-    enableExpanding: Boolean(expandedColumn),
-    getRowCanExpand: () => Boolean(expandedColumn?.expandedRender),
+    enableRowSelection: options.tableOptions?.enableRowSelection ?? Boolean(selectionColumn),
+    enableExpanding: options.tableOptions?.enableExpanding ?? Boolean(expandedColumn),
+    getRowCanExpand: options.tableOptions?.getRowCanExpand ?? (() => Boolean(expandedColumn?.expandedRender)),
   })
+  React.useImperativeHandle(ref, () => ({
+    setData: setRows,
+    setPagination,
+    setCurrentPage,
+    getCurrentPage: () => currentPage,
+    setLoadingState: setLoading,
+    setOptions: nextOptions => setOptions(current => ({ ...current, ...nextOptions, ...(nextOptions.pagination ? { pagination: { ...current.pagination, ...nextOptions.pagination } } : {}) })),
+    getOptions: () => options,
+    setColumns,
+    getColumns: () => columns,
+    appendColumn: column => setColumns(current => [...current, column]),
+    removeColumn: prop => setColumns(current => current.filter(column => column.prop !== prop)),
+    getColumnByProp: prop => flattenColumns(columns).find(column => column.prop === prop) ?? null,
+    getSelectionRows: () => selectedRows,
+    clearSelection,
+    getElTableRef: () => tableContainerRef.current?.querySelector('table') ?? null,
+    getTableInstance: () => gridTable,
+  }), [clearSelection, columns, currentPage, gridTable, options, selectedRows, setColumns, setCurrentPage, setLoading, setOptions, setPagination, setRows])
   const resolvedToolbarCenter = toolbarCenter ?? toolbar
   const hasToolbar = toolbarLeft != null || resolvedToolbarCenter != null || toolbarRight != null
+  const dataGridProps = options.dataGridProps
 
   return (
-    <DataGrid table={gridTable} recordCount={total} isLoading={isLoading} emptyMessage={empty ?? options.emptyText ?? '暂无数据'} onRowClick={row => onRowClick?.(row, displayRows.indexOf(row))} i18n={{ labels: { rowsPerPage: '每页', previousPage: '上一页', nextPage: '下一页', goToPage: page => `跳转到第 ${page} 页`, paginationInfo: ({ from, to, count }) => `第 ${from}-${to} 条，共 ${count} 条`, paginationEllipsis: '...', selectRow: '选择行', selectAll: '选择全部', expandRow: '展开行', collapseRow: '收起行', loading: '加载中…', empty: '暂无数据' } }} tableLayout={{ dense: options.dense, cellBorder: options.border, stripped: options.stripe, rowBorder: true, footerBackground: false, headerSticky: false, columnsResizable: false, columnsMovable: false, width: options.tableLayout === 'auto' ? 'auto' : 'fixed' }} tableClassNames={{ base: options.className, bodyRow: options.dense ? '[&>td]:h-10' : '[&>td]:h-12', edgeCell: 'first:ps-(--frame-panel-header-px) last:pe-(--frame-panel-header-px)' }}>
+    <DataGrid
+      {...dataGridProps}
+      table={gridTable}
+      recordCount={total}
+      isLoading={isLoading}
+      loadingMode={dataGridProps?.loadingMode ?? options.loadingMode ?? 'skeleton'}
+      emptyMessage={empty ?? dataGridProps?.emptyMessage ?? options.emptyText ?? '暂无数据'}
+      onRowClick={onRowClick || dataGridProps?.onRowClick ? row => {
+        onRowClick?.(row, displayRows.indexOf(row))
+        dataGridProps?.onRowClick?.(row)
+      } : undefined}
+      getRowProps={(row, index) => {
+        const rowProps = dataGridProps?.getRowProps?.(row, index)
+        return { ...rowProps, className: cn(resolveRowClass(row, index, options.rowClassName), rowProps?.className), style: { ...resolveRowStyle(row, index, options.rowStyle), ...rowProps?.style } }
+      }}
+      i18n={{ ...dataGridProps?.i18n, labels: { rowsPerPage: '每页', previousPage: '上一页', nextPage: '下一页', goToPage: page => `跳转到第 ${page} 页`, paginationInfo: ({ from, to, count }) => `第 ${from}-${to} 条，共 ${count} 条`, paginationEllipsis: '...', selectRow: '选择行', selectAll: '选择全部', expandRow: '展开行', collapseRow: '收起行', loading: '加载中…', empty: '暂无数据', ...dataGridProps?.i18n?.labels } }}
+      tableLayout={{ dense: options.dense, cellBorder: options.border, stripped: options.stripe, rowBorder: true, footerBackground: false, headerSticky: false, columnsResizable: false, columnsMovable: false, width: options.tableLayout === 'auto' ? 'auto' : 'fixed', ...dataGridProps?.tableLayout }}
+      tableClassNames={{ base: options.className, bodyRow: options.dense ? '[&>td]:h-10' : '[&>td]:h-12', edgeCell: 'first:ps-(--frame-panel-header-px) last:pe-(--frame-panel-header-px)', ...dataGridProps?.tableClassNames }}
+    >
       <div className={cn('w-full min-w-0', className)} style={{ height: options.containerHeight }}>
-        {headerContent}
-        {hasToolbar && <MaTableToolbar left={toolbarLeft} center={resolvedToolbarCenter} right={toolbarRight} />}
-        <div ref={tableContainerRef} className="relative min-w-0">
-          {footerContent}
-          <DataGridScrollArea style={{ height: options.height, maxHeight: options.maxHeight }}>
-            <DataGridTable renderHeader={options.showHeader !== false} />
-          </DataGridScrollArea>
-          {showPagination && !(pagination.hideOnSinglePage && pageCount <= 1) && <><Separator /><FrameFooter><DataGridPagination sizes={pagination.pageSizes ?? [10, 20, 50, 100]} /></FrameFooter></>}
-        </div>
+        <MaTableTabs tabs={tabs}>
+          {headerContent}
+          {hasToolbar && <MaTableToolbar left={toolbarLeft} center={resolvedToolbarCenter} right={toolbarRight} />}
+          <div ref={tableContainerRef} className="relative min-w-0">
+            {footerContent}
+            <DataGridScrollArea {...options.scrollAreaProps} style={{ height: options.height, maxHeight: options.maxHeight, ...options.scrollAreaProps?.style }}>
+              {options.renderTable ? options.renderTable(gridTable) : <DataGridTable renderHeader={options.showHeader !== false} {...options.gridTableProps} />}
+            </DataGridScrollArea>
+            {showPagination && !(pagination.hideOnSinglePage && pageCount <= 1) && <><Separator /><FrameFooter><DataGridPagination sizes={pagination.pageSizes ?? [10, 20, 50, 100]} {...options.paginationProps} /></FrameFooter></>}
+          </div>
+        </MaTableTabs>
       </div>
     </DataGrid>
   )
