@@ -9,11 +9,7 @@ export function avatarInfoText(value: unknown): string | undefined {
 }
 
 export function avatarInfoInitials(name: string | undefined): string {
-  if (!name) return '?'
-  const words = name.split(/\s+/)
-  return words.length > 1
-    ? (Array.from(words[0])[0] + Array.from(words[words.length - 1])[0]).toUpperCase()
-    : Array.from(name).slice(0, 2).join('').toUpperCase()
+  return Array.from(name?.trim() ?? '')[0] ?? '?'
 }
 
 /** 字段只从当前行读取，展示配置不透传到 DOM。 */

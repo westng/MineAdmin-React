@@ -340,6 +340,61 @@ test('MaProTable 的 tableOptions.data 与分页回调可动态更新', async t 
   assert.equal(ref.current.getTableRef().getTableInstance().getPageCount(), 4)
 })
 
+test('MaDialog 尺寸参数可动态更新，覆盖同名 Popup 样式并保留其他样式', async t => {
+  let popupHeight
+  const props = {
+    defaultOpen: true,
+    title: '尺寸配置',
+    height: 520,
+    maxHeight: '80dvh',
+    popupProps: {
+      style: state => ({ height: 280, maxHeight: '95dvh', opacity: state.open ? 1 : 0 }),
+      // Happy DOM 的 height 解析器不支持 dvh/svh，通过 Popup render 验证原始 CSS 值。
+      render: props => { popupHeight = props.style.height; return createElement('div', props) },
+    },
+  }
+  const view = await mount(t, MaDialog, props)
+  const popup = () => document.querySelector('[role="dialog"]')
+  assert.equal(popup().style.height, '520px')
+  assert.equal(popup().style.maxHeight, '80dvh')
+  assert.equal(popup().style.opacity, '1')
+
+  await view.render({ ...props, height: '60dvh', maxHeight: 640 })
+  assert.equal(popupHeight, '60dvh')
+  assert.equal(popup().style.maxHeight, '640px')
+
+  await view.render({ ...props, height: undefined, maxHeight: undefined })
+  assert.equal(popup().style.height, '280px')
+  assert.equal(popup().style.maxHeight, '95dvh')
+  assert.equal(popup().style.opacity, '1')
+})
+
+test('MaDialog 全屏时使用视口高度，退出后恢复配置且保留表单输入', async t => {
+  const changes = []
+  let popupHeight
+  await mount(t, MaDialog, {
+    defaultOpen: true,
+    title: '长表单',
+    height: 480,
+    maxHeight: '70dvh',
+    onFullscreenChange: value => changes.push(value),
+    popupProps: { render: props => { popupHeight = props.style.height; return createElement('div', props) } },
+    children: createElement('input', { defaultValue: '原始内容', 'aria-label': '表单内容' }),
+  })
+  const popup = () => document.querySelector('[role="dialog"]')
+  await enterValue(popup().querySelector('input'), '尚未保存的内容')
+  await click(button(popup(), '全屏显示'))
+  assert.equal(popupHeight, '100svh')
+  assert.equal(popup().style.maxHeight, '100svh')
+  assert.equal(popup().querySelector('input').value, '尚未保存的内容')
+
+  await click(button(popup(), '退出全屏'))
+  assert.equal(popup().style.height, '480px')
+  assert.equal(popup().style.maxHeight, '70dvh')
+  assert.equal(popup().querySelector('input').value, '尚未保存的内容')
+  assert.deepEqual(changes, [true, false])
+})
+
 for (const [name, Component] of [['MaDialog', MaDialog], ['MaDrawer', MaDrawer]]) {
   test(`${name} 确认快捷键只作用于当前浮层，保留 Popup 事件回调`, async t => {
     const calls = []

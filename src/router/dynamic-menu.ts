@@ -27,12 +27,20 @@ export function getMenuPath(menu: MenuVo) {
   return path.startsWith('/') ? path : `/${path}`
 }
 
-const retiredMenuPaths = new Set(['/marketing/calendar', '/live', '/yuntu', '/comp'])
+const retiredMenuPaths = new Set(['/marketing/calendar', '/live', '/yuntu', '/comp', '/helper'])
+
+function isRetiredMenu(menu: MenuVo) {
+  const path = getMenuPath(menu)?.replace(/\/+$/, '') || ''
+  return retiredMenuPaths.has(path)
+    || path.startsWith('/helper/')
+    || /^helper(?::|\/|$)/.test(menu.name || '')
+    || /^(?:modules\/)?helper\//.test(menu.component || '')
+}
 
 // Apply to cached and fetched menus so retired entries cannot reappear from stale client data.
 export function removeRetiredMenus(menus: MenuVo[]): MenuVo[] {
   return menus
-    .filter(menu => !retiredMenuPaths.has(getMenuPath(menu)?.replace(/\/+$/, '') || ''))
+    .filter(menu => !isRetiredMenu(menu))
     .map(menu => menu.children ? { ...menu, children: removeRetiredMenus(menu.children) } : menu)
 }
 

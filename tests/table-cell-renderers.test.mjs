@@ -75,14 +75,14 @@ test('头像信息在 MaTable 和 MaProTable 中按嵌套字段显示头像、�
     const html = tableMarkup(h, [column], [row], pro)
     assert.match(html, /data-slot="avatar"/)
     assert.match(html, /Alex Johnson/)
-    assert.match(html, /data-slot="avatar-fallback"[^>]*>AJ<\/span>/)
+    assert.match(html, /data-slot="avatar-fallback"[^>]*>A<\/span>/)
     assert.match(html, /data-slot="badge"[^>]*>Pro<\/span>/)
     assert.match(html, /Founder &amp; CEO/)
     assert.doesNotMatch(html, /直接值不应覆盖映射|fields=|badgeProps=|\[object Object\]/)
   }
 })
 
-test('头像信息支持当前列值、按行配置和直接传值，缺失头像使用自定义文字或姓名缩写', async () => {
+test('头像信息支持当前列值、按行配置和直接传值，缺失头像使用自定义文字或昵称首字', async () => {
   const h = await harness()
   h.plugin.install()
   const column = {
@@ -96,7 +96,7 @@ test('头像信息支持当前列值、按行配置和直接传值，缺失头�
   for (const pro of [false, true]) {
     const html = tableMarkup(h, [column], [{ id: 1, nickname: '亚历克斯', active: true, title: '创始人' }], pro)
     assert.match(html, /亚历克斯/)
-    assert.match(html, /data-slot="avatar-fallback"[^>]*>亚历<\/span>/)
+    assert.match(html, /data-slot="avatar-fallback"[^>]*>亚<\/span>/)
     assert.match(html, /专业版/)
     assert.match(html, /bg-success\/10/)
     assert.match(html, /创始人/)

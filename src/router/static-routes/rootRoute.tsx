@@ -6,6 +6,7 @@ import type { AppRoute } from '@/router/types'
 import AppLayout from '@/layouts'
 import ClinicSectionPage from '@/modules/base/clinic/views'
 import LoginPage from '@/modules/base/auth/views'
+import FeishuCallbackPage from '@/modules/feishu/login/components/FeishuCallbackPage'
 import ErrorPage from '@/layouts/[...all]'
 import DynamicMenuPage from '@/modules/base/dynamic-menu/views'
 import UserCenterPage from '@/modules/base/user-center/views'
@@ -95,6 +96,12 @@ const rootRoutes: AppRoute[] = [
     path: '*',
     element: <ErrorPage />,
     meta: { hidden: true, i18n: 'menu.pageError', useDefaultLayout: false },
+  },
+  {
+    name: 'feishu-callback',
+    path: '/login/feishu/callback',
+    element: <FeishuCallbackPage />,
+    meta: { title: '飞书授权', hidden: true, useDefaultLayout: false },
   },
 ]
 

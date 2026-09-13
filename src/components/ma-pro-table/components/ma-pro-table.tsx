@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { getPathValue } from '../../shared/path'
 import { usePropState } from '../../shared/use-prop-state'
 import { readResponseList, readResponseTotal, resolveText, resolveVisible } from '../utils/pro-table-utils'
+import { getProTableToolbars, subscribeProTableToolbars } from '../utils/toolbars'
 import type { MaProTableApi, MaProTableColumns, MaProTableExpose, MaProTableModel, MaProTableOperationAction, MaProTableOptions, MaProTableProps, MaSearchExpose, MaTableExpose, MaTablePagination } from '../types'
 
 type MaModel = MaProTableModel
@@ -34,6 +35,7 @@ function getOperationMinWidth<T extends MaModel>(column: MaProTableColumns<T>, a
 }
 
 function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptions = emptyOptions as MaProTableOptions<T>, variant = 'default', data: controlledData, loading: controlledLoading, className, header, tabs, toolbarCenter, toolbar, toolbarLeft, toolbarRight, beforeToolbar, afterToolbar, empty, onSelectionChange }: MaProTableProps<T>, ref: React.ForwardedRef<MaProTableExpose<T>>) {
+  const registeredToolbars = React.useSyncExternalStore(subscribeProTableToolbars, getProTableToolbars, getProTableToolbars)
   const [options, setOptionsState] = usePropState(initialOptions)
   const [columns, setColumnsState] = usePropState(schema.tableColumns ?? emptyColumns as MaProTableColumns<T>[])
   const [requestedData, setData] = usePropState(options.tableOptions?.data ?? emptyData as T[])
@@ -196,7 +198,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     } as MaTablePagination,
   }), [controlledData, currentPage, data, handlePageChange, loading, options.requestOptions?.api, options.tableOptions, pageSize, total])
 
-  React.useImperativeHandle(ref, () => {
+  const proTableExpose = React.useMemo(() => {
     const expose: MaProTableExpose<T> = {
     getSearchRef: () => searchRef.current,
     getTableRef: () => tableRef.current,
@@ -236,9 +238,11 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     resizeHeight: async () => { await Promise.resolve() },
     getCurrentId: () => tableId,
     }
-    operationExposeRef.current = expose
     return expose
   }, [data, loading, requestData, selectedRows, setColumnsState, setCurrentPage, tableId, updateOptions])
+
+  React.useImperativeHandle(operationExposeRef, () => proTableExpose, [proTableExpose])
+  React.useImperativeHandle(ref, () => proTableExpose, [proTableExpose])
 
   const operationColumns = React.useMemo(() => columns.map(column => {
     const actions = column.operationConfigure?.actions
@@ -271,13 +275,18 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
 
   const headerConfig = options.header
   const showHeader = resolveVisible(headerConfig?.show, Boolean(header || headerConfig?.mainTitle || headerConfig?.subTitle))
-  const showToolbar = resolveVisible(options.toolbar, Boolean(toolbarCenter || toolbar || toolbarLeft || toolbarRight || beforeToolbar || afterToolbar))
+  const pluginToolbars = [...registeredToolbars.values()]
+    .filter(tool => resolveVisible(options.toolStates?.[tool.name], true) && (tool.show?.({ options }) ?? true))
+  const showToolbar = resolveVisible(options.toolbar, Boolean(toolbarCenter || toolbar || toolbarLeft || toolbarRight || beforeToolbar || afterToolbar || pluginToolbars.length))
   const title = resolveText(headerConfig?.mainTitle, '数据列表')
   const subtitle = resolveText(headerConfig?.subTitle, '')
   const tableToolbarLeft = <>{beforeToolbar}{toolbarLeft}</>
   const hasToolbarCenter = toolbarCenter != null || toolbar != null
   const tableToolbarCenter = toolbarCenter ?? toolbar
-  const tableToolbarRight = <>{toolbarRight}{!hasToolbarCenter && toolbarRight == null && <Button type="button" variant="outline" size="sm" onClick={() => void requestData()} disabled={loading}><RefreshCw className={cn('size-4', loading && 'animate-spin')} aria-hidden="true" />刷新</Button>}{afterToolbar}</>
+  const tableToolbarRight = <>{toolbarRight}{!hasToolbarCenter && toolbarRight == null && <Button type="button" variant="outline" size="sm" onClick={() => void requestData()} disabled={loading}><RefreshCw className={cn('size-4', loading && 'animate-spin')} aria-hidden="true" />刷新</Button>}{pluginToolbars.map(tool => {
+    const Tool = tool.render
+    return <Tool key={tool.name} options={options} tableRef={operationExposeRef} />
+  })}{afterToolbar}</>
   const headerContent = header ?? <><FrameTitle>{title}</FrameTitle>{subtitle && <FrameDescription>{subtitle}</FrameDescription>}</>
   const searchItems = schema.searchItems ?? []
   const showSearch = searchItems.length > 0 && resolveVisible(options.searchOptions?.show, true)

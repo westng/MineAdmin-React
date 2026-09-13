@@ -109,6 +109,7 @@ MaProTable
 | `header` | 默认头部显示、主标题和副标题 | `{ show?: boolean | (() => boolean); mainTitle?: string | (() => string); subTitle?: string | (() => string) }` | - |
 | `selection` | 选择、跨页选择和文案配置 | `MaProTableOptions<T>['selection']` | - |
 | `toolbar` | 是否显示工具栏 | `boolean | (() => boolean)` | 根据插槽推断 |
+| `toolStates` | 按名称控制注册工具，未配置的工具默认显示 | `Record<string, boolean \| (() => boolean)>` | `{}` |
 | `requestOptions` | 请求方法、分页参数和响应解析 | `MaProTableOptions<T>['requestOptions']` | - |
 | `onSearchSubmit` | 搜索提交前转换参数 | `(form: T) => Record<string, unknown> | void` | - |
 | `onSearchReset` | 重置提交前转换参数 | `(form: T) => Record<string, unknown> | void` | - |
@@ -214,6 +215,14 @@ ReUI 和 TanStack 扩展配置放在 `options.tableOptions` 内，沿用 [MaTabl
 ```
 
 表格内的业务动作可以按职责放入对应插槽：批量操作放左侧，统计或上下文信息放中间，刷新、导出和设置放右侧。支持创建的列表在表格左侧保留创建按钮，并放在批量删除之前；导航栏右侧可同时提供创建入口，两处复用相同的权限、禁用条件和创建回调。`MaProTable` 不会再额外创建第二套工具栏布局，也不会修改 `MaTable` 的官方样式。
+
+### 插件工具自动注入
+
+插件在启动钩子中调用 `registerProTableToolbar({ name, order, show, render })` 注册工具。`show` 可按当前表格配置判断适用范围；`render` 接收 `{ options, tableRef }`，用于获取最新配置、刷新表格或调用实例方法。注册工具按 `order` 排序，统一放在右侧默认刷新按钮之后、`afterToolbar` 之前。基础表格组件不依赖任何具体业务插件。
+
+已挂载的表格会响应注册、同名替换和注销。`registerProTableToolbar` 返回本次注册的清理函数，也可以通过 `removeProTableToolbar(name)` 注销。页面通过 `options.toolStates[工具名称]` 设置布尔值或函数控制显示，不需要手动渲染插件组件；`toolbar: false` 会关闭整个工具栏。
+
+导入导出插件使用原版名称 `i-hugeicons:folder-import`、`i-hugeicons:folder-export`。页面配置及接口推导规则见 [React 导入导出插件](../../plugins/west/importExportPro/README.md)。
 
 ### 导航栏右侧创建入口
 

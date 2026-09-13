@@ -1,44 +1,45 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BriefcaseBusiness } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import brandLogoWhite from '@/assets/images/logo-hor-white.svg'
 import { LoginForm, type LoginFormValues } from './login-form'
 import { useUserStore } from '@/store/modules/useUserStore'
 import { exchangeLoginTicket, type FeishuLoginResult } from '@/modules/feishu/login/api/login'
+import { postFeishuTicketToOpener, isFeishuTicket } from '@/modules/feishu/login/utils/oauth-popup'
+import { feishuResultMessage } from '@/modules/feishu/login/utils/result-message'
 import { useToast } from '@/components/common/use-toast'
+import { getWebsiteLoginConfig } from '../../api/website'
+import { defaultWebsiteLoginConfig, normalizeWebsiteLoginConfig, type WebsiteLoginConfig } from '../../data/website'
 
-function BrandMark() {
+function BrandMark({ siteName }: { siteName: string }) {
   return (
     <div className="flex items-center gap-2 text-base font-medium">
       <span className="grid size-6 place-items-center rounded-md bg-foreground text-background">
         <BriefcaseBusiness className="size-4" strokeWidth={2.2} aria-hidden="true" />
       </span>
-      <span>Rally聚势云</span>
+      <span>{siteName}</span>
     </div>
   )
 }
 
-function BrandContent() {
+function BrandContent({ config }: { config: WebsiteLoginConfig }) {
   return (
     <div className="absolute bottom-5 left-10 z-10 w-[85%] text-white">
       <div className="flex flex-col gap-3 text-[40px] font-bold leading-normal">
-        <p>直击问题 · 科学定制</p>
-        <p>提供科学定制的解决方案</p>
+        {config.headline && <p>{config.headline}</p>}
+        {config.subheadline && <p>{config.subheadline}</p>}
       </div>
-      <p className="mt-8 text-base">每日博士旗下，“ BioTech博策云营销管理平台 ”</p>
+      {config.description && <p className="mt-8 whitespace-pre-line text-base">{config.description}</p>}
 
       <div className="mt-[90px] text-xs">
-        <p className="mb-1 flex gap-x-2">
-          <span>English</span>
-          <span>简体中文</span>
-          <span>繁體中文</span>
-        </p>
-        <div className="flex items-center gap-x-2.5 whitespace-nowrap">
-          <span>浙ICP备2026026026号-1</span>
-          <span>Copyright</span>
-          <span>©</span>
-          <span>2024 - 2026 杭州建煜电子商务有限公司 - BioTech博策云营销管理平台</span>
-          <span>杭州建煜电子商务有限公司，All Rights Reserved.</span>
+        {config.language_labels.length > 0 && (
+          <p className="mb-1 flex flex-wrap gap-x-2">
+            {config.language_labels.map((label, index) => <span key={`${label}-${index}`}>{label}</span>)}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          {config.icp_number && <span>{config.icp_number}</span>}
+          {config.copyright_text && <><span>Copyright</span><span>©</span><span>{config.copyright_text}</span></>}
+          {config.company_text && <span>{config.company_text}</span>}
         </div>
       </div>
     </div>
@@ -51,8 +52,17 @@ export default function LoginPage() {
   const login = useUserStore(state => state.login)
   const loginWithTokens = useUserStore(state => state.loginWithTokens)
   const { toast } = useToast()
+  const [branding, setBranding] = useState(defaultWebsiteLoginConfig)
   const [feishuLoading, setFeishuLoading] = useState(false)
   const handledTicket = useRef<string | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void getWebsiteLoginConfig(controller.signal).then(response => {
+      if (!controller.signal.aborted) setBranding(normalizeWebsiteLoginConfig(response.data.data))
+    }).catch(() => undefined) // 展示配置不可用时保留默认内容，不阻断登录。
+    return () => controller.abort()
+  }, [])
 
   const applyFeishuResult = useCallback(async (result: FeishuLoginResult) => {
     setFeishuLoading(true)
@@ -77,14 +87,13 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const ticket = params.get('feishu_ticket')
-    if (!ticket || handledTicket.current === ticket) return
+    if (!isFeishuTicket(ticket) || handledTicket.current === ticket) return
 
     handledTicket.current = ticket
     params.delete('feishu_ticket')
     navigate({ pathname: '/login', search: params.toString() }, { replace: true })
     setFeishuLoading(true)
-    if (window.opener && window.opener !== window) {
-      window.opener.postMessage({ type: 'rally-feishu-login-ticket', ticket }, window.location.origin)
+    if (postFeishuTicketToOpener(ticket)) {
       return
     }
     void exchangeLoginTicket(ticket).then(response => applyFeishuResult(response.data.data)).catch(() => {
@@ -106,22 +115,35 @@ export default function LoginPage() {
         <aside className="relative hidden w-1/2 bg-muted lg:block lg:w-[70%]" aria-label="品牌展示区域">
           <video
             className="absolute inset-0 size-full object-cover"
+            src={branding.video_url}
             autoPlay
             loop
             muted
             playsInline
             aria-hidden="true"
-          >
-            <source src="/b1eb435b89a05e8b.mp4" type="video/mp4" />
-          </video>
+            onError={event => {
+              if (event.currentTarget.getAttribute('src') !== defaultWebsiteLoginConfig.video_url) {
+                event.currentTarget.src = defaultWebsiteLoginConfig.video_url
+              }
+            }}
+          />
           <div className="absolute left-10 top-9 z-10 text-white">
-            <img src={brandLogoWhite} alt="BioTech博策云" className="h-10 w-auto" />
+            <img
+              src={branding.logo_url}
+              alt={branding.site_name}
+              className="h-10 w-auto"
+              onError={event => {
+                if (event.currentTarget.getAttribute('src') !== defaultWebsiteLoginConfig.logo_url) {
+                  event.currentTarget.src = defaultWebsiteLoginConfig.logo_url
+                }
+              }}
+            />
           </div>
-          <BrandContent />
+          <BrandContent config={branding} />
         </aside>
         <section className="relative flex min-h-screen w-full items-center justify-center bg-background px-6 py-20 lg:w-[30%] lg:px-10">
           <div className="absolute left-6 top-8 text-foreground lg:hidden">
-            <BrandMark />
+            <BrandMark siteName={branding.site_name} />
           </div>
 
           <div className="w-full max-w-[320px] translate-y-6">
@@ -137,27 +159,4 @@ export default function LoginPage() {
       </div>
     </main>
   )
-}
-
-function feishuResultMessage(resultCode: string): string {
-  switch (resultCode) {
-    case 'FEISHU_LOGIN_PENDING':
-      return '账号已创建，请等待管理员启用后再登录'
-    case 'FEISHU_LOGIN_NO_PERMISSION':
-      return '账号已启用，请联系管理员分配系统权限'
-    case 'FEISHU_LOGIN_BINDING_REQUIRED':
-      return '飞书账号缺少手机号，请联系管理员完成身份绑定'
-    case 'FEISHU_LOGIN_IDENTITY_CONFLICT':
-      return '飞书身份与系统账号存在冲突，请联系管理员处理'
-    case 'FEISHU_LOGIN_IDENTITY_REVOKED':
-      return '飞书身份已被停用，请联系管理员处理'
-    case 'FEISHU_LOGIN_CANCELLED':
-      return '已取消飞书授权'
-    case 'FEISHU_LOGIN_STATE_INVALID':
-      return '登录链接已失效，请重新发起飞书登录'
-    case 'FEISHU_LOGIN_CONNECTION_DISABLED':
-      return '当前飞书主体暂不可用，请选择其他主体'
-    default:
-      return '飞书服务暂时不可用，请稍后重试'
-  }
 }

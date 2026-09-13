@@ -4,6 +4,7 @@
 @source "../../plugins";
 @source "../../plugins/west/sys-settings";
 @source "../../modules";
+@source "../../modules/creator/allocation";
 @source "../../modules/creator/create";
 @source "../../modules/marketing/schedule";
 @source "../../modules/notification";

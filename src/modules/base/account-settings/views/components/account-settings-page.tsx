@@ -1,9 +1,9 @@
 import { NotificationPreference } from '@/modules/notification/components/notification-preference'
 import { toast } from '@/components/common/use-toast'
-import { useState, type ReactNode } from 'react'
-import { KeyRound, LoaderCircle, MessageSquare, MessagesSquare, MonitorSmartphone, ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
+import { FeishuAccountBindings } from '@/modules/feishu/binding/components/feishu-account-bindings'
+import { KeyRound, LoaderCircle, MessageSquare, MonitorSmartphone, ShieldCheck } from 'lucide-react'
 import { Switch } from '@base-ui/react/switch'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -13,7 +13,6 @@ import { PasswordForm } from '@/modules/base/user-center/views/components/passwo
 
 interface AccountSettings {
   multiDeviceLogin: boolean
-  feishuAccount: string
 }
 
 interface AccountSettingsPageProps {
@@ -30,13 +29,13 @@ function readAccountSettings(userInfo: UserInfo | null | undefined): AccountSett
   const account = isRecord(backendSetting) && isRecord(backendSetting.account) ? backendSetting.account : {}
   return {
     multiDeviceLogin: typeof account.multiDeviceLogin === 'boolean' ? account.multiDeviceLogin : false,
-    feishuAccount: typeof account.feishuAccount === 'string' ? account.feishuAccount : '',
   }
 }
 
 function mergeAccountSettings(userInfo: UserInfo | null | undefined, account: AccountSettings) {
   const backendSetting = isRecord(userInfo?.backend_setting) ? userInfo.backend_setting : {}
-  const previous = isRecord(backendSetting.account) ? backendSetting.account : {}
+  const previous = isRecord(backendSetting.account) ? { ...backendSetting.account } : {}
+  delete previous.feishuAccount
   return { ...backendSetting, account: { ...previous, ...account } }
 }
 
@@ -71,23 +70,6 @@ function PreferenceRow({ icon: Icon, label, description, checked, onCheckedChang
       >
         <Switch.Thumb className="size-3.5 rounded-full bg-foreground transition-transform data-checked:translate-x-4 data-checked:bg-primary-foreground" />
       </Switch.Root>
-    </div>
-  )
-}
-
-function SettingsRow({ icon: Icon, label, description, children }: { icon: typeof MessageSquare; label: string; description: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-6 border-b px-4 py-4 last:border-b-0">
-      <div className="flex min-w-0 items-start gap-3">
-        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <Icon className="size-4" aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium">{label}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      <div className="min-w-0 shrink-0">{children}</div>
     </div>
   )
 }
@@ -133,12 +115,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
         <CardContent className="p-0">
           <NotificationPreference />
           <PreferenceRow icon={MonitorSmartphone} label="是否多设备登录" description="允许账号同时在多个设备上保持登录。" checked={settings.multiDeviceLogin} onCheckedChange={checked => updateSetting('multiDeviceLogin', checked)} />
-          <SettingsRow icon={MessagesSquare} label="飞书账号" description="绑定后可用于飞书通知和协作。">
-            <div className="flex items-center gap-2">
-              <Badge variant={settings.feishuAccount.trim() ? 'default' : 'outline'}>{settings.feishuAccount.trim() ? '已绑定' : '未绑定'}</Badge>
-              {settings.feishuAccount.trim() && <span className="truncate text-sm text-muted-foreground">{settings.feishuAccount}</span>}
-            </div>
-          </SettingsRow>
+          <FeishuAccountBindings userId={activeUserInfo?.id} />
         </CardContent>
         <CardFooter className="justify-end gap-2">
           <Button variant="outline" onClick={() => setSettings(readAccountSettings(activeUserInfo))} disabled={saving}>取消</Button>

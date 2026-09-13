@@ -53,7 +53,7 @@ Badge 直接使用表格解析出的 `context.value`，列的嵌套字段与函�
 
 ## 头像信息单元格
 
-`type: 'avatar-info'` 对应 `AvatarInfoCell`，按 Avatar + 姓名 + 小徽章 + 副标题的布局组合。默认头像为 32px，姓名使用 `text-sm font-semibold`，徽章使用 `variant="default" size="xs"`，副标题使用 `text-muted-foreground text-xs`。
+`type: 'avatar-info'` 对应 `AvatarInfoCell`，按 Avatar + 姓名 + 小徽章 + 副标题的布局组合。仅显示头像和昵称时，默认头像为 24px，昵称使用 `text-xs font-medium`；有徽章或副标题时，默认头像为 32px，昵称使用 `text-sm font-semibold`。徽章使用 `variant="default" size="xs"`，副标题使用 `text-muted-foreground text-xs`。
 
 通过 `fields` 传入当前行的字段名，支持点号分隔的嵌套路径：
 
@@ -112,9 +112,9 @@ cellRenderTo: {
 | `fields.avatar / name / badge / description` | 头像、名称、徽章、副标题在当前行中的字段路径 |
 | `avatar` | 直接传头像 URL，支持空值 |
 | `name / badge / description` | 直接传文本或数字；`0` 会正常显示 |
-| `fallback` | 头像缺失或加载失败时的文字；默认英文名取首尾单词首字母，单个名称取前两个字符 |
+| `fallback` | 头像缺失或加载失败时的文字；默认取昵称的第一个字 |
 | `emptyText` | 全部内容为空或名称缺失时的占位，默认 `-` |
-| `avatarSize` | 复用 Avatar 的 `default`、`sm`、`lg`，默认 `default` |
+| `avatarSize` | 复用 Avatar 的 `default`、`sm`、`lg`；仅头像和昵称时默认 `sm`，有徽章或副标题时默认 `default`，显式传值优先 |
 | `badgeProps` | ReUI Badge 原生展示属性与事件，可配置颜色、尺寸、圆角等 |
 | `className / style` 与原生 div 属性 | 配置整体容器；交互事件由调用方提供 |
 
@@ -244,7 +244,7 @@ cell-enhance/
     badge.ts                     # Badge 参数及展示数据
     renderer.ts                  # cellRenderTo 契约
   utils/
-    avatar-info-utils.ts         # 当前行字段取值与头像缩写
+    avatar-info-utils.ts         # 当前行字段取值与头像首字占位
     badge-utils.ts               # 取值、过滤、映射、插槽和属性合并
     option-utils.ts              # 数组选项与字典项的值匹配
     render-cell-enhance.ts       # 渲染类型选择与表格值传递

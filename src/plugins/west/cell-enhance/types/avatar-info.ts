@@ -17,7 +17,7 @@ export interface AvatarInfoCellProps extends Omit<ComponentProps<'div'>, 'childr
   name?: AvatarInfoCellText
   badge?: AvatarInfoCellText
   description?: AvatarInfoCellText
-  /** 头像缺失或加载失败时显示；默认取姓名缩写。 */
+  /** 头像缺失或加载失败时显示；默认取昵称的第一个字。 */
   fallback?: string
   /** 全部内容为空或名称缺失时的占位，默认 -。 */
   emptyText?: ReactNode

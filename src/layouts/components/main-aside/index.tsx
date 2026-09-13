@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils'
 import { ThemeColorPicker } from '@/components/common/theme-color-picker'
 
 type NavigationIcon = ComponentType<{ className?: string }> | string
-type MenuItem = { label: string; to: string; icon?: NavigationIcon; children?: MenuItem[] }
+type MenuItem = { label: string; to: string; icon?: NavigationIcon; children?: MenuItem[]; end?: boolean }
 
 const fallbackStoreItems: MenuItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
@@ -31,7 +31,10 @@ const fallbackStoreItems: MenuItem[] = [
   { label: 'Promotions', to: '/promotions', icon: CircleDot },
   { label: 'Reviews', to: '/reviews', icon: CircleDot },
 ]
-const fallbackSystemItems: MenuItem[] = [{ label: 'Analytics', to: '/analytics', icon: CircleDot }, { label: 'Settings', to: '/settings', icon: Settings }]
+const fallbackSystemItems: MenuItem[] = [
+  { label: '个人资料', to: '/settings', icon: UserRound, end: true },
+  { label: '账号设置', to: '/settings/account', icon: Settings },
+]
 const workspaceItems: MenuItem[] = [{ label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard }]
 
 function getMenuIcon(icon?: string): NavigationIcon { return icon?.trim() || CircleDot }
@@ -91,12 +94,12 @@ function MenuTree({ items, pathname, expanded, onToggle }: { items: MenuItem[]; 
   function renderItems(levelItems: MenuItem[], nested: boolean): React.ReactNode {
     return levelItems.map(item => {
       const hasChildren = Boolean(item.children?.length)
-      const isActive = pathname === item.to || pathname.startsWith(`${item.to}/`)
+      const isActive = pathname === item.to || (!item.end && pathname.startsWith(`${item.to}/`))
       const leaf = <>{<NavigationIconView icon={item.icon} />}<span>{item.label}</span></>
       if (!hasChildren) {
         return nested
-          ? <SidebarMenuSubItem key={item.to}><SidebarMenuSubButton isActive={isActive} render={<NavLink to={item.to} />}>{leaf}</SidebarMenuSubButton></SidebarMenuSubItem>
-          : <SidebarMenuItem key={item.to}><SidebarMenuButton isActive={isActive} tooltip={item.label} render={<NavLink to={item.to} />}>{leaf}</SidebarMenuButton></SidebarMenuItem>
+          ? <SidebarMenuSubItem key={item.to}><SidebarMenuSubButton isActive={isActive} render={<NavLink to={item.to} end={item.end} />}>{leaf}</SidebarMenuSubButton></SidebarMenuSubItem>
+          : <SidebarMenuItem key={item.to}><SidebarMenuButton isActive={isActive} tooltip={item.label} render={<NavLink to={item.to} end={item.end} />}>{leaf}</SidebarMenuButton></SidebarMenuItem>
       }
       const isOpen = expanded.has(item.to) || isActive
       const trigger = <CollapsibleTrigger asChild><SidebarMenuButton isActive={isActive} tooltip={item.label}>{leaf}<ChevronRight className={cn('ml-auto size-4 transition-transform duration-200 group-data-[collapsible=icon]:hidden', isOpen && 'rotate-90')} aria-hidden="true" /></SidebarMenuButton></CollapsibleTrigger>
@@ -113,7 +116,7 @@ export default function MainAside() {
   const location = useLocation(); const menus = useMenuStore(state => state.menus); const userInfo = useUserStore(state => state.userInfo); const logout = useUserStore(state => state.logout); const { settings, setColorMode, setPrimaryColor } = useSettingStore(); const { state, toggleSidebar } = useSidebar(); const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const menuItems = React.useMemo(() => menus.map(toMenuItem).filter((item): item is MenuItem => Boolean(item)), [menus])
   const storeItems = React.useMemo(() => (menuItems.length > 0 ? menuItems : fallbackStoreItems).filter(item => item.to !== '/dashboard'), [menuItems])
-  const systemItems = React.useMemo<MenuItem[]>(() => menuItems.length > 0 ? [{ label: 'Analytics', to: '/analytics', icon: CircleDot }, { label: 'Settings', to: '/settings', icon: Settings }] : fallbackSystemItems, [menuItems])
+  const systemItems = fallbackSystemItems
   const allItems = React.useMemo(() => [...workspaceItems, ...storeItems, ...systemItems], [storeItems, systemItems])
   const displayName = userInfo?.nickname || userInfo?.username || '管理员'
   const email = userInfo?.email || userInfo?.username || '未绑定邮箱'

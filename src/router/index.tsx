@@ -93,6 +93,7 @@ function PluginNavigationLifecycle() {
 export function AppRouter() {
   const layoutRoute = rootRoutes[0]
   const loginRoute = rootRoutes[1]
+  const feishuCallbackRoute = rootRoutes.find(route => route.name === 'feishu-callback')
   const menus = useMenuStore(state => state.menus)
   const plugins = usePluginStore(state => state.plugins)
   const Router = import.meta.env.VITE_APP_ROUTE_MODE === 'history' ? BrowserRouter : HashRouter
@@ -133,6 +134,7 @@ export function AppRouter() {
         <Route element={<GuestRoute />}>
           <Route path={loginRoute.path} element={loginRoute.element} />
         </Route>
+        {feishuCallbackRoute && <Route path={feishuCallbackRoute.path} element={feishuCallbackRoute.element} />}
         <Route path="*" element={rootRoutes[2].element} />
       </Routes>
     </Router>

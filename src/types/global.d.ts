@@ -5,6 +5,7 @@ declare global {
     readonly VITE_APP_PORT: string
     readonly VITE_APP_ROOT_BASE: string
     readonly VITE_APP_API_BASEURL: string
+    readonly VITE_APP_API_THIRDURL?: string
     readonly VITE_APP_ROUTE_MODE: 'history' | 'hash'
     readonly VITE_APP_STORAGE_PREFIX: string
     readonly VITE_OPEN_PROXY: string

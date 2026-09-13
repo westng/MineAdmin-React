@@ -35,6 +35,8 @@ function MaDialog<Payload = unknown>({
   showCloseButton = true,
   disablePointerDismissal = true,
   size = 'md',
+  height,
+  maxHeight,
   contentClassName,
   headerClassName,
   bodyClassName,
@@ -142,13 +144,20 @@ function MaDialog<Payload = unknown>({
         initialFocus={initialFocus ?? popupProps?.initialFocus}
         finalFocus={finalFocus ?? popupProps?.finalFocus}
         className={state => cn(
+          'flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0',
           sizeClasses[size],
           fullscreen && 'top-0! left-0! h-svh! max-w-none! translate-x-0! translate-y-0! rounded-none',
           contentClassName,
           typeof popupProps?.className === 'function' ? popupProps.className(state) : popupProps?.className,
         )}
+        style={state => ({
+          ...(typeof popupProps?.style === 'function' ? popupProps.style(state) : popupProps?.style),
+          ...(height !== undefined ? { height } : {}),
+          ...(maxHeight !== undefined ? { maxHeight } : {}),
+          ...(fullscreen ? { height: '100svh', maxHeight: '100svh' } : {}),
+        })}
       >
-        <DialogHeader className={cn('pr-10', headerClassName)}>
+        <DialogHeader className={cn('shrink-0 p-4 pr-14', headerClassName)}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <DialogTitle className={cn(!title && 'sr-only')}>{title || '对话框'}</DialogTitle>
@@ -167,11 +176,11 @@ function MaDialog<Payload = unknown>({
             )}
           </div>
         </DialogHeader>
-        <div className={cn('relative min-h-0', fullscreen && 'flex-1 overflow-y-auto', bodyClassName)} aria-busy={actionLoading || undefined}>
+        <div className={cn('relative min-h-0 flex-1 overflow-y-auto px-4 pb-4', bodyClassName)} aria-busy={actionLoading || undefined}>
           {body}
         </div>
         {footer !== false && (
-          <DialogFooter className={footerClassName}>
+          <DialogFooter className={cn('m-0 shrink-0', footerClassName)}>
             {footerBefore}
             {footer ?? defaultFooter}
             {footerAfter}

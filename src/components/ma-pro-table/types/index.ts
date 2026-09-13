@@ -35,6 +35,18 @@ export interface MaProTableSchema<T extends MaProTableModel = MaProTableModel> {
 
 export type MaProTableApi = (params: Record<string, unknown>) => unknown | Promise<unknown>
 
+export interface MaProTableToolbarContext<T extends MaProTableModel = MaProTableModel> {
+  options: MaProTableOptions<T>
+  tableRef: React.RefObject<MaProTableExpose<T> | null>
+}
+
+export interface MaProTableToolbar {
+  name: string
+  order?: number
+  show?: <T extends MaProTableModel>(context: Pick<MaProTableToolbarContext<T>, 'options'>) => boolean
+  render: <T extends MaProTableModel>(context: MaProTableToolbarContext<T>) => React.ReactNode
+}
+
 export interface MaProTableOptions<T extends MaProTableModel = MaProTableModel> {
   id?: string
   adaptionOffsetBottom?: number
@@ -51,8 +63,8 @@ export interface MaProTableOptions<T extends MaProTableModel = MaProTableModel> 
     clearText?: string | (() => string)
   }
   toolbar?: boolean | (() => boolean)
-  /** Plugin controlled toolbar button visibility, e.g. import/export actions. */
-  toolStates?: Record<string, boolean>
+  /** 注册工具默认显示；按工具名称控制显示状态。 */
+  toolStates?: Record<string, boolean | (() => boolean)>
   requestOptions?: {
     api: MaProTableApi
     autoRequest?: boolean

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { Dialog } from '@base-ui/react/dialog'
 
 export type InteractionType = Parameters<Extract<NonNullable<Dialog.Popup.Props['initialFocus']>, (...args: never[]) => unknown>>[0]
@@ -42,6 +42,10 @@ export interface MaDialogProps<Payload = unknown> extends Dialog.Root.Props<Payl
   showFullscreenButton?: boolean
   showCloseButton?: boolean
   size?: MaDialogSize
+  /** 固定高度；未传时随内容自适应，数字按像素处理。 */
+  height?: CSSProperties['height']
+  /** 最大高度；默认保留 2rem 视口留白，超出时正文滚动。 */
+  maxHeight?: CSSProperties['maxHeight']
   contentClassName?: string
   headerClassName?: string
   bodyClassName?: string
