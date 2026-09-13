@@ -1,11 +1,12 @@
 import { Monitor, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ThemeColorPicker } from '@/components/common/theme-color-picker'
 import { useSettingStore } from '@/provider/settings'
 import { settingsModes } from '../data'
 
 export default function SettingsPageView() {
-  const { settings, setColorMode } = useSettingStore()
+  const { settings, setColorMode, setPrimaryColor } = useSettingStore()
   const currentMode = settings.app.colorMode === 'autoMode' ? 'light' : settings.app.colorMode
 
   return (
@@ -33,6 +34,13 @@ export default function SettingsPageView() {
                 跟随系统
               </Button>
             </div>
+          </section>
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Palette className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium">配色</h2>
+            </div>
+            <ThemeColorPicker value={settings.app.primaryColor} onChange={setPrimaryColor} />
           </section>
           <p className="text-sm text-muted-foreground">菜单、导航和用户信息沿用当前 MineAdmin 路由权限配置。</p>
         </CardContent>

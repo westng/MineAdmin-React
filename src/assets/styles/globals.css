@@ -3,6 +3,7 @@
 
 @source "../../plugins";
 @source "../../modules";
+@source "../../modules/creator/create";
 @source "../../modules/marketing/schedule";
 @source "../../modules/notification";
 
@@ -148,5 +149,20 @@
   button,
   [role="button"] {
     cursor: pointer;
+  }
+
+  input[type="radio"] {
+    accent-color: var(--primary);
+  }
+
+  @keyframes ring-pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.5;
+    }
   }
 }

@@ -38,6 +38,10 @@ const initialSettings: SystemSettings = {
   app: { ...settings.app, ...persistedSettings.app },
 }
 
+export function getPersistedPrimaryColor() {
+  return cache.get<Partial<SystemSettings>>('settings', {}).app?.primaryColor
+}
+
 interface SettingState {
   settings: SystemSettings
   title: string
@@ -47,6 +51,7 @@ interface SettingState {
   setSettings: (next: Partial<SystemSettings>) => void
   toggleMenuCollapse: () => void
   setColorMode: (mode: SystemSettings['app']['colorMode']) => void
+  setPrimaryColor: (color: string) => void
 }
 
 export const useSettingStore = create<SettingState>((set, get) => ({
@@ -66,6 +71,12 @@ export const useSettingStore = create<SettingState>((set, get) => ({
     return { settings: nextSettings }
   }),
   toggleMenuCollapse: () => set(state => ({ menuCollapseState: !state.menuCollapseState })),
+  setPrimaryColor: color => set(state => {
+    const nextSettings = { ...state.settings, app: { ...state.settings.app, primaryColor: color } }
+    cache.set('settings', nextSettings)
+    if (typeof document !== 'undefined') document.documentElement.style.setProperty('--primary', color)
+    return { settings: nextSettings }
+  }),
   setColorMode: mode => {
     const resolvedMode = mode === 'autoMode' && typeof window !== 'undefined'
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')

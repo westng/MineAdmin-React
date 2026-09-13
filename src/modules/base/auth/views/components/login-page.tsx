@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BriefcaseBusiness } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import brandLogoWhite from '@/assets/images/logo-hor-white.svg'
 import { LoginForm, type LoginFormValues } from './login-form'
 import { useUserStore } from '@/store/modules/useUserStore'
 import { exchangeLoginTicket, type FeishuLoginResult } from '@/modules/feishu/login/api/login'
@@ -8,7 +9,7 @@ import { useToast } from '@/components/common/use-toast'
 
 function BrandMark() {
   return (
-    <div className="flex items-center gap-2 text-base font-medium text-foreground">
+    <div className="flex items-center gap-2 text-base font-medium">
       <span className="grid size-6 place-items-center rounded-md bg-foreground text-background">
         <BriefcaseBusiness className="size-4" strokeWidth={2.2} aria-hidden="true" />
       </span>
@@ -19,15 +20,26 @@ function BrandMark() {
 
 function BrandContent() {
   return (
-    <div className="absolute inset-x-10 bottom-9 z-10 text-foreground">
-      <div className="space-y-2">
-        <p className="text-3xl font-semibold tracking-tight xl:text-4xl">让每一场营销 都按计划发生</p>
-        <p className="pt-5 text-sm font-medium xl:text-base">每日博士旗下，“Rally聚势｜云跨平台营销活动排期与结果复盘平台”</p>
+    <div className="absolute bottom-5 left-10 z-10 w-[85%] text-white">
+      <div className="flex flex-col gap-3 text-[40px] font-bold leading-normal">
+        <p>直击问题 · 科学定制</p>
+        <p>提供科学定制的解决方案</p>
       </div>
+      <p className="mt-8 text-base">每日博士旗下，“ BioTech博策云营销管理平台 ”</p>
 
-      <div className="mt-16 space-y-2 text-xs text-muted-foreground xl:mt-20">
-        <p>English&nbsp;&nbsp;简体中文&nbsp;&nbsp;繁體中文</p>
-        <p className="whitespace-nowrap leading-5 tracking-tight">浙ICP备2026026026号-1&nbsp;&nbsp;Copyright © 2024 - 2026 Rally聚势云&nbsp;&nbsp;杭州建煜电子商务有限公司, All Rights Reserved.</p>
+      <div className="mt-[90px] text-xs">
+        <p className="mb-1 flex gap-x-2">
+          <span>English</span>
+          <span>简体中文</span>
+          <span>繁體中文</span>
+        </p>
+        <div className="flex items-center gap-x-2.5 whitespace-nowrap">
+          <span>浙ICP备2026026026号-1</span>
+          <span>Copyright</span>
+          <span>©</span>
+          <span>2024 - 2026 杭州建煜电子商务有限公司 - BioTech博策云营销管理平台</span>
+          <span>杭州建煜电子商务有限公司，All Rights Reserved.</span>
+        </div>
       </div>
     </div>
   )
@@ -102,14 +114,13 @@ export default function LoginPage() {
           >
             <source src="/b1eb435b89a05e8b.mp4" type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-background/30" aria-hidden="true" />
-          <div className="absolute left-10 top-9 z-10">
-            <BrandMark />
+          <div className="absolute left-10 top-9 z-10 text-white">
+            <img src={brandLogoWhite} alt="BioTech博策云" className="h-10 w-auto" />
           </div>
           <BrandContent />
         </aside>
         <section className="relative flex min-h-screen w-full items-center justify-center bg-background px-6 py-20 lg:w-[30%] lg:px-10">
-          <div className="absolute left-6 top-8 lg:hidden">
+          <div className="absolute left-6 top-8 text-foreground lg:hidden">
             <BrandMark />
           </div>
 

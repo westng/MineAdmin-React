@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { getInfo, loginApi, logoutApi, refreshApi, type CurrentUserInfo } from '@/modules/base/auth/api/user'
 import { useMenuStore } from './useMenuStore'
-import { useSettingStore } from '@/provider/settings'
+import { getPersistedPrimaryColor, useSettingStore } from '@/provider/settings'
 import type { SystemSettings } from '@/types/global'
 import { usePluginStore } from '@/provider/plugins'
 
@@ -111,7 +111,17 @@ export const useUserStore = create<UserState>((set, get) => ({
       const roles = await menuStore.refreshRoles()
       const permissions = roles.includes('SuperAdmin') ? ['*', ...collectPermissions(menus)] : collectPermissions(menus)
       if (userInfo.backend_setting && !Array.isArray(userInfo.backend_setting)) {
-        useSettingStore.getState().setSettings(userInfo.backend_setting as Partial<SystemSettings>)
+        const backendSettings = userInfo.backend_setting as Partial<SystemSettings>
+        const persistedPrimaryColor = getPersistedPrimaryColor()
+        const currentSettings = useSettingStore.getState().settings
+        useSettingStore.getState().setSettings({
+          ...backendSettings,
+          app: {
+            ...currentSettings.app,
+            ...backendSettings.app,
+            ...(persistedPrimaryColor ? { primaryColor: persistedPrimaryColor } : {}),
+          },
+        })
       }
       localStorage.setItem(userInfoKey, JSON.stringify({ ...userInfo, permissions }))
       set({ userInfo: { ...userInfo, permissions }, roles, permissions, initialized: true, loading: false })

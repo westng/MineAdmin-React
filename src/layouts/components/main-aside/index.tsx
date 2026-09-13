@@ -1,647 +1,123 @@
-import { usePermission } from '@/hooks/usePermission'
-import { NotificationBell } from '@/modules/notification/components/notification-bell'
-import { BriefcaseBusiness, ChevronRight, CircleDot, LayoutDashboard, LogOut, Monitor, Moon, Palette, Search, Settings, Sun, UserRound } from 'lucide-react'
-import { MaIcon } from '@/components/common/ma-icon'
 import * as React from 'react'
-import type { ComponentType, CSSProperties } from 'react'
 import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { ChevronRight, CircleDot, ChevronsUpDown, LayoutDashboard, LogOut, Moon, Palette, PanelLeftClose, Search, Settings, Sun, Monitor, UserRound } from 'lucide-react'
+import type { ComponentType } from 'react'
+import { MaIcon } from '@/components/common/ma-icon'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  useSidebar,
-} from '@/components/ui/sidebar'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Command, CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar } from '@/components/ui/sidebar'
 import { useUserStore } from '@/store/modules/useUserStore'
 import { useSettingStore } from '@/provider/settings'
 import { useMenuStore } from '@/store/modules/useMenuStore'
-import { flattenVisibleMenus, getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/dynamic-menu'
+import { getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/dynamic-menu'
 import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
 import { cn } from '@/lib/utils'
-import { customSectionPanes } from './section-pane-registry'
-
-type SectionId = string
-
-type RailItem = {
-  label: string
-  to: string
-  icon: NavigationIcon
-  section: SectionId
-}
-
-type MenuItem = {
-  label: string
-  to: string
-  icon?: NavigationIcon
-  children?: MenuItem[]
-}
+import { ThemeColorPicker } from '@/components/common/theme-color-picker'
 
 type NavigationIcon = ComponentType<{ className?: string }> | string
+type MenuItem = { label: string; to: string; icon?: NavigationIcon; children?: MenuItem[] }
 
-const railItems: RailItem[] = [
-  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, section: 'dashboard' },
+const fallbackStoreItems: MenuItem[] = [
+  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
+  { label: 'Orders', to: '/orders', icon: CircleDot },
+  { label: 'Products', to: '/products', icon: CircleDot },
+  { label: 'Inventory', to: '/inventory', icon: CircleDot, children: [{ label: 'Stock ledger', to: '/inventory/stock-ledger' }, { label: 'Reorder queue', to: '/inventory/reorder-queue' }, { label: 'Purchase orders', to: '/inventory/purchase-orders' }] },
+  { label: 'Customers', to: '/customers', icon: CircleDot, children: [{ label: 'All customers', to: '/customers' }, { label: 'Groups', to: '/customers/groups' }] },
+  { label: 'Categories', to: '/categories', icon: CircleDot },
+  { label: 'Promotions', to: '/promotions', icon: CircleDot },
+  { label: 'Reviews', to: '/reviews', icon: CircleDot },
 ]
+const fallbackSystemItems: MenuItem[] = [{ label: 'Analytics', to: '/analytics', icon: CircleDot }, { label: 'Settings', to: '/settings', icon: Settings }]
+const workspaceItems: MenuItem[] = [{ label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard }]
 
-const sectionItems: Record<string, MenuItem[]> = {
-  dashboard: [],
-  settings: [
-    { label: '我的资料', to: '/settings', icon: UserRound },
-    { label: '账号设置', to: '/settings/account', icon: Settings },
-  ],
-}
-
-const sectionTitles: Record<string, string> = {
-  dashboard: 'Dashboard',
-  settings: '配置',
-}
-
-function getMenuIcon(icon?: string): NavigationIcon {
-  return icon?.trim() || CircleDot
-}
-
+function getMenuIcon(icon?: string): NavigationIcon { return icon?.trim() || CircleDot }
 function NavigationIconView({ icon, className }: { icon?: NavigationIcon; className?: string }) {
-  if (typeof icon === 'string') {
-    return <MaIcon name={icon} className={cn('size-4', className)} />
-  }
-
+  if (typeof icon === 'string') return <MaIcon name={icon} className={cn('size-4', className)} />
   const IconComponent = icon || CircleDot
   return <IconComponent className={className} aria-hidden="true" />
 }
-
-function getDynamicRailItems(menus: MenuVo[]): RailItem[] {
-  const items: Array<RailItem | null> = []
-
-  for (const menu of menus) {
-    if (!isVisibleMenu(menu)) continue
-
-    const hasChildren = menu.children && menu.children.length > 0
-    const isLayoutContainer = menu.component === 'Layout'
-
-    // 如果是目录容器（Layout），显示它的子菜单
-    if (isLayoutContainer && hasChildren) {
-      const parentPath = getMenuPath(menu)
-      for (const child of menu.children ?? []) {
-        if (!isVisibleMenu(child)) continue
-        const childPath = getMenuPath(child)
-        if (childPath) {
-          items.push({
-            label: getMenuLabel(child),
-            to: childPath,
-            icon: getMenuIcon(child.icon || child.meta?.icon),
-            section: parentPath ? `dynamic:${parentPath}` : `dynamic:${childPath}`,
-          })
-        }
-      }
-    }
-    // 否则显示菜单本身
-    else {
-      const path = getMenuPath(menu)
-      if (path) {
-        items.push({
-          label: getMenuLabel(menu),
-          to: path,
-          icon: getMenuIcon(menu.icon || menu.meta?.icon),
-          section: `dynamic:${path}`,
-        })
-      }
-    }
+function toMenuItem(menu: MenuVo): MenuItem | null {
+  if (!isVisibleMenu(menu)) return null
+  const to = getMenuPath(menu)
+  if (!to) return null
+  const children = (menu.children ?? []).map(toMenuItem).filter((item): item is MenuItem => Boolean(item))
+  return { label: getMenuLabel(menu), to, icon: getMenuIcon(menu.icon || menu.meta?.icon), ...(children.length > 0 ? { children } : {}) }
+}
+function initials(name: string) { return Array.from(name.trim())[0]?.toUpperCase() || 'M' }
+function ProfileAvatar({ name, avatar, size = 'sm', withRing = false }: { name: string; avatar?: string; size?: 'sm' | 'default'; withRing?: boolean }) {
+  if (withRing) {
+    return (
+      <div className="relative w-fit">
+        <Avatar size={size} className="ring-offset-background animate-pulse ring-2 ring-green-500 ring-offset-2">
+          {avatar && <AvatarImage src={avatar} alt={name} />}
+          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">{initials(name)}</AvatarFallback>
+        </Avatar>
+        <span className="border-background absolute -right-1 -bottom-1 size-3 rounded-full border-2 bg-green-500" />
+      </div>
+    )
   }
-
-  return items.filter((item): item is RailItem => item !== null)
+  return (
+    <Avatar size={size}>{avatar && <AvatarImage src={avatar} alt={name} />}<AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">{initials(name)}</AvatarFallback></Avatar>
+  )
 }
 
-function getSection(pathname: string, menus: MenuVo[]): SectionId {
-  // 系统静态路由优先于动态菜单匹配
-  if (pathname === '/dashboard') return 'dashboard'
-  if (pathname === '/settings' || pathname.startsWith('/settings/')) return 'settings'
+function NavigationSearchMenu({ items }: { items: MenuItem[] }) {
+  const navigate = useNavigate(); const [search, setSearch] = useState(''); const [open, setOpen] = useState(false)
+  const flatItems = items.flatMap(function flatten(item): MenuItem[] { return [item, ...(item.children ?? []).flatMap(flatten)] })
+  return <>
+    <Button variant="ghost" size="icon-sm" onClick={() => setOpen(true)} aria-label="搜索菜单" className="size-8 shrink-0 group-data-[collapsible=icon]:flex hidden">
+      <Search className="size-4" aria-hidden="true" />
+    </Button>
+    <button id="search" type="button" onClick={() => setOpen(true)} aria-label="搜索菜单" className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2 text-left text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring dark:border-input dark:bg-input/30 dark:hover:bg-input/50 group-data-[collapsible=icon]:hidden">
+      <Search className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">Search...</span><kbd className="ml-auto hidden rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground lg:inline">⌘K</kbd>
+    </button>
+    <CommandDialog open={open} onOpenChange={nextOpen => { setOpen(nextOpen); if (!nextOpen) setSearch('') }} title="搜索菜单" description="搜索并打开菜单页面" className="h-auto min-h-12 max-h-[min(32rem,calc(100vh-2rem))] w-[min(32rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-xl border p-0"><Command className="h-auto max-h-[min(32rem,calc(100vh-2rem))] rounded-xl bg-background"><CommandInput autoFocus value={search} onValueChange={setSearch} placeholder="搜索菜单" aria-label="搜索菜单" />{search.trim() && <CommandList className="max-h-72 overflow-y-auto p-3"><CommandEmpty>没有匹配的菜单</CommandEmpty>{flatItems.map(item => <CommandItem key={`search-${item.to}`} value={item.label} onSelect={() => { navigate(item.to); setOpen(false) }}>{item.label}</CommandItem>)}</CommandList>}</Command></CommandDialog>
+  </>
+}
 
-  // 查找所有可见菜单（包括子菜单）
-  const allMenus = flattenVisibleMenus(menus)
+const themeOptions = [{ value: 'light' as const, label: '浅色', icon: Sun }, { value: 'dark' as const, label: '深色', icon: Moon }, { value: 'autoMode' as const, label: '跟随系统', icon: Monitor }]
+function ThemeSwitcher({ value, onChange }: { value: 'light' | 'dark' | 'autoMode'; onChange: (value: 'light' | 'dark' | 'autoMode') => void }) {
+  return <div role="radiogroup" aria-label="主题" className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 p-0.5">{themeOptions.map(({ value: optionValue, label, icon: Icon }) => <Button key={optionValue} type="button" role="radio" aria-checked={value === optionValue} aria-label={label} variant="ghost" size="icon-xs" onClick={() => onChange(optionValue)} className={cn('rounded-full', value === optionValue ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}><Icon aria-hidden="true" /></Button>)}</div>
+}
+function ProfileMenu({ displayName, email, avatar, colorMode, primaryColor, onChangeTheme, onChangeColor, onLogout }: { displayName: string; email: string; avatar?: string; colorMode: 'light' | 'dark' | 'autoMode'; primaryColor: string; onChangeTheme: (value: 'light' | 'dark' | 'autoMode') => void; onChangeColor: (value: string) => void; onLogout: () => void }) {
+  return <DropdownMenu><DropdownMenuTrigger render={<button type="button" className="flex h-10 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left outline-hidden transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring" aria-label={`打开 ${displayName} 的个人菜单`} />}><ProfileAvatar name={displayName} avatar={avatar} withRing /><span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden"><span className="block truncate text-sm font-medium">{displayName}</span><span className="block truncate text-xs text-muted-foreground">{email}</span></span><ChevronsUpDown className="size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" aria-hidden="true" /></DropdownMenuTrigger><DropdownMenuContent side="right" align="end" sideOffset={8} className="w-56"><DropdownMenuGroup><DropdownMenuLabel className="flex items-center gap-2.5 py-2"><ProfileAvatar name={displayName} avatar={avatar} size="default" /><div className="flex min-w-0 flex-col"><span className="truncate text-sm font-semibold">{displayName}</span><span className="truncate text-xs font-normal text-muted-foreground">{email}</span></div></DropdownMenuLabel></DropdownMenuGroup><DropdownMenuSeparator /><DropdownMenuItem render={<NavLink to="/settings" />}><UserRound aria-hidden="true" />个人资料</DropdownMenuItem><DropdownMenuItem render={<NavLink to="/settings/account" />}><Settings aria-hidden="true" />账号设置</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onSelect={event => event.preventDefault()} className="cursor-default focus:bg-transparent!"><Palette aria-hidden="true" /><span>主题</span><div className="ml-auto"><ThemeSwitcher value={colorMode} onChange={onChangeTheme} /></div></DropdownMenuItem><DropdownMenuItem onSelect={event => event.preventDefault()} className="cursor-default focus:bg-transparent!"><Palette aria-hidden="true" /><span>配色</span><div className="ml-auto"><ThemeColorPicker value={primaryColor} onChange={onChangeColor} compact className="gap-1" /></div></DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={onLogout}><LogOut aria-hidden="true" />退出登录</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+}
 
-  // 先尝试精确匹配当前路径
-  const exactMatch = allMenus.find(menu => {
-    const path = getMenuPath(menu)
-    return path === pathname
-  })
-
-  if (exactMatch) {
-    // 如果匹配到子菜单，返回其父菜单的 section
-    const parent = menus.find(m => m.children?.some(child => child.id === exactMatch.id))
-    if (parent) {
-      const parentPath = getMenuPath(parent)
-      return parentPath ? `dynamic:${parentPath}` : 'dashboard'
-    }
-    // 如果是顶级菜单，返回自己的 section
-    const path = getMenuPath(exactMatch)
-    return path ? `dynamic:${path}` : 'dashboard'
-  }
-
-  // 如果没有精确匹配，尝试前缀匹配（处理嵌套路由）
-  const dynamicMenu = allMenus
-    .filter(menu => {
-      const path = getMenuPath(menu)
-      return path && pathname.startsWith(`${path}/`)
+function MenuTree({ items, pathname, expanded, onToggle }: { items: MenuItem[]; pathname: string; expanded: Set<string>; onToggle: (path: string, open: boolean) => void }) {
+  function renderItems(levelItems: MenuItem[], nested: boolean): React.ReactNode {
+    return levelItems.map(item => {
+      const hasChildren = Boolean(item.children?.length)
+      const isActive = pathname === item.to || pathname.startsWith(`${item.to}/`)
+      const leaf = <>{<NavigationIconView icon={item.icon} />}<span>{item.label}</span></>
+      if (!hasChildren) {
+        return nested
+          ? <SidebarMenuSubItem key={item.to}><SidebarMenuSubButton isActive={isActive} render={<NavLink to={item.to} />}>{leaf}</SidebarMenuSubButton></SidebarMenuSubItem>
+          : <SidebarMenuItem key={item.to}><SidebarMenuButton isActive={isActive} tooltip={item.label} render={<NavLink to={item.to} />}>{leaf}</SidebarMenuButton></SidebarMenuItem>
+      }
+      const isOpen = expanded.has(item.to) || isActive
+      const trigger = <CollapsibleTrigger asChild><SidebarMenuButton isActive={isActive} tooltip={item.label}>{leaf}<ChevronRight className={cn('ml-auto size-4 transition-transform duration-200 group-data-[collapsible=icon]:hidden', isOpen && 'rotate-90')} aria-hidden="true" /></SidebarMenuButton></CollapsibleTrigger>
+      const content = <CollapsibleContent><SidebarMenuSub>{renderItems(item.children ?? [], true)}</SidebarMenuSub></CollapsibleContent>
+      return nested
+        ? <SidebarMenuSubItem key={item.to}><Collapsible open={isOpen} onOpenChange={open => onToggle(item.to, open)}>{trigger}{content}</Collapsible></SidebarMenuSubItem>
+        : <Collapsible key={item.to} open={isOpen} onOpenChange={open => onToggle(item.to, open)}><SidebarMenuItem>{trigger}{content}</SidebarMenuItem></Collapsible>
     })
-    .sort((left, right) => (getMenuPath(right)?.length || 0) - (getMenuPath(left)?.length || 0))[0]
-
-  if (dynamicMenu) {
-    // 检查是否是子菜单
-    const parent = menus.find(m => m.children?.some(child => child.id === dynamicMenu.id))
-    if (parent) {
-      const parentPath = getMenuPath(parent)
-      return parentPath ? `dynamic:${parentPath}` : 'dashboard'
-    }
-    const path = getMenuPath(dynamicMenu)
-    if (path) return `dynamic:${path}`
   }
-
-  return 'dashboard'
-}
-
-function normalizeRoutePath(pathname: string) {
-  const normalized = pathname.replace(/\/+$/, '')
-  return normalized || '/'
-}
-
-function getDynamicSectionItems(section: SectionId, menus: MenuVo[]): MenuItem[] {
-  if (!section.startsWith('dynamic:')) return []
-  const path = section.slice('dynamic:'.length)
-
-  // 首先尝试在顶级菜单中查找
-  let menu = menus.find(item => getMenuPath(item) === path)
-
-  // 如果顶级没找到，可能是在子菜单中，需要递归查找父菜单
-  if (!menu) {
-    for (const topMenu of menus) {
-      const childMenu = (topMenu.children || []).find(child => getMenuPath(child) === path)
-      if (childMenu) {
-        menu = topMenu
-        break
-      }
-    }
-  }
-
-  return (menu?.children ?? [])
-    .filter(isVisibleMenu)
-    .map(item => {
-      const itemPath = getMenuPath(item)
-      if (!itemPath) return null
-
-      const children = (item.children ?? [])
-        .filter(isVisibleMenu)
-        .map(child => {
-          const childPath = getMenuPath(child)
-          return childPath ? { label: getMenuLabel(child), to: childPath, icon: getMenuIcon(child.icon || child.meta?.icon) } : null
-        })
-        .filter((child): child is NonNullable<typeof child> => child !== null)
-
-      return {
-        label: getMenuLabel(item),
-        to: itemPath,
-        icon: getMenuIcon(item.icon || item.meta?.icon),
-        ...(children.length > 0 ? { children } : {}),
-      }
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null)
-}
-
-function initials(name: string) {
-  return Array.from(name.trim())[0]?.toUpperCase() || 'M'
-}
-
-function RailTooltip({ label, children }: { label: string; children: React.ReactElement }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger render={children} />
-      <TooltipContent side="right" sideOffset={8}>
-        {label}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-function ProfileAvatar({ name, avatar, size = 'sm' }: { name: string; avatar?: string; size?: 'sm' | 'default' }) {
-  return (
-    <Avatar size={size}>
-      {avatar && <AvatarImage src={avatar} alt={name} />}
-      <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">{initials(name)}</AvatarFallback>
-    </Avatar>
-  )
-}
-
-function NavigationSearchMenu({ items }: { items: RailItem[] }) {
-  const navigate = useNavigate()
-  const [search, setSearch] = useState('')
-  const [open, setOpen] = useState(false)
-
-  return (
-    <>
-      <SidebarMenuButton onClick={() => setOpen(true)} className="size-8! justify-center gap-0 p-2! [&>span]:hidden" tooltip={{ children: '搜索', hidden: false }} aria-label="搜索">
-        <Search />
-      </SidebarMenuButton>
-      <CommandDialog open={open} onOpenChange={nextOpen => {
-        setOpen(nextOpen)
-        if (!nextOpen) setSearch('')
-      }} title="搜索菜单" description="搜索并打开菜单页面">
-        <Command className="h-full rounded-none bg-background">
-          <CommandInput autoFocus value={search} onValueChange={setSearch} placeholder="搜索菜单" aria-label="搜索菜单" />
-          <CommandList className="max-h-none flex-1 p-3">
-            <CommandEmpty>没有匹配的菜单</CommandEmpty>
-            {items.map(item => (
-              <CommandItem key={`search-${item.to}`} value={item.label} onSelect={() => {
-                navigate(item.to)
-                setOpen(false)
-              }}>
-                {item.label}
-              </CommandItem>
-            ))}
-          </CommandList>
-        </Command>
-      </CommandDialog>
-    </>
-  )
-}
-
-const themeOptions = [
-  { value: 'light' as const, label: '浅色', icon: Sun },
-  { value: 'dark' as const, label: '深色', icon: Moon },
-  { value: 'autoMode' as const, label: '跟随系统', icon: Monitor },
-]
-
-function ThemeSwitcher({
-  value,
-  onChange,
-}: {
-  value: 'light' | 'dark' | 'autoMode'
-  onChange: (value: 'light' | 'dark' | 'autoMode') => void
-}) {
-  return (
-    <div role="radiogroup" aria-label="主题" className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 p-0.5">
-      {themeOptions.map(({ value: optionValue, label, icon: Icon }) => {
-        const isActive = value === optionValue
-        return (
-          <Button
-            key={optionValue}
-            type="button"
-            role="radio"
-            aria-checked={isActive}
-            aria-label={label}
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => {
-              onChange(optionValue)
-            }}
-            className={cn('rounded-full', isActive ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
-          >
-            <Icon aria-hidden="true" />
-          </Button>
-        )
-      })}
-    </div>
-  )
-}
-
-function ProfileMenu({
-  displayName,
-  email,
-  avatar,
-  colorMode,
-  onChangeTheme,
-  onLogout,
-}: {
-  displayName: string
-  email: string
-  avatar?: string
-  colorMode: 'light' | 'dark' | 'autoMode'
-  onChangeTheme: (value: 'light' | 'dark' | 'autoMode') => void
-  onLogout: () => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        openOnHover
-        delay={0}
-        closeDelay={180}
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="mx-auto p-0!"
-            aria-label={`Open profile for ${displayName}`}
-          >
-            <ProfileAvatar name={displayName} avatar={avatar} />
-          </Button>
-        }
-      />
-      <DropdownMenuContent
-        side="right"
-        align="end"
-        sideOffset={8}
-        className="w-56"
-      >
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="flex items-center gap-2.5 py-2">
-            <ProfileAvatar name={displayName} avatar={avatar} size="default" />
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold text-foreground">{displayName}</span>
-              <span className="truncate text-xs font-normal text-muted-foreground">{email}</span>
-            </div>
-          </DropdownMenuLabel>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem render={<NavLink to="/settings" />}>
-            <UserRound aria-hidden="true" />
-            个人资料
-          </DropdownMenuItem>
-          <DropdownMenuItem render={<NavLink to="/settings/account" />}>
-            <Settings aria-hidden="true" />
-            账号设置
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={event => event.preventDefault()} className="cursor-default focus:bg-transparent!">
-          <Palette aria-hidden="true" />
-          <span>主题</span>
-          <div className="ml-auto">
-            <ThemeSwitcher value={colorMode} onChange={onChangeTheme} />
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onLogout}>
-          <LogOut aria-hidden="true" />
-          退出登录
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+  return <SidebarMenu>{renderItems(items, false)}</SidebarMenu>
 }
 
 export default function MainAside() {
-  const location = useLocation()
-  const { hasAuth } = usePermission()
-  const menus = useMenuStore(state => state.menus)
-  const userInfo = useUserStore(state => state.userInfo)
-  const logout = useUserStore(state => state.logout)
-  const { settings, setColorMode } = useSettingStore()
-  const { state: sidebarState } = useSidebar()
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
-  const section = getSection(location.pathname, menus)
-  const dynamicRailItems = getDynamicRailItems(menus)
-  const navigationItems = [...railItems, ...dynamicRailItems.filter(item => !railItems.some(staticItem => staticItem.to === item.to))]
-  const navigationSectionItems = React.useMemo<MenuItem[]>(() => section === 'settings' && hasAuth('announcement:index')
-    ? [...sectionItems.settings, { label: '公告管理', to: '/settings/announcements', icon: CircleDot }]
-    : sectionItems[section] || getDynamicSectionItems(section, menus), [section, hasAuth, menus])
-
-  // Auto-expand parent menus when navigating to a child route
-  React.useEffect(() => {
-    navigationSectionItems.forEach(item => {
-      if (item.children) {
-        const hasActiveChild = item.children.some(child => location.pathname === child.to)
-        if (hasActiveChild && !expandedMenus.has(item.to)) {
-          setExpandedMenus(prev => new Set(prev).add(item.to))
-        }
-      }
-    })
-  }, [expandedMenus, location.pathname, navigationSectionItems])
-
-  // 获取标题：优先使用静态标题，否则从动态菜单中获取
-  let navigationTitle = sectionTitles[section]
-  if (!navigationTitle && section.startsWith('dynamic:')) {
-    const sectionPath = section.slice('dynamic:'.length)
-    const menu = menus.find(m => getMenuPath(m) === sectionPath)
-    navigationTitle = menu ? getMenuLabel(menu) : sectionPath.split('/').pop() || '菜单'
-  }
-
-  // 查找自定义面板
-  const currentPath = normalizeRoutePath(location.pathname)
-  const customPane = customSectionPanes.find(pane => pane.path && normalizeRoutePath(pane.path) === currentPath)
-    ?? customSectionPanes.find(pane => pane.section === section && !pane.path)
-  const hasSecondaryNavigation = Boolean(customPane) || navigationSectionItems.length > 0
-
+  const location = useLocation(); const menus = useMenuStore(state => state.menus); const userInfo = useUserStore(state => state.userInfo); const logout = useUserStore(state => state.logout); const { settings, setColorMode, setPrimaryColor } = useSettingStore(); const { state, toggleSidebar } = useSidebar(); const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const menuItems = React.useMemo(() => menus.map(toMenuItem).filter((item): item is MenuItem => Boolean(item)), [menus])
+  const storeItems = React.useMemo(() => (menuItems.length > 0 ? menuItems : fallbackStoreItems).filter(item => item.to !== '/dashboard'), [menuItems])
+  const systemItems = React.useMemo<MenuItem[]>(() => menuItems.length > 0 ? [{ label: 'Analytics', to: '/analytics', icon: CircleDot }, { label: 'Settings', to: '/settings', icon: Settings }] : fallbackSystemItems, [menuItems])
+  const allItems = React.useMemo(() => [...workspaceItems, ...storeItems, ...systemItems], [storeItems, systemItems])
   const displayName = userInfo?.nickname || userInfo?.username || '管理员'
   const email = userInfo?.email || userInfo?.username || '未绑定邮箱'
-  const avatar = userInfo?.avatar || undefined
-
-  return (
-    <>
-      <Sidebar
-        collapsible="icon"
-        variant="sidebar"
-        className="overflow-hidden *:data-[sidebar=sidebar]:flex-row"
-        style={{ '--sidebar-width': hasSecondaryNavigation ? '350px' : 'var(--sidebar-width-icon)' } as CSSProperties}
-      >
-        <div className="flex min-h-full flex-1">
-          <Sidebar collapsible="none" className="w-(--sidebar-width-icon)! border-r">
-            <SidebarHeader className="flex items-center justify-center py-3">
-              <RailTooltip label="ReUI Clinic">
-                <SidebarMenuButton
-                  size="lg"
-                  className="size-8! justify-center gap-0 p-0!"
-                  render={<NavLink to="/dashboard" />}
-                  aria-label="ReUI Clinic"
-                >
-                  <div className="grid size-7 shrink-0 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                    <BriefcaseBusiness className="size-4" aria-hidden="true" />
-                  </div>
-                </SidebarMenuButton>
-              </RailTooltip>
-            </SidebarHeader>
-
-            <SidebarContent>
-              <SidebarGroup className="p-2">
-                <SidebarGroupContent>
-                  <SidebarMenu className="gap-0.5">
-                    {navigationItems.map(({ label, to, icon, section: itemSection }) => (
-                      <SidebarMenuItem key={to}>
-                        <RailTooltip label={label}>
-                          <SidebarMenuButton
-                            isActive={section === itemSection}
-                            className="size-8! justify-center gap-0 p-2!"
-                            render={<NavLink to={to} />}
-                            aria-label={label}
-                          >
-                            <NavigationIconView icon={icon} />
-                          </SidebarMenuButton>
-                        </RailTooltip>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-
-              <SidebarGroup className="mt-auto p-2">
-                <SidebarGroupContent>
-                  <SidebarMenu className="gap-0.5">
-                    <SidebarMenuItem>
-                      <NotificationBell />
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton onClick={() => {}} className="hidden" aria-hidden="true" />
-                      <NavigationSearchMenu items={navigationItems} />
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <RailTooltip label="Settings">
-                        <SidebarMenuButton
-                          isActive={section === 'settings'}
-                          className="size-8! justify-center gap-0 p-2! [&>span]:hidden"
-                          render={<NavLink to="/settings" />}
-                          aria-label="Settings"
-                        >
-                          <Settings />
-                        </SidebarMenuButton>
-                      </RailTooltip>
-                    </SidebarMenuItem>
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </SidebarContent>
-
-            <SidebarFooter className="p-2">
-              <ProfileMenu
-                displayName={displayName}
-                email={email}
-                avatar={avatar}
-                colorMode={settings.app.colorMode}
-                onChangeTheme={setColorMode}
-                onLogout={() => void logout()}
-              />
-            </SidebarFooter>
-          </Sidebar>
-
-          {hasSecondaryNavigation && (
-            <Sidebar
-              collapsible="none"
-              className={cn(
-                'relative flex-1 overflow-hidden transition-[width] duration-200 ease-linear',
-                sidebarState === 'collapsed' ? 'w-0' : 'w-[calc(var(--sidebar-width)-var(--sidebar-width-icon))]',
-              )}
-            >
-              {customPane ? <customPane.component /> : (
-                <div className="relative flex flex-1 flex-col overflow-hidden bg-background">
-                  <div className="flex h-(--header-height) shrink-0 items-center justify-between border-b border-border px-3">
-                    <span className="text-sm font-semibold text-foreground">{navigationTitle}</span>
-                  </div>
-                  <SidebarContent>
-                    <SidebarGroup className="p-2">
-                      <SidebarGroupContent>
-                        <SidebarMenu>
-                          {navigationSectionItems.map((item, index) => {
-                            const hasChildren = item.children && item.children.length > 0
-                            const isExpanded = expandedMenus.has(item.to)
-                            const isParentActive = location.pathname.startsWith(item.to)
-                            const itemIcon = item.icon
-
-                            if (hasChildren) {
-                              return (
-                                <Collapsible
-                                  key={`${section}-${item.label}`}
-                                  open={isExpanded}
-                                  onOpenChange={open => {
-                                    setExpandedMenus(previous => {
-                                      const next = new Set(previous)
-                                      if (open) {
-                                        next.add(item.to)
-                                      } else {
-                                        next.delete(item.to)
-                                      }
-                                      return next
-                                    })
-                                  }}
-                                >
-                                  <SidebarMenuItem>
-                                    <CollapsibleTrigger asChild>
-                                      <SidebarMenuButton isActive={isParentActive}>
-                                        {itemIcon && <NavigationIconView icon={itemIcon} />}
-                                        <span>{item.label}</span>
-                                        <ChevronRight className={`ml-auto size-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
-                                      </SidebarMenuButton>
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent>
-                                      <SidebarMenuSub>
-                                        {(item.children ?? []).map(child => (
-                                          <SidebarMenuSubItem key={child.to}>
-                                            <SidebarMenuSubButton isActive={location.pathname === child.to} render={<NavLink to={child.to} />}>
-                                              {child.icon && <NavigationIconView icon={child.icon} />}
-                                              <span>{child.label}</span>
-                                            </SidebarMenuSubButton>
-                                          </SidebarMenuSubItem>
-                                        ))}
-                                      </SidebarMenuSub>
-                                    </CollapsibleContent>
-                                  </SidebarMenuItem>
-                                </Collapsible>
-                              )
-                            }
-
-                            return (
-                              <SidebarMenuItem key={`${section}-${item.label}`}>
-                                <SidebarMenuButton isActive={location.pathname === item.to || (section !== 'settings' && index === 0 && location.pathname.startsWith(`${item.to}/`))} render={<NavLink to={item.to} />}>
-                                  {itemIcon && <NavigationIconView icon={itemIcon} />}
-                                  <span>{item.label}</span>
-                                </SidebarMenuButton>
-                              </SidebarMenuItem>
-                            )
-                          })}
-                        </SidebarMenu>
-                      </SidebarGroupContent>
-                    </SidebarGroup>
-                  </SidebarContent>
-                </div>
-              )}
-            </Sidebar>
-          )}
-        </div>
-      </Sidebar>
-      {hasSecondaryNavigation && <SidebarCollapseRail />}
-    </>
-  )
-}
-
-export function SidebarCollapseRail() {
-  const { state, toggleSidebar, isMobile } = useSidebar()
-
-  if (isMobile) return null
-
-  const isExpanded = state === 'expanded'
-
-  return (
-    <RailTooltip label={isExpanded ? '折叠侧边栏' : '展开侧边栏'}>
-      <button
-        type="button"
-        aria-label={isExpanded ? '折叠侧边栏' : '展开侧边栏'}
-        onClick={toggleSidebar}
-        style={{ left: isExpanded ? 'var(--sidebar-width)' : 'var(--sidebar-width-icon)' }}
-        className="fixed top-1/2 z-30 flex h-12 w-7 -translate-y-1/2 cursor-pointer items-center pl-2 outline-hidden transition-[left] duration-200 ease-linear focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-      >
-        <span className="flex flex-col items-center" aria-hidden="true">
-          <span className={cn('block h-2 w-0.5 origin-bottom rounded-t-full bg-foreground/40 transition-transform duration-150', isExpanded ? 'rotate-40' : '-rotate-40')} />
-          <span className={cn('block h-2 w-0.5 origin-top rounded-b-full bg-foreground/40 transition-transform duration-150', isExpanded ? '-rotate-40' : 'rotate-40')} />
-        </span>
-      </button>
-    </RailTooltip>
-  )
+  React.useEffect(() => { const active = allItems.filter(item => item.children?.some(child => location.pathname === child.to || location.pathname.startsWith(`${child.to}/`))).map(item => item.to); if (!active.length) return; const timer = window.setTimeout(() => setExpanded(previous => new Set([...previous, ...active])), 0); return () => window.clearTimeout(timer) }, [location.pathname, allItems])
+  const onToggle = React.useCallback((path: string, open: boolean) => setExpanded(previous => { const next = new Set(previous); if (open) next.add(path); else next.delete(path); return next }), [])
+  return <Sidebar collapsible="icon" variant="sidebar" className="top-(--header-height) h-[calc(100svh-var(--header-height))] bg-sidebar flex flex-col"><SidebarHeader className="shrink-0 p-3"><div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-2"><div className="min-w-0 flex-1 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:flex-none"><NavigationSearchMenu items={allItems} /></div><Button size="icon-sm" variant="ghost" onClick={toggleSidebar} aria-label={state === 'expanded' ? '折叠' : '展开'} className="shrink-0 size-8"><PanelLeftClose className={cn('size-4 transition-transform', state === 'collapsed' && 'rotate-180')} aria-hidden="true" /></Button></div></SidebarHeader><SidebarContent className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><SidebarGroup className="p-3 pb-0"><SidebarGroupLabel className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground group-data-[collapsible=icon]:hidden">Workspace</SidebarGroupLabel><SidebarGroupContent><MenuTree items={workspaceItems} pathname={location.pathname} expanded={expanded} onToggle={onToggle} /></SidebarGroupContent></SidebarGroup><SidebarGroup className="mt-2 p-3"><SidebarGroupLabel className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground group-data-[collapsible=icon]:hidden">Store</SidebarGroupLabel><SidebarGroupContent><MenuTree items={storeItems} pathname={location.pathname} expanded={expanded} onToggle={onToggle} /></SidebarGroupContent></SidebarGroup><SidebarGroup className="mt-2 p-3"><SidebarGroupLabel className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground group-data-[collapsible=icon]:hidden">System</SidebarGroupLabel><SidebarGroupContent><MenuTree items={systemItems} pathname={location.pathname} expanded={expanded} onToggle={onToggle} /></SidebarGroupContent></SidebarGroup></SidebarContent><SidebarFooter className="shrink-0 gap-1 border-t p-3"><ProfileMenu displayName={displayName} email={email} avatar={userInfo?.avatar || undefined} colorMode={settings.app.colorMode} primaryColor={settings.app.primaryColor} onChangeTheme={setColorMode} onChangeColor={setPrimaryColor} onLogout={() => void logout()} /></SidebarFooter></Sidebar>
 }
