@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { BriefcaseBusiness, ChevronRight, Eye, Pencil, Plus, RefreshCw, Trash2, UserRoundCog } from 'lucide-react'
-import { MaProTable, type MaProTableColumns, type MaProTableExpose } from '@/components/ma-pro-table'
+import { Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { MaProTable, type MaProTableExpose } from '@/components/ma-pro-table'
 import type { MaTablePagination } from '@/components/ma-table'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/common/use-toast'
 import { usePermission } from '@/hooks/usePermission'
 import type { DepartmentVo } from '../../api/department'
 import type { DepartmentRow } from '../data/department-tree'
+import { getDepartmentTableColumns } from '../data/getTableColumns'
 
 interface Props {
   rows: DepartmentRow[]
@@ -31,9 +30,6 @@ interface Props {
   onRefresh: () => void
 }
 
-function relationCount(value: unknown) { return Array.isArray(value) ? value.length : 0 }
-function formatDate(value: string | null | undefined) { return value ? value.replace('T', ' ').slice(0, 19) : '-' }
-
 export default function DepartmentProTable({ rows, total, pagination, loading, error, selectedIds, collapsedIds, onSelectionChange, onToggle, onToggleAll, onCreate, onEdit, onDetails, onLeaders, onPositions, onDelete, onSearch, onRefresh }: Props) {
   const tableRef = useRef<MaProTableExpose<DepartmentRow>>(null)
   const { toast } = useToast()
@@ -45,33 +41,7 @@ export default function DepartmentProTable({ rows, total, pagination, loading, e
     // The module pages whole subtrees; the table only renders that page and its controls.
     tableRef.current?.getTableRef()?.setPagination({ currentPage, pageSize, total: rootTotal, onChange: onPageChange, disabled: loading })
   }, [currentPage, pageSize, rootTotal, onPageChange, loading])
-  const columns = useMemo<MaProTableColumns<DepartmentRow>[]>(() => {
-    const selectableIds = rows.flatMap(row => row.department.id ? [row.department.id] : [])
-    const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedIds.includes(id))
-    return [
-      { width: 44, label: '', headerRender: () => <Checkbox checked={allSelected} indeterminate={!allSelected && selectableIds.some(id => selectedIds.includes(id))} disabled={loading || !selectableIds.length} onCheckedChange={checked => onSelectionChange(checked ? selectableIds : [])} aria-label="选择本页部门" />, cellRender: ({ row: { department } }) => <Checkbox checked={Boolean(department.id && selectedIds.includes(department.id))} disabled={loading || !department.id} onCheckedChange={checked => { if (department.id) onSelectionChange(checked ? [...selectedIds, department.id] : selectedIds.filter(id => id !== department.id)) }} aria-label={`选择 ${department.name || '部门'}`} /> },
-      { label: '部门名称', width: 280, cellRender: ({ row: { department, depth } }) => {
-        const collapsed = Boolean(department.id && collapsedIds.includes(department.id))
-        return <div className="flex items-center gap-1" style={{ paddingLeft: `${depth * 1.25}rem` }}>
-          {department.children?.length ? <Button variant="ghost" size="icon-xs" aria-expanded={!collapsed} aria-label={collapsed ? '展开子部门' : '折叠子部门'} onClick={() => { if (department.id) onToggle(department.id) }}><ChevronRight className={`size-4 transition-transform ${collapsed ? '' : 'rotate-90'}`} /></Button> : <span className="inline-block size-6" />}
-          <span className="font-medium">{department.name || '-'}</span>{depth === 0 && <Badge variant="outline" className="ml-1">根部门</Badge>}
-        </div>
-      } },
-      { label: '负责人', cellRender: ({ row }) => relationCount(row.department.leader) },
-      { label: '岗位', cellRender: ({ row }) => relationCount(row.department.positions) },
-      { label: '用户', cellRender: ({ row }) => relationCount(row.department.department_users) },
-      { label: '创建时间', cellRender: ({ row }) => formatDate(row.department.created_at) },
-      { label: '更新时间', cellRender: ({ row }) => formatDate(row.department.updated_at) },
-      { label: '操作', align: 'right', width: 320 + (canManageLeaders ? 120 : 0) + (canManagePositions ? 110 : 0), cellRender: ({ row: { department } }) => <div className="flex justify-end gap-1">
-        <Button variant="ghost" size="sm" onClick={() => onCreate(department)}><Plus aria-hidden="true" />子部门</Button>
-        {canManageLeaders && <Button variant="ghost" size="sm" disabled={loading || !department.id} onClick={() => onLeaders(department)}><UserRoundCog aria-hidden="true" />设置负责人</Button>}
-        {canManagePositions && <Button variant="ghost" size="sm" disabled={loading || !department.id} onClick={() => onPositions(department)}><BriefcaseBusiness aria-hidden="true" />管理岗位</Button>}
-        <Button variant="ghost" size="sm" onClick={() => onDetails(department)}><Eye aria-hidden="true" />详情</Button>
-        <Button variant="ghost" size="sm" onClick={() => onEdit(department)}><Pencil aria-hidden="true" />编辑</Button>
-        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => { if (department.id) void onDelete([department.id]) }}><Trash2 aria-hidden="true" />删除</Button>
-      </div> },
-    ]
-  }, [rows, selectedIds, collapsedIds, loading, canManageLeaders, canManagePositions, onSelectionChange, onToggle, onCreate, onEdit, onDetails, onLeaders, onPositions, onDelete])
+  const columns = useMemo(() => getDepartmentTableColumns({ rows, selectedIds, collapsedIds, loading, canManageLeaders, canManagePositions, onSelectionChange, onToggle, onCreate, onEdit, onDetails, onLeaders, onPositions, onDelete }), [rows, selectedIds, collapsedIds, loading, canManageLeaders, canManagePositions, onSelectionChange, onToggle, onCreate, onEdit, onDetails, onLeaders, onPositions, onDelete])
   useEffect(() => { tableRef.current?.setTableColumns(columns) }, [columns])
 
   return <MaProTable<DepartmentRow>

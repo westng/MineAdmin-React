@@ -14,6 +14,7 @@ import { getMenuLabel } from '@/router/dynamic-menu'
 import type { MaProTableExpose } from '@/components/ma-pro-table'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
 import { useToast } from '@/components/common/use-toast'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import RoleProTable from './RoleProTable'
 
 type RoleForm = RoleVo
@@ -109,6 +110,7 @@ export default function PermissionRolePageView() {
   const [permissionRole, setPermissionRole] = useState<RoleVo | null>(null)
   const [permissionNames, setPermissionNames] = useState<string[]>([])
   const [permissionSearch, setPermissionSearch] = useState('')
+  const [confirmDeleteIds, setConfirmDeleteIds] = useState<number[]>([])
 
   const refreshRoles = useCallback(async () => {
     tableRef.current?.getTableRef()?.clearSelection()
@@ -135,11 +137,18 @@ export default function PermissionRolePageView() {
   }
 
   async function removeRoles(ids: number[]) {
-    if (!ids.length || !window.confirm(`确认删除 ${ids.length} 个角色吗？`)) return
+    if (!ids.length) return
+    setConfirmDeleteIds(ids)
+  }
+
+  async function confirmRemoveRoles() {
+    const ids = confirmDeleteIds
+    if (!ids.length) return
     try {
       const response = await deleteByIds(ids)
       if (response.data.code !== 200) throw new Error(responseMessage(response))
       toast('角色删除成功', 'success')
+      setConfirmDeleteIds([])
       await refreshRoles()
     }
     catch (error) { toast(error instanceof Error ? error.message : '角色删除失败', 'destructive') }
@@ -187,6 +196,7 @@ export default function PermissionRolePageView() {
       />
       <Dialog open={formOpen} onOpenChange={setFormOpen}><DialogContent className="sm:max-w-xl"><DialogHeader><DialogTitle>{form.id ? '编辑角色' : '新增角色'}</DialogTitle><DialogDescription>角色编码用于权限识别，保存后可继续配置菜单权限。</DialogDescription></DialogHeader><FieldGroup className="grid gap-4 md:grid-cols-2"><Field><FieldLabel>角色名称</FieldLabel><Input value={form.name || ''} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} /></Field><Field><FieldLabel>角色编码</FieldLabel><Input value={form.code || ''} disabled={Boolean(form.id)} onChange={event => setForm(current => ({ ...current, code: event.target.value }))} /></Field><Field><FieldLabel>排序</FieldLabel><Input type="number" value={String(form.sort ?? 0)} onChange={event => setForm(current => ({ ...current, sort: Number(event.target.value) }))} /></Field><Field><FieldLabel>状态</FieldLabel><Select value={String(form.status || 1)} onValueChange={value => setForm(current => ({ ...current, status: Number(value) as 1 | 2 }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">启用</SelectItem><SelectItem value="2">禁用</SelectItem></SelectContent></Select></Field><Field className="md:col-span-2"><FieldLabel>备注</FieldLabel><Input value={form.remark || ''} onChange={event => setForm(current => ({ ...current, remark: event.target.value }))} /></Field></FieldGroup><DialogFooter><Button variant="outline" onClick={() => setFormOpen(false)}>取消</Button><Button onClick={() => void submitForm()}>保存</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={permissionOpen} onOpenChange={setPermissionOpen}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>配置菜单权限</DialogTitle><DialogDescription>{permissionRole?.name || '当前角色'} 可以访问的菜单。</DialogDescription></DialogHeader><div className="relative"><Input className="pr-9" value={permissionSearch} onChange={event => setPermissionSearch(event.target.value)} placeholder="搜索菜单名称、路径或权限编码" aria-label="搜索菜单权限" />{permissionSearch && <button type="button" className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setPermissionSearch('')} aria-label="清除菜单搜索"><X className="size-3.5" aria-hidden="true" /></button>}</div><div className="max-h-[55vh] overflow-y-auto rounded-md border p-3">{filteredPermissionMenus.length ? <PermissionMenuTree key={permissionSearch || 'all'} menus={filteredPermissionMenus} permissionNames={permissionNames} onToggle={togglePermission} /> : <p className="py-8 text-center text-sm text-muted-foreground">{menus.length ? '没有匹配的菜单权限。' : '暂无可配置菜单。'}</p>}</div><DialogFooter><Button variant="outline" onClick={() => setPermissionOpen(false)}>取消</Button><Button onClick={() => void savePermissions()}>保存权限</Button></DialogFooter></DialogContent></Dialog>
+      <ConfirmDialog open={confirmDeleteIds.length > 0} title="删除角色" description={`确认删除 ${confirmDeleteIds.length} 个角色吗？`} onClose={() => setConfirmDeleteIds([])} onConfirm={confirmRemoveRoles} />
     </>
   )
 }

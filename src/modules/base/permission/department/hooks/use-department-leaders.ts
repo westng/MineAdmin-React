@@ -11,6 +11,7 @@ export function useDepartmentLeaders(departmentId: number, onChanged: () => Prom
   const busyRef = useRef(false)
   const [busy, setBusy] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<LeaderRecord | null>(null)
   const { toast } = useToast()
   const { hasAuth: canAccess } = usePermission()
 
@@ -61,14 +62,19 @@ export function useDepartmentLeaders(departmentId: number, onChanged: () => Prom
       toast('暂无移除负责人权限，请联系管理员', 'destructive')
       return
     }
-    const name = leader.user?.nickname || leader.user?.username || `用户 #${leader.user_id}`
-    if (!window.confirm(`确认将“${name}”从当前部门负责人中移除吗？`)) return
+    setPendingDelete(leader)
+  }
+
+  async function confirmRemoveLeader() {
+    const leader = pendingDelete
+    if (!leader) return
     busyRef.current = true
     setBusy(true)
     try {
       const response = await leaderApi.deleteByDoubleKey(departmentId, [leader.user_id])
       if (response.data.code !== 200) throw new Error(response.data.message || '负责人移除失败')
       toast('负责人已移除', 'success')
+      setPendingDelete(null)
       tableRef.current?.search()
       await onChanged()
     }
@@ -82,7 +88,7 @@ export function useDepartmentLeaders(departmentId: number, onChanged: () => Prom
   }
 
   return {
-    tableRef, request, busy, pickerOpen, setPickerOpen, addLeaders, removeLeader,
+    tableRef, request, busy, pickerOpen, setPickerOpen, addLeaders, removeLeader, pendingDelete, setPendingDelete, confirmRemoveLeader,
     canAdd: canAccess('permission:leader:save') && canAccess('permission:user:index'),
     canRemove: canAccess('permission:leader:delete'),
   }

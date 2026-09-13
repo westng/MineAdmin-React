@@ -3,17 +3,20 @@ import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { MaDialog } from '@/components/ma-dialog'
 import { MaForm } from '@/components/ma-form'
 import type { MaProTableExpose } from '@/components/ma-pro-table'
+import type { MaFormExpose } from '@/components/ma-form'
 import { createUser, deleteUsers, getUserRole, resetPassword, saveUser, setUserRole, type UserVo } from '@/modules/base/permission/user/api/user'
 import { page as pageRoles, type RoleVo } from '@/modules/base/permission/role/api/role'
 import { page as pageDepartments, type DepartmentVo } from '@/modules/base/permission/department/api/department'
 import { page as pagePositions, type PositionVo } from '@/modules/base/permission/department/api/position'
 import { extractList } from '@/utils/api-data'
 import { useDictStore } from '@/provider/dictionary'
-import { emptyForm, getFormItems, type UserForm } from '../data'
+import { emptyForm, getFormItems, type DepartmentOption, type UserForm } from '../data'
 import UserProTable from './UserProTable'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
 function responseMessage(response: { data?: { code?: number; message?: string } }) {
   return response.data?.message || '操作失败'
@@ -29,10 +32,13 @@ export default function PermissionUserPageView() {
   const [roleUser, setRoleUser] = useState<UserVo | null>(null)
   const [roles, setRoles] = useState<RoleVo[]>([])
   const [roleCodes, setRoleCodes] = useState<string[]>([])
-  const [departments, setDepartments] = useState<Array<{ id: number; name: string }>>([])
+  const [departments, setDepartments] = useState<DepartmentOption[]>([])
   const [positions, setPositions] = useState<Array<{ id: number; dept_id?: number; name: string }>>([])
+  const [confirmDeleteIds, setConfirmDeleteIds] = useState<number[]>([])
+  const [resetUser, setResetUser] = useState<UserVo | null>(null)
 
   const proTableRef = useRef<MaProTableExpose<UserVo>>(null)
+  const formRef = useRef<MaFormExpose<UserForm>>(null)
   const refreshUsers = useCallback(async () => {
     setSelectedIds([])
     proTableRef.current?.getTableRef()?.clearSelection()
@@ -47,15 +53,19 @@ export default function PermissionUserPageView() {
 
   useEffect(() => {
     let active = true
-    const flattenDepartments = (items: DepartmentVo[]): Array<{ id: number; name: string }> => items.flatMap(item => [
-      ...(item.id && item.name ? [{ id: item.id, name: item.name }] : []),
-      ...flattenDepartments(item.children ?? []),
-    ])
+    const normalizeDepartments = (items: DepartmentVo[]): DepartmentOption[] => items.flatMap(item => {
+      if (!item.id || !item.name) return []
+      return [{
+        id: item.id,
+        name: item.name,
+        children: normalizeDepartments(item.children ?? []),
+      }]
+    })
     void Promise.all([pageDepartments({}), pagePositions({ page: 1, page_size: 500 })]).then(([departmentResponse, positionResponse]) => {
       if (!active) return
       const departmentList = extractList<DepartmentVo>(departmentResponse.data.data)
       const positionList = extractList<PositionVo>(positionResponse.data.data)
-      setDepartments(flattenDepartments(departmentList))
+      setDepartments(normalizeDepartments(departmentList))
       setPositions(positionList.flatMap(position => position.id && position.name ? [{ id: position.id, dept_id: position.dept_id, name: position.name }] : []))
     }).catch(() => {
       // Permission errors should not prevent editing the other user fields.
@@ -122,17 +132,24 @@ export default function PermissionUserPageView() {
   }, [refreshUsers])
 
   const removeUsers = useCallback(async (ids: number[]) => {
-    if (!ids.length || !window.confirm(`确认删除 ${ids.length} 个用户吗？`)) return
+    if (!ids.length) return
+    setConfirmDeleteIds(ids)
+  }, [])
+
+  const confirmRemoveUsers = useCallback(async () => {
+    const ids = confirmDeleteIds
+    if (!ids.length) return
     try {
       const response = await deleteUsers(ids)
       if (response.data.code !== 200) throw new Error(responseMessage(response))
       setNotice('用户删除成功')
+      setConfirmDeleteIds([])
       await refreshUsers()
     }
     catch (error) {
       setNotice(error instanceof Error ? error.message : '用户删除失败')
     }
-  }, [refreshUsers])
+  }, [confirmDeleteIds, refreshUsers])
 
   const openRoles = useCallback(async (user: UserVo) => {
     setRoleUser(user)
@@ -161,16 +178,22 @@ export default function PermissionUserPageView() {
   }
 
   const initializePassword = useCallback(async (user: UserVo) => {
-    if (!user.id || !window.confirm(`确认将 ${user.username || '该用户'} 密码重置为初始密码吗？`)) return
+    if (!user.id) return
+    setResetUser(user)
+  }, [])
+
+  const confirmInitializePassword = useCallback(async () => {
+    if (!resetUser?.id) return
     try {
-      const response = await resetPassword(user.id)
+      const response = await resetPassword(resetUser.id)
       if (response.data.code !== 200) throw new Error(responseMessage(response))
       setNotice('初始密码设置成功')
+      setResetUser(null)
     }
     catch (error) {
       setNotice(error instanceof Error ? error.message : '密码重置失败')
     }
-  }, [])
+  }, [resetUser])
 
   const formItems = useMemo(() => getFormItems(Boolean(form.id), { departments, positions }), [departments, form.id, positions])
 
@@ -191,8 +214,10 @@ export default function PermissionUserPageView() {
         onDelete={removeUsers}
       />
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}><DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>{form.id ? '编辑用户' : '新增用户'}</DialogTitle><DialogDescription>填写用户基本信息，保存后立即生效。</DialogDescription></DialogHeader><MaForm<UserForm> key={`${formOpen ? 'open' : 'closed'}-${form.id ?? 'new'}`} modelValue={form} items={formItems} options={{ layout: 'grid', grid: { columns: 2, gap: '1rem' } }} onModelValueChange={setForm} onSubmit={submitForm}><DialogFooter><Button type="button" variant="outline" onClick={() => setFormOpen(false)}>取消</Button><Button type="submit">保存</Button></DialogFooter></MaForm></DialogContent></Dialog>
+      <MaDialog open={formOpen} onOpenChange={setFormOpen} title={form.id ? '编辑用户' : '新增用户'} description="填写用户基本信息、组织归属和数据权限，保存后立即生效。" okText="保存" cancelText="取消" onOk={() => { formRef.current?.getElFormRef()?.requestSubmit(); return false }} showFullscreenButton contentClassName="max-h-[calc(100vh-2rem)] overflow-hidden sm:max-w-4xl" bodyClassName="min-h-0 overflow-y-auto"><MaForm<UserForm> ref={formRef} key={`${formOpen ? 'open' : 'closed'}-${form.id ?? 'new'}`} modelValue={form} items={formItems} options={{ layout: 'grid', grid: { columns: 2, gap: '1.25rem' }, containerClass: 'pb-1' }} onModelValueChange={setForm} onSubmit={submitForm} /></MaDialog>
       <Dialog open={roleOpen} onOpenChange={setRoleOpen}><DialogContent><DialogHeader><DialogTitle>设置用户角色</DialogTitle><DialogDescription>{roleUser?.username || '当前用户'} 可分配的角色。</DialogDescription></DialogHeader><div className="grid gap-2">{roles.map(role => <label key={role.code} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><Checkbox checked={Boolean(role.code && roleCodes.includes(role.code))} onCheckedChange={checked => setRoleCodes(current => checked ? [...current, role.code as string] : current.filter(code => code !== role.code))} /><span>{role.name}（{role.code}）</span></label>)}{!roles.length && <p className="text-sm text-muted-foreground">暂无可分配角色。</p>}</div><DialogFooter><Button variant="outline" onClick={() => setRoleOpen(false)}>取消</Button><Button onClick={() => void saveRoles()}>保存角色</Button></DialogFooter></DialogContent></Dialog>
+      <ConfirmDialog open={confirmDeleteIds.length > 0} title="删除用户" description={`确认删除 ${confirmDeleteIds.length} 个用户吗？`} onClose={() => setConfirmDeleteIds([])} onConfirm={confirmRemoveUsers} />
+      <ConfirmDialog open={Boolean(resetUser)} title="重置用户密码" description={`确认将 ${resetUser?.username || '该用户'} 的密码重置为初始密码吗？`} onClose={() => setResetUser(null)} onConfirm={confirmInitializePassword} />
     </>
   )
 }

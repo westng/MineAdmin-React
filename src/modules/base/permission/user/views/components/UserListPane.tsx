@@ -29,7 +29,8 @@ export default function UserListPane() {
   }, [])
 
   useEffect(() => {
-    void loadUsers()
+    const timer = window.setTimeout(() => void loadUsers(), 0)
+    return () => window.clearTimeout(timer)
   }, [loadUsers])
 
   const filteredUsers = users.filter(user => {

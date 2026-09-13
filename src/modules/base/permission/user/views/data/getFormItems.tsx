@@ -1,5 +1,18 @@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Cascader,
+  CascaderChips,
+  CascaderContent,
+  CascaderEmpty,
+  CascaderList,
+  CascaderPanel,
+  CascaderStatus,
+  useCascaderAnchor,
+} from '@/components/reui/cascader/cascader'
+import { CascaderInput, CascaderNav } from '@/components/reui/cascader/cascader-nav'
+import { CascaderItems } from '@/components/reui/cascader/cascader-item'
+import type { CascaderNode } from '@/components/reui/cascader/cascader-types'
 import type { MaFormItem, MaFormRenderContext } from '@/components/ma-form'
 import type { UserPolicy, UserVo } from '../../api/user'
 
@@ -12,8 +25,14 @@ export interface UserForm extends Partial<UserVo> {
 }
 
 export interface UserFormOptions {
-  departments?: Array<{ id: number; name: string }>
+  departments?: DepartmentOption[]
   positions?: Array<{ id: number; dept_id?: number; name: string }>
+}
+
+export interface DepartmentOption {
+  id: number
+  name: string
+  children?: DepartmentOption[]
 }
 
 export const emptyForm: UserForm = {
@@ -51,6 +70,43 @@ function renderMultiSelect({ item, value, setValue }: MaFormRenderContext<UserFo
   )
 }
 
+function DepartmentTreeSelect({ value, setValue, item }: MaFormRenderContext<UserForm>) {
+  const anchor = useCascaderAnchor()
+  const options = (item.renderProps?.options ?? []) as DepartmentOption[]
+  const toNode = (option: DepartmentOption): CascaderNode => ({
+    value: String(option.id),
+    label: option.name,
+    children: option.children?.map(toNode),
+  })
+  const items: CascaderNode[] = options.map(toNode)
+  const selected = Array.isArray(value) ? value.map(String) : []
+
+  return (
+    <Cascader
+      multiple
+      mode="tree"
+      items={items}
+      selectable="any"
+      value={selected}
+      onValueChange={values => setValue(values.map(Number))}
+      searchScope="deep"
+      maxHeight={240}
+    >
+      <CascaderChips ref={anchor} placeholder="请选择部门" className="w-full" />
+      <CascaderContent anchor={anchor} className="min-w-[min(24rem,calc(100vw-2rem))]">
+        <CascaderPanel>
+          <CascaderNav>
+            <CascaderInput placeholder="搜索部门" />
+          </CascaderNav>
+          <CascaderEmpty>暂无可选部门</CascaderEmpty>
+          <CascaderList><CascaderItems /></CascaderList>
+          <CascaderStatus />
+        </CascaderPanel>
+      </CascaderContent>
+    </Cascader>
+  )
+}
+
 function renderStatusField({ item, value, setValue }: MaFormRenderContext<UserForm>) {
   const disabled = Boolean(item.renderProps?.disabled)
 
@@ -65,20 +121,10 @@ function renderStatusField({ item, value, setValue }: MaFormRenderContext<UserFo
   )
 }
 
-function renderSection(title: string, description: string) {
-  return () => (
-    <div className="border-b pb-2 pt-3 first:pt-0">
-      <div className="text-sm font-semibold text-foreground">{title}</div>
-      <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
-    </div>
-  )
-}
-
 export function getFormItems(isEditing = false, formOptions: UserFormOptions = {}): MaFormItem<UserForm>[] {
   const departments = formOptions.departments ?? []
   const positions = formOptions.positions ?? []
   const items: MaFormItem<UserForm>[] = [
-    { render: renderSection('基础信息', '设置账号登录和联系方式'), showLabel: false, cols: { span: 24 } },
     {
       label: '用户名',
       prop: 'username',
@@ -102,10 +148,8 @@ export function getFormItems(isEditing = false, formOptions: UserFormOptions = {
     { label: '手机号', prop: 'phone', render: 'Input', renderProps: { placeholder: '请输入手机号' } },
     { label: '邮箱', prop: 'email', render: 'Input', renderProps: { type: 'email', placeholder: '请输入邮箱' } },
     { label: '状态', prop: 'status', render: renderStatusField },
-    { render: renderSection('组织归属', '选择用户所属的部门和岗位'), showLabel: false, cols: { span: 24 } },
-    { label: '部门', prop: 'department', render: renderMultiSelect, renderProps: { options: departments } },
+    { label: '部门', prop: 'department', render: DepartmentTreeSelect, renderProps: { options: departments } },
     { label: '岗位', prop: 'position', render: renderMultiSelect, renderProps: { options: positions } },
-    { render: renderSection('数据权限', '控制用户可查看和操作的数据范围'), showLabel: false, cols: { span: 24 } },
     {
       label: '数据权限',
       prop: 'policy.policy_type',
@@ -125,7 +169,7 @@ export function getFormItems(isEditing = false, formOptions: UserFormOptions = {
     {
       label: '自定义部门',
       prop: 'policy.value',
-      render: renderMultiSelect,
+      render: DepartmentTreeSelect,
       renderProps: { options: departments },
       show: (_item, model) => model.policy?.policy_type === 'CUSTOM_DEPT',
     },
@@ -136,7 +180,6 @@ export function getFormItems(isEditing = false, formOptions: UserFormOptions = {
       renderProps: { placeholder: '请输入数据权限函数名' },
       show: (_item, model) => model.policy?.policy_type === 'CUSTOM_FUNC',
     },
-    { render: renderSection('补充信息', '记录便于识别和协作的备注'), showLabel: false, cols: { span: 24 } },
     { label: '备注', prop: 'remark', render: 'Textarea', renderProps: { placeholder: '请输入备注', rows: 3 }, cols: { span: 24 } },
   ]
   return items.map(item => item.cols ? item : { ...item, cols: { span: 12 } })

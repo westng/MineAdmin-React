@@ -1,11 +1,13 @@
 import { useEffect, useMemo } from 'react'
-import { Plus, UserRoundMinus } from 'lucide-react'
-import { MaProTable, type MaProTableColumns } from '@/components/ma-pro-table'
+import { Plus } from 'lucide-react'
+import { MaProTable } from '@/components/ma-pro-table'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { LeaderRecord } from '../api/leader'
 import { useDepartmentLeaders } from '../hooks/use-department-leaders'
 import { DepartmentLeaderPicker } from './DepartmentLeaderPicker'
+import { getLeaderTableColumns } from './data/getTableColumns'
 
 interface Props {
   departmentId: number
@@ -15,14 +17,8 @@ interface Props {
 }
 
 export function DepartmentLeadersDialog({ departmentId, departmentName, onClose, onChanged }: Props) {
-  const { tableRef, request, busy, pickerOpen, setPickerOpen, canAdd, canRemove, addLeaders, removeLeader } = useDepartmentLeaders(departmentId, onChanged)
-  const columns = useMemo<MaProTableColumns<LeaderRecord>[]>(() => [
-    { label: '用户名', cellRender: ({ row }) => row.user?.username || `用户 #${row.user_id}` },
-    { label: '昵称', cellRender: ({ row }) => row.user?.nickname || (row.user ? '-' : '用户已不可用') },
-    ...(canRemove ? [{ label: '操作', align: 'right' as const, width: 100, cellRender: ({ row }: { row: LeaderRecord }) =>
-      <Button variant="ghost" size="sm" className="text-destructive" disabled={busy} onClick={() => void removeLeader(row)}><UserRoundMinus aria-hidden="true" />移除</Button>,
-    }] : []),
-  ], [busy, canRemove, removeLeader])
+  const { tableRef, request, busy, pickerOpen, setPickerOpen, canAdd, canRemove, addLeaders, removeLeader, pendingDelete, setPendingDelete, confirmRemoveLeader } = useDepartmentLeaders(departmentId, onChanged)
+  const columns = useMemo(() => getLeaderTableColumns({ canRemove, busy, onRemove: row => void removeLeader(row) }), [busy, canRemove, removeLeader])
   useEffect(() => { tableRef.current?.setTableColumns(columns) }, [columns, tableRef])
 
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose() }}>
@@ -43,6 +39,7 @@ export function DepartmentLeadersDialog({ departmentId, departmentName, onClose,
       />
       <DialogFooter><Button variant="outline" disabled={busy} onClick={onClose}>关闭</Button></DialogFooter>
       {pickerOpen && <DepartmentLeaderPicker departmentName={departmentName} busy={busy} onClose={() => setPickerOpen(false)} onAdd={addLeaders} />}
+      <ConfirmDialog open={Boolean(pendingDelete)} title="移除负责人" description={`确认将“${pendingDelete?.user?.nickname || pendingDelete?.user?.username || `用户 #${pendingDelete?.user_id}`}”从当前部门负责人中移除吗？`} onClose={() => setPendingDelete(null)} onConfirm={confirmRemoveLeader} />
     </DialogContent>
   </Dialog>
 }

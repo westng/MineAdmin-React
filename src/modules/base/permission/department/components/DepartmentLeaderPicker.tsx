@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { hasAuth } from '@/hooks/usePermission'
 import { pageUsers, type UserVo } from '../../user/api/user'
 import { departmentErrorMessage } from '../utils/department-error'
+import { getLeaderPickerTableColumns } from './data/getTableColumns'
 
 interface Props {
   departmentName: string
@@ -60,11 +61,7 @@ export function DepartmentLeaderPicker({ departmentName, busy, onClose, onAdd }:
       <MaProTable<UserVo>
         ref={tableRef}
         schema={{
-          tableColumns: [
-            { type: 'selection', width: 44 },
-            { prop: 'username', label: '用户名' },
-            { prop: 'nickname', label: '昵称' },
-          ],
+          tableColumns: getLeaderPickerTableColumns(),
           searchItems: [
             { prop: 'username', label: '用户名', render: 'Input' },
             { prop: 'nickname', label: '昵称', render: 'Input' },

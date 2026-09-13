@@ -1,5 +1,5 @@
 export { emptyForm, getFormItems } from './getFormItems'
-export type { UserForm } from './getFormItems'
+export type { DepartmentOption, UserForm } from './getFormItems'
 export { emptySearch, getSearchItems } from './getSearchItems'
 export type { UserSearchState } from './getSearchItems'
 export { getTableColumns } from './getTableColumns'

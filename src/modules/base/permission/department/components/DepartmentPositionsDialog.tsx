@@ -1,13 +1,15 @@
-import { useEffect, useMemo } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
-import { MaProTable, type MaProTableColumns } from '@/components/ma-pro-table'
+import { useCallback, useEffect, useMemo } from 'react'
+import { Plus } from 'lucide-react'
+import { MaProTable } from '@/components/ma-pro-table'
 import { useToast } from '@/components/common/use-toast'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import type { PositionVo } from '../api/position'
 import { useDepartmentPositions } from '../hooks/use-department-positions'
+import { getPositionTableColumns } from './data/getTableColumns'
 
 interface Props {
   departmentId: number
@@ -17,17 +19,10 @@ interface Props {
 }
 
 export function DepartmentPositionsDialog({ departmentId, departmentName, onClose, onChanged }: Props) {
-  const { tableRef, request, busy, form, setForm, canCreate, canEdit, canDelete, savePosition, removePosition } = useDepartmentPositions(departmentId, onChanged)
+  const { tableRef, request, busy, form, setForm, canCreate, canEdit, canDelete, savePosition, removePosition, pendingDelete, setPendingDelete, confirmRemovePosition } = useDepartmentPositions(departmentId, onChanged)
   const { toast } = useToast()
-  const columns = useMemo<MaProTableColumns<PositionVo>[]>(() => [
-    { prop: 'name', label: '岗位名称' },
-    ...(canEdit || canDelete ? [{ label: '操作', align: 'right' as const, width: 170, cellRender: ({ row }: { row: PositionVo }) => <div className="flex justify-end gap-1">
-      {canEdit && <Button variant="ghost" size="sm" disabled={busy || !row.id} onClick={() => {
-        if (!tableRef.current?.getElTableStates().loading) setForm({ id: row.id, name: row.name || '' })
-      }}><Pencil aria-hidden="true" />编辑</Button>}
-      {canDelete && <Button variant="ghost" size="sm" className="text-destructive" disabled={busy || !row.id} onClick={() => void removePosition(row)}><Trash2 aria-hidden="true" />删除</Button>}
-    </div> }] : []),
-  ], [busy, canDelete, canEdit, removePosition, setForm, tableRef])
+  const editPosition = useCallback((row: PositionVo) => { if (!busy) setForm({ id: row.id, name: row.name || '' }) }, [busy, setForm])
+  const columns = useMemo(() => getPositionTableColumns({ canEdit, canDelete, busy, onEdit: editPosition, onDelete: row => void removePosition(row) }), [busy, canDelete, canEdit, editPosition, removePosition])
   useEffect(() => { tableRef.current?.setTableColumns(columns) }, [columns, tableRef])
 
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose() }}>
@@ -60,6 +55,7 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
         toolbarLeft={canCreate && <Button size="sm" disabled={busy || form !== null} onClick={() => setForm({ name: '' })}><Plus aria-hidden="true" />新增岗位</Button>}
       />
       <DialogFooter><Button variant="outline" disabled={busy} onClick={onClose}>关闭</Button></DialogFooter>
+      <ConfirmDialog open={Boolean(pendingDelete)} title="删除岗位" description={`确认删除当前部门的岗位“${pendingDelete?.name || pendingDelete?.id || ''}”吗？`} onClose={() => setPendingDelete(null)} onConfirm={confirmRemovePosition} />
     </DialogContent>
   </Dialog>
 }

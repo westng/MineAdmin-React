@@ -13,6 +13,7 @@ export function useDepartmentPositions(departmentId: number, onChanged: () => Pr
   const busyRef = useRef(false)
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState<PositionForm | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<PositionVo | null>(null)
   const { toast } = useToast()
   const { hasAuth: canAccess } = usePermission()
 
@@ -70,7 +71,12 @@ export function useDepartmentPositions(departmentId: number, onChanged: () => Pr
       toast('暂无删除岗位权限，请联系管理员', 'destructive')
       return
     }
-    if (!window.confirm(`确认删除当前部门的岗位“${position.name || position.id}”吗？`)) return
+    setPendingDelete(position)
+  }
+
+  async function confirmRemovePosition() {
+    const position = pendingDelete
+    if (!position?.id) return
     busyRef.current = true
     setBusy(true)
     try {
@@ -78,6 +84,7 @@ export function useDepartmentPositions(departmentId: number, onChanged: () => Pr
       if (response.data.code !== 200) throw new Error(response.data.message || '岗位删除失败')
       if (form?.id === position.id) setForm(null)
       toast('岗位删除成功', 'success')
+      setPendingDelete(null)
       tableRef.current?.search()
       await onChanged()
     }
@@ -91,7 +98,7 @@ export function useDepartmentPositions(departmentId: number, onChanged: () => Pr
   }
 
   return {
-    tableRef, request, busy, form, setForm, savePosition, removePosition,
+    tableRef, request, busy, form, setForm, savePosition, removePosition, pendingDelete, setPendingDelete, confirmRemovePosition,
     canCreate: canAccess('permission:position:save'),
     canEdit: canAccess('permission:position:update'),
     canDelete: canAccess('permission:position:delete'),

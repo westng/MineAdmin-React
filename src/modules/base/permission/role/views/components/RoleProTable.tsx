@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, type RefObject } from 'react'
-import { KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
-import { MaProTable, type MaProTableColumns, type MaProTableExpose } from '@/components/ma-pro-table'
-import { Badge } from '@/components/ui/badge'
+import { Plus, Trash2 } from 'lucide-react'
+import { MaProTable, type MaProTableExpose } from '@/components/ma-pro-table'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/common/use-toast'
 import { page, type RoleVo } from '../../api/role'
+import { getTableColumns } from '../data/getTableColumns'
 
 interface Props {
   tableRef: RefObject<MaProTableExpose<RoleVo> | null>
@@ -18,19 +18,7 @@ interface Props {
 
 export default function RoleProTable({ tableRef, selectedIds, onSelectionChange, onCreate, onEdit, onPermissions, onDelete }: Props) {
   const { toast } = useToast()
-  const columns = useMemo<MaProTableColumns<RoleVo>[]>(() => [
-    { type: 'selection', width: 44 },
-    { prop: 'name', label: '角色名称' },
-    { prop: 'code', label: '角色编码' },
-    { prop: 'sort', label: '排序', width: 80 },
-    { prop: 'status', label: '状态', cellRender: ({ row }) => <Badge variant={row.status === 1 ? 'default' : 'secondary'}>{row.status === 1 ? '启用' : row.status === 2 ? '禁用' : '未知'}</Badge> },
-    { prop: 'remark', label: '备注' },
-    { label: '操作', align: 'right', width: 240, cellRender: ({ row }) => <div className="flex justify-end gap-1">
-      <Button variant="ghost" size="sm" onClick={() => void onPermissions(row)}><KeyRound aria-hidden="true" />权限</Button>
-      <Button variant="ghost" size="sm" onClick={() => onEdit(row)}><Pencil aria-hidden="true" />编辑</Button>
-      <Button variant="ghost" size="sm" className="text-destructive" disabled={row.code === 'SuperAdmin'} onClick={() => void onDelete(row.id ? [row.id] : [])}>删除</Button>
-    </div> },
-  ], [onDelete, onEdit, onPermissions])
+  const columns = useMemo(() => getTableColumns({ onEdit, onPermissions, onDelete }), [onDelete, onEdit, onPermissions])
 
   useEffect(() => { tableRef.current?.setTableColumns(columns) }, [columns, tableRef])
 

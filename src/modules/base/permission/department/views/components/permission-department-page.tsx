@@ -13,6 +13,7 @@ import DepartmentProTable from './DepartmentProTable'
 import { flattenDepartments, paginateDepartments } from '../data/department-tree'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
 import { useToast } from '@/components/common/use-toast'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { DepartmentLeadersDialog } from '../../components/DepartmentLeadersDialog'
 import { DepartmentPositionsDialog } from '../../components/DepartmentPositionsDialog'
 
@@ -48,6 +49,7 @@ export default function PermissionDepartmentPageView() {
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [collapsedIds, setCollapsedIds] = useState<number[]>([])
   const [pagination, setPagination] = useState({ currentPage: 1, pageSize: 10 })
+  const [confirmDeleteIds, setConfirmDeleteIds] = useState<number[]>([])
 
   const loadDepartments = useCallback(async (name = '') => {
     const sequence = ++requestSequence.current
@@ -120,12 +122,19 @@ export default function PermissionDepartmentPageView() {
   }
 
   async function removeDepartments(ids: number[]) {
-    if (!ids.length || !window.confirm(`确认删除 ${ids.length} 个部门吗？删除部门会同步清理其岗位和关联关系。`)) return
+    if (!ids.length) return
+    setConfirmDeleteIds(ids)
+  }
+
+  async function confirmRemoveDepartments() {
+    const ids = confirmDeleteIds
+    if (!ids.length) return
     setLoading(true)
     try {
       const response = await departmentApi.deleteByIds(ids)
       if (response.data.code !== 200) throw new Error(responseMessage(response))
       toast('部门删除成功', 'success')
+      setConfirmDeleteIds([])
       await loadDepartments(searchName)
     }
     catch (error) {
@@ -191,6 +200,7 @@ export default function PermissionDepartmentPageView() {
       <Dialog open={formOpen} onOpenChange={setFormOpen}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>{form.id ? '编辑部门' : '新增部门'}</DialogTitle><DialogDescription>部门保存后会立即影响数据权限和组织树。</DialogDescription></DialogHeader><FieldGroup className="gap-4"><Field><FieldLabel htmlFor="department-name">部门名称</FieldLabel><Input id="department-name" value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} placeholder="例如：研发中心" /></Field><Field><FieldLabel>上级部门</FieldLabel><Select value={String(form.parent_id)} onValueChange={value => setForm(current => ({ ...current, parent_id: Number(value) }))}><SelectTrigger><SelectValue placeholder="顶级部门" /></SelectTrigger><SelectContent><SelectItem value="0">顶级部门</SelectItem>{parentOptions.map(row => <SelectItem key={row.department.id} value={String(row.department.id)}>{'　'.repeat(row.depth)}{row.department.name}</SelectItem>)}</SelectContent></Select></Field></FieldGroup><DialogFooter><Button variant="outline" onClick={() => setFormOpen(false)}>取消</Button><Button onClick={() => void submitForm()} disabled={loading}>保存</Button></DialogFooter></DialogContent></Dialog>
 
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle className="flex items-center gap-2"><UsersRound className="size-5" aria-hidden="true" />{details?.name || '部门'}详情</DialogTitle><DialogDescription>查看部门负责人、岗位和当前关联用户。</DialogDescription></DialogHeader><div className="grid gap-4 md:grid-cols-3"><div className="rounded-md border p-3"><p className="text-sm text-muted-foreground">负责人</p><p className="mt-2 font-medium">{relationCount(details?.leader)} 人</p><div className="mt-2 space-y-1 text-sm">{departmentUsers(details?.leader).map(user => <p key={user.id || user.username}>{user.nickname || user.username || '-'}</p>)}</div></div><div className="rounded-md border p-3"><p className="text-sm text-muted-foreground">岗位</p><p className="mt-2 font-medium">{relationCount(details?.positions)} 个</p><div className="mt-2 space-y-1 text-sm">{details?.positions?.map(position => <p key={position.id || position.name}>{position.name || '-'}</p>)}</div></div><div className="rounded-md border p-3"><p className="text-sm text-muted-foreground">部门用户</p><p className="mt-2 font-medium">{relationCount(details?.department_users)} 人</p><div className="mt-2 space-y-1 text-sm">{departmentUsers(details?.department_users).map(user => <p key={user.id || user.username}>{user.nickname || user.username || '-'}</p>)}</div></div></div><DialogFooter><Button onClick={() => setDetailsOpen(false)}>关闭</Button></DialogFooter></DialogContent></Dialog>
+      <ConfirmDialog open={confirmDeleteIds.length > 0} title="删除部门" description={`确认删除 ${confirmDeleteIds.length} 个部门吗？删除部门会同步清理其岗位和关联关系。`} onClose={() => setConfirmDeleteIds([])} onConfirm={confirmRemoveDepartments} />
     </>
   )
 }
