@@ -12,7 +12,11 @@
     "build": "tsc -b && vite build",
     "serve": "http-server ./dist -o",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "typecheck:ma": "tsc -p tsconfig.ma-components.json --pretty false",
+    "lint:ma": "eslint src/components/ma-dialog src/components/ma-drawer src/components/ma-form src/components/ma-search src/components/ma-table src/components/ma-pro-table src/components/shared --max-warnings=0",
+    "test:ma": "node --test tests/ma-components.test.mjs",
+    "check:ma": "pnpm run typecheck:ma && pnpm run lint:ma && pnpm run test:ma"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -28,6 +32,7 @@
     "@radix-ui/react-slot": "^1.3.3",
     "@tanstack/react-table": "^9.2.4",
     "@tanstack/react-virtual": "^3.14.10",
+    "@xyflow/react": "^12.11.6",
     "axios": "^1.20.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -61,10 +66,12 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.5",
     "globals": "^16.5.0",
+    "happy-dom": "^20.14.5",
     "http-server": "^14.1.1",
     "shadcn": "^4.19.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.69.0"
+    "typescript-eslint": "^8.69.0",
+    "vite": "^8.2.2"
   }
 }

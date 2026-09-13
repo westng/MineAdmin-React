@@ -1,0 +1,23 @@
+name: Ma 组件检查
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  components:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+      - name: 安装锁定依赖
+        run: pnpm install --frozen-lockfile
+      - name: 类型、静态和组件行为检查
+        run: pnpm run check:ma

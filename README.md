@@ -19,14 +19,17 @@ pnpm run dev
 | --- | --- |
 | `pnpm run dev` | 启动 Vite 开发服务器 |
 | `pnpm run typecheck` | 执行 TypeScript 项目检查 |
+| `pnpm run check:ma` | 六个 Ma 组件的专项类型、ESLint 和无浏览器行为检查 |
 | `pnpm run lint` | 执行 ESLint 严格检查 |
 | `pnpm run build` | 类型检查并构建生产包到 `dist/` |
 | `pnpm run serve` | 使用静态服务器预览 `dist/` |
 
 ## 环境配置
 
+`.env.example` 提供无凭据的开发示例。首次配置可复制为 `.env.development.local`；已有环境文件按需修改。`VITE_` 变量会暴露给浏览器，不能用于保存服务端密钥。
+
 - `.env.development` 使用 `2777` 端口、Hash 路由和 `/dev` API 代理。
-- `.env.production` 将 API 目标设置为容器内的 `http://hyperf:9601`，生产构建默认输出 gzip 和 Brotli 压缩配置。
+- 生产环境的 API 地址需按实际部署配置；当前 Vite 配置不负责生成 gzip 或 Brotli 文件。
 - `VITE_APP_API_BASEURL`、`VITE_PROXY_PREFIX` 和 `VITE_OPEN_PROXY` 控制请求目标；环境文件属于本地配置，不要提交密钥或覆盖用户现有值。
 
 ## 目录与架构
@@ -50,6 +53,7 @@ src/
 ### 基础组件
 
 - `MaForm` 负责字段模型与校验，`MaSearch` 负责搜索交互，`MaTable` 负责表格展示，`MaProTable` 组合搜索、请求、响应解析和表格。
+- 动态配置、内置表单控件和 ReUI 扩展入口的契约见 [MaForm](./src/components/ma-form/README.md)、[MaSearch](./src/components/ma-search/README.md)、[MaTable](./src/components/ma-table/README.md)、[MaProTable](./src/components/ma-pro-table/README.md)、[MaDialog](./src/components/ma-dialog/README.md)、[MaDrawer](./src/components/ma-drawer/README.md)。这些是业务组合组件，Ma 层管理的模型和分页不由底层扩展参数重复控制。
 - 每个 `ma-*` 目录通过 `index.ts` 暴露公开组件和类型；公开接口放在 `types/`，渲染和状态逻辑放在 `components/`，辅助逻辑放在 `utils/`。
 - `MaDialog`、`MaDrawer` 和 Toast 是项目级封装；业务页面只组合这些封装，不修改 `components/reui` 或 `components/ui` 的原始源码。
 - Toast 使用官方 Sonner，支持其完整 API 并兼容 `toast(message, variant)`；调用示例与全局配置见 [Toast 文档](./src/components/common/toast.md)。
@@ -99,10 +103,14 @@ Base 页面已从旧的 Vue 目录约定迁移为 React 目录约定。后端 `m
 
 ## 验证
 
-提交前至少运行：
+Ma 组件修改使用专项检查；测试通过 React DOM 和本地 DOM 模拟环境覆盖行为，不启动浏览器或连接业务接口：
 
 ```bash
-pnpm run typecheck
-pnpm run lint
-pnpm run build
+pnpm run check:ma
 ```
+
+`.github/workflows/ma-components.yml` 在独立 `web` 仓库中执行同一组检查。全项目类型检查使用 `pnpm run typecheck`；完整生产构建按任务需要单独执行。组件检查不覆盖个人业务源码的交付完整性，也不等同于生产构建和浏览器验收。
+
+## 许可与来源
+
+本目录附带父项目已有的 [Apache-2.0 许可证](./LICENSE)。ReUI、shadcn/ui 和 Base UI 的上游版权与许可文本见 [第三方声明](./THIRD_PARTY_NOTICES.md)，相应代码保留其原许可。这里没有发布独立 npm 组件包。
