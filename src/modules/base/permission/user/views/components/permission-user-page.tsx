@@ -32,6 +32,9 @@ export default function PermissionUserPageView() {
   const [roleUser, setRoleUser] = useState<UserVo | null>(null)
   const [roles, setRoles] = useState<RoleVo[]>([])
   const [roleCodes, setRoleCodes] = useState<string[]>([])
+  const [roleLoading, setRoleLoading] = useState(false)
+  const [roleReady, setRoleReady] = useState(false)
+  const [roleSaving, setRoleSaving] = useState(false)
   const [departments, setDepartments] = useState<DepartmentOption[]>([])
   const [positions, setPositions] = useState<Array<{ id: number; dept_id?: number; name: string }>>([])
   const [confirmDeleteIds, setConfirmDeleteIds] = useState<number[]>([])
@@ -39,6 +42,9 @@ export default function PermissionUserPageView() {
 
   const proTableRef = useRef<MaProTableExpose<UserVo>>(null)
   const formRef = useRef<MaFormExpose<UserForm>>(null)
+  const roleRequestRef = useRef(0)
+  const roleSavingRef = useRef(false)
+  useEffect(() => () => { roleRequestRef.current += 1 }, [])
   const refreshUsers = useCallback(async () => {
     setSelectedIds([])
     proTableRef.current?.getTableRef()?.clearSelection()
@@ -151,29 +157,61 @@ export default function PermissionUserPageView() {
     }
   }, [confirmDeleteIds, refreshUsers])
 
+  const closeRoles = useCallback(() => {
+    roleRequestRef.current += 1
+    roleSavingRef.current = false
+    setRoleOpen(false)
+    setRoleUser(null)
+    setRoles([])
+    setRoleCodes([])
+    setRoleLoading(false)
+    setRoleReady(false)
+    setRoleSaving(false)
+  }, [])
+
   const openRoles = useCallback(async (user: UserVo) => {
+    if (!user.id) return
+    if (roleSavingRef.current) return
+    const requestId = ++roleRequestRef.current
     setRoleUser(user)
     setRoleOpen(true)
+    setRoles([])
+    setRoleCodes([])
+    setRoleLoading(true)
+    setRoleReady(false)
     try {
-      const [roleResponse, userRoleResponse] = await Promise.all([pageRoles({}), getUserRole(user.id as number)])
+      const [roleResponse, userRoleResponse] = await Promise.all([pageRoles({}), getUserRole(user.id)])
+      if (requestId !== roleRequestRef.current) return
       setRoles(extractList<RoleVo>(roleResponse.data.data))
       setRoleCodes(extractList<{ code: string }>(userRoleResponse.data.data).map(role => role.code))
+      setRoleReady(true)
     }
     catch (error) {
-      setNotice(error instanceof Error ? error.message : '角色信息加载失败')
+      if (requestId === roleRequestRef.current) setNotice(error instanceof Error ? error.message : '角色信息加载失败')
+    }
+    finally {
+      if (requestId === roleRequestRef.current) setRoleLoading(false)
     }
   }, [])
 
   async function saveRoles() {
-    if (!roleUser?.id) return
+    if (!roleUser?.id || roleLoading || roleSavingRef.current || !roleReady) return
+    const requestId = roleRequestRef.current
+    roleSavingRef.current = true
+    setRoleSaving(true)
     try {
       const response = await setUserRole(roleUser.id, roleCodes)
+      if (requestId !== roleRequestRef.current) return
       if (response.data.code !== 200) throw new Error(responseMessage(response))
-      setRoleOpen(false)
+      closeRoles()
       setNotice('用户角色更新成功')
     }
     catch (error) {
+      if (requestId !== roleRequestRef.current) return
       setNotice(error instanceof Error ? error.message : '用户角色更新失败')
+    }
+    finally {
+      if (requestId === roleRequestRef.current) { roleSavingRef.current = false; setRoleSaving(false) }
     }
   }
 
@@ -215,7 +253,7 @@ export default function PermissionUserPageView() {
       />
 
       <MaDialog open={formOpen} onOpenChange={setFormOpen} title={form.id ? '编辑用户' : '新增用户'} description="填写用户基本信息、组织归属和数据权限，保存后立即生效。" okText="保存" cancelText="取消" onOk={() => { formRef.current?.getElFormRef()?.requestSubmit(); return false }} showFullscreenButton contentClassName="max-h-[calc(100vh-2rem)] overflow-hidden sm:max-w-4xl" bodyClassName="min-h-0 overflow-y-auto"><MaForm<UserForm> ref={formRef} key={`${formOpen ? 'open' : 'closed'}-${form.id ?? 'new'}`} modelValue={form} items={formItems} options={{ layout: 'grid', grid: { columns: 2, gap: '1.25rem' }, containerClass: 'pb-1' }} onModelValueChange={setForm} onSubmit={submitForm} /></MaDialog>
-      <Dialog open={roleOpen} onOpenChange={setRoleOpen}><DialogContent><DialogHeader><DialogTitle>设置用户角色</DialogTitle><DialogDescription>{roleUser?.username || '当前用户'} 可分配的角色。</DialogDescription></DialogHeader><div className="grid gap-2">{roles.map(role => <label key={role.code} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><Checkbox checked={Boolean(role.code && roleCodes.includes(role.code))} onCheckedChange={checked => setRoleCodes(current => checked ? [...current, role.code as string] : current.filter(code => code !== role.code))} /><span>{role.name}（{role.code}）</span></label>)}{!roles.length && <p className="text-sm text-muted-foreground">暂无可分配角色。</p>}</div><DialogFooter><Button variant="outline" onClick={() => setRoleOpen(false)}>取消</Button><Button onClick={() => void saveRoles()}>保存角色</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={roleOpen} onOpenChange={open => { if (!roleSavingRef.current) { if (open) setRoleOpen(true); else closeRoles() } }}><DialogContent><DialogHeader><DialogTitle>设置用户角色</DialogTitle><DialogDescription>{roleUser?.username || '当前用户'} 可分配的角色。</DialogDescription></DialogHeader><div className="grid gap-2">{roleLoading && <p className="text-sm text-muted-foreground">正在加载角色信息…</p>}{!roleLoading && roleReady && roles.map(role => <label key={role.code} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><Checkbox disabled={roleSaving} checked={Boolean(role.code && roleCodes.includes(role.code))} onCheckedChange={checked => setRoleCodes(current => checked ? [...current, role.code as string] : current.filter(code => code !== role.code))} /><span>{role.name}（{role.code}）</span></label>)}{!roleLoading && !roleReady && <p className="text-sm text-destructive">角色信息加载失败，请关闭后重试。</p>}{!roleLoading && roleReady && !roles.length && <p className="text-sm text-muted-foreground">暂无可分配角色。</p>}</div><DialogFooter><Button variant="outline" onClick={closeRoles} disabled={roleSaving}>取消</Button><Button disabled={roleLoading || roleSaving || !roleReady || !roleUser?.id} onClick={() => void saveRoles()}>{roleSaving ? '保存中…' : '保存角色'}</Button></DialogFooter></DialogContent></Dialog>
       <ConfirmDialog open={confirmDeleteIds.length > 0} title="删除用户" description={`确认删除 ${confirmDeleteIds.length} 个用户吗？`} onClose={() => setConfirmDeleteIds([])} onConfirm={confirmRemoveUsers} />
       <ConfirmDialog open={Boolean(resetUser)} title="重置用户密码" description={`确认将 ${resetUser?.username || '该用户'} 的密码重置为初始密码吗？`} onClose={() => setResetUser(null)} onConfirm={confirmInitializePassword} />
     </>

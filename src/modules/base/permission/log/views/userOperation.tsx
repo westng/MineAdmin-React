@@ -7,10 +7,11 @@ import { LogProTable } from '../components/LogProTable'
 import { OperationLogDetails } from '../components/LogRecordFields'
 import { useLogManagement } from '../hooks/use-log-management'
 import { toOperationLogParams } from '../utils/log-search'
-import { operationColumns, operationSearchItems } from './data/log-schema'
+import { getOperationSearchItems } from './data/getSearchItems'
+import { getOperationTableColumns } from './data/getTableColumns'
 
 const requestLogs = (params: Record<string, unknown>) => userOperationLogApi.page(toOperationLogParams(params))
-const schema = { tableColumns: operationColumns, searchItems: operationSearchItems }
+const searchItems = getOperationSearchItems()
 
 export default function UserOperationLogPage() {
   const { hasAuth } = usePermission()
@@ -26,7 +27,8 @@ export default function UserOperationLogPage() {
       description="查看用户请求、业务操作和操作时间。文本筛选为精确匹配，时间筛选需填写完整起止时间。"
       listPermission="log:userOperation:list"
       api={requestLogs}
-      schema={schema}
+      searchItems={searchItems}
+      getTableColumns={getOperationTableColumns}
       canDelete={logs.canDelete}
       deleting={logs.deleting}
       selectedIds={logs.selectedIds}

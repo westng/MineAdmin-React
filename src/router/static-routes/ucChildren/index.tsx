@@ -1,6 +1,8 @@
 import type { AppRoute } from '@/router/types'
 import { Navigate } from 'react-router-dom'
-import SettingsPage from '@/modules/base/settings/views'
+import { lazyView } from '@/router/lazy-view'
+
+const SettingsPage = lazyView(() => import('@/modules/base/settings/views'))
 
 const ucChildren: AppRoute[] = [
   {

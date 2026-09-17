@@ -21,7 +21,7 @@ export default function Header({ className }: { className?: string }) {
   const dynamicMenu = findMenuByPath(menus, location.pathname)
   const title = titles[location.pathname] || (dynamicMenu ? getMenuLabel(dynamicMenu) : 'Dashboard')
 
-  return <header className={`sticky top-0 z-20 flex h-(--header-height) min-w-0 items-center gap-2 border-b border-border bg-background px-3 sm:gap-3 sm:px-4 ${className || ''}`}>
+  return <header className={`sticky top-0 z-50 flex h-(--header-height) min-w-0 items-center gap-2 border-b border-border bg-background px-3 sm:gap-3 sm:px-4 ${className || ''}`}>
     <SidebarTrigger className="shrink-0 md:hidden" aria-label="打开导航菜单" />
     <img src={brandLogo} alt="博策云工作台" className="h-6 w-auto max-w-40 shrink-0 object-contain" />
     <span className="text-muted-foreground">/</span>

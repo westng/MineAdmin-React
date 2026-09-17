@@ -13,26 +13,19 @@ export function useAttachmentUpload(onUploaded: () => void) {
   const [statuses, setStatuses] = useState<Record<string, UploadStatus>>({})
   const [pending, setPending] = useState(false)
   const controllerRef = useRef<AbortController | null>(null)
-  const previews = useRef(new Set<string>())
   const [selection, fileActions] = useFileUpload({
     multiple: true,
-    onFilesAdded: files => { for (const item of files) if (item.preview) previews.current.add(item.preview) },
     onError: () => toast('文件无法加入队列，请重新选择', 'destructive'),
   })
   useEffect(() => {
-    const urls = previews.current
     return () => {
       controllerRef.current?.abort()
-      urls.forEach(url => URL.revokeObjectURL(url))
-      urls.clear()
     }
   }, [])
   const items = selection.files.map(item => ({ ...item, ...(statuses[item.id] ?? queuedStatus) }))
 
   const removeFile = (id: string) => {
     if (controllerRef.current) return
-    const preview = selection.files.find(item => item.id === id)?.preview
-    if (preview) { URL.revokeObjectURL(preview); previews.current.delete(preview) }
     fileActions.removeFile(id)
     setStatuses(current => { const next = { ...current }; delete next[id]; return next })
   }

@@ -1,17 +1,16 @@
-import { BrowserRouter, HashRouter, Navigate, Outlet, Route, Routes, matchRoutes, useLocation } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { createElement, useEffect, useRef } from 'react'
 import { useUserStore } from '@/store/modules/useUserStore'
 import { useMenuStore } from '@/store/modules/useMenuStore'
 import type { AppRoute } from './types'
 import rootRoutes from './static-routes/rootRoute'
-import { hasRouteAccess } from './access'
+import { hasMatchedRouteAccess } from './access'
 import AccessDeniedPage from '@/layouts/access-denied'
-import { flattenVisibleMenus, getMenuPath, isVisibleMenu } from './dynamic-menu'
+import { flattenMenuRoutes, getMenuPath } from './dynamic-menu'
 import DynamicMenuPage from '@/modules/base/dynamic-menu/views'
-import { useRouteStore } from '@/store/modules/useRouteStore'
 import { usePluginStore } from '@/provider/plugins'
 
-function ProtectedRoute() {
+function ProtectedRoute({ routes }: { routes: AppRoute[] }) {
   const token = useUserStore(state => state.token)
   const userInitialized = useUserStore(state => state.initialized)
   const userLoading = useUserStore(state => state.loading)
@@ -20,14 +19,12 @@ function ProtectedRoute() {
   const roles = useUserStore(state => state.roles)
   const permissions = useUserStore(state => state.permissions)
   const location = useLocation()
-  const dynamicMeta = useRouteStore(state => state.find(location.pathname)?.meta)
   const hydrate = useUserStore(state => state.hydrate)
   const initialized = useMenuStore(state => state.initialized)
   const loading = useMenuStore(state => state.loading)
   const unauthorized = useMenuStore(state => state.unauthorized)
   const clearMenus = useMenuStore(state => state.clearMenus)
   const logout = useUserStore(state => state.logout)
-  const plugins = usePluginStore(state => state.plugins)
   useEffect(() => {
     if (!token) {
       clearMenus()
@@ -37,27 +34,24 @@ function ProtectedRoute() {
       void logout()
       return
     }
-    if ((!userInitialized || !initialized) && !userLoading && !loading) {
+    if ((!userInitialized || !initialized) && !userLoading && !loading && !userError) {
       void hydrate()
     }
-  }, [clearMenus, hydrate, initialized, loading, logout, token, unauthorized, userInitialized, userLoading])
+  }, [clearMenus, hydrate, initialized, loading, logout, token, unauthorized, userInitialized, userLoading, userError])
 
   if (!token) {
     return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />
   }
   if (userLoading || loading || !userInitialized || !initialized) {
+    if (userError) {
+      return <div className="flex min-h-svh flex-col items-center justify-center gap-3 text-sm"><p className="text-destructive">{userError}</p><button type="button" className="rounded-md border px-3 py-1.5 hover:bg-muted" onClick={() => void hydrate()}>重试</button></div>
+    }
     return <div className="flex min-h-svh items-center justify-center text-sm text-muted-foreground">正在初始化用户权限…</div>
   }
-  if (userError && !userInfo) {
-    return <Navigate to="/login" replace />
+  if (userError) {
+    return <div className="flex min-h-svh flex-col items-center justify-center gap-3 text-sm"><p className="text-destructive">{userError}</p><button type="button" className="rounded-md border px-3 py-1.5 hover:bg-muted" onClick={() => void hydrate()}>重试</button></div>
   }
-  const matches = matchRoutes(rootRoutes, location)
-  const pluginMeta = plugins
-    .filter(plugin => plugin.enabled !== false)
-    .flatMap(plugin => plugin.views || [])
-    .find(view => view.path === location.pathname)?.meta
-  const meta = matches?.map(match => match.route.meta).filter(Boolean).at(-1) || dynamicMeta || pluginMeta
-  return hasRouteAccess(meta, { roles, permissions, userInfo }) ? <Outlet /> : <AccessDeniedPage />
+  return hasMatchedRouteAccess(routes, location.pathname, { roles, permissions, userInfo }) ? <Outlet /> : <AccessDeniedPage />
 }
 
 function GuestRoute() {
@@ -97,9 +91,9 @@ export function AppRouter() {
   const menus = useMenuStore(state => state.menus)
   const plugins = usePluginStore(state => state.plugins)
   const Router = import.meta.env.VITE_APP_ROUTE_MODE === 'history' ? BrowserRouter : HashRouter
-  const dynamicRoutes: AppRoute[] = flattenVisibleMenus(menus)
-    .filter(isVisibleMenu)
-    .flatMap(menu => {
+  const enabledPluginViews = plugins.filter(plugin => plugin.enabled !== false).flatMap(plugin => plugin.views || [])
+  const dynamicRoutes: AppRoute[] = flattenMenuRoutes(menus)
+    .flatMap(({ menu, accessMeta }) => {
       const path = getMenuPath(menu)
       if (!path) return []
       return [{
@@ -107,12 +101,11 @@ export function AppRouter() {
         path: path.replace(/^\//, ''),
         element: <DynamicMenuPage />,
         meta: menu.meta,
+        accessMeta: [...accessMeta, ...enabledPluginViews.filter(view => view.path.replace(/^\//, '') === path.replace(/^\//, '')).flatMap(view => view.meta ? [view.meta] : [])],
       }]
     })
   const dynamicPaths = new Set(dynamicRoutes.map(route => route.path))
-  const pluginRoutes: AppRoute[] = plugins
-    .filter(plugin => plugin.enabled !== false)
-    .flatMap(plugin => plugin.views || [])
+  const pluginRoutes: AppRoute[] = enabledPluginViews
     .filter(view => view.path && !dynamicPaths.has(view.path.replace(/^\//, '')))
     .map(view => ({
       name: `plugin:${view.name || view.path}`,
@@ -120,13 +113,20 @@ export function AppRouter() {
       element: view.component ? createElement(view.component) : <DynamicMenuPage />,
       meta: view.meta,
     }))
-  const layoutChildren = [...(layoutRoute.children || []), ...dynamicRoutes, ...pluginRoutes]
+  // Apply menu restrictions even when a static route owns the same URL.
+  const restrictStaticRoutes = (routes: AppRoute[], parent = ''): AppRoute[] => routes.map(route => {
+    const path = `${parent}/${route.path}`.replace(/\/+/g, '/').replace(/^\//, '')
+    const menuRoute = dynamicRoutes.find(item => item.path === path)
+    return { ...route, accessMeta: [...(route.accessMeta || []), ...(menuRoute?.accessMeta || [])],
+      children: route.children ? restrictStaticRoutes(route.children, path) : undefined }
+  })
+  const layoutChildren = [...restrictStaticRoutes(layoutRoute.children || []), ...dynamicRoutes, ...pluginRoutes]
 
   return (
     <Router basename={import.meta.env.VITE_APP_ROOT_BASE}>
       <PluginNavigationLifecycle />
       <Routes>
-        <Route element={<ProtectedRoute />}>
+        <Route element={<ProtectedRoute routes={[{ ...layoutRoute, children: layoutChildren }]} />}>
           <Route path={layoutRoute.path} element={layoutRoute.element}>
             {layoutChildren.length ? renderRoutes(layoutChildren) : null}
           </Route>

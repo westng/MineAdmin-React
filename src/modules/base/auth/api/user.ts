@@ -61,6 +61,6 @@ export function refreshApi(refreshToken: string) {
   })
 }
 
-export function logoutApi() {
-  return http.post('/admin/passport/logout')
+export function logoutApi(token?: string) {
+  return http.post('/admin/passport/logout', undefined, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
 }

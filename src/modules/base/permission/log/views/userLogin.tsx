@@ -7,10 +7,11 @@ import { LogProTable } from '../components/LogProTable'
 import { LoginLogDetails } from '../components/LogRecordFields'
 import { useLogManagement } from '../hooks/use-log-management'
 import { toLoginLogParams } from '../utils/log-search'
-import { loginColumns, loginSearchItems } from './data/log-schema'
+import { getLoginSearchItems } from './data/getSearchItems'
+import { getLoginTableColumns } from './data/getTableColumns'
 
 const requestLogs = (params: Record<string, unknown>) => userLoginLogApi.page(toLoginLogParams(params))
-const schema = { tableColumns: loginColumns, searchItems: loginSearchItems }
+const searchItems = getLoginSearchItems()
 
 export default function UserLoginLogPage() {
   const { hasAuth } = usePermission()
@@ -26,7 +27,8 @@ export default function UserLoginLogPage() {
       description="查看登录结果、来源和登录环境。文本筛选为精确匹配，时间筛选需填写完整起止时间。"
       listPermission="log:userLogin:list"
       api={requestLogs}
-      schema={schema}
+      searchItems={searchItems}
+      getTableColumns={getLoginTableColumns}
       canDelete={logs.canDelete}
       deleting={logs.deleting}
       selectedIds={logs.selectedIds}

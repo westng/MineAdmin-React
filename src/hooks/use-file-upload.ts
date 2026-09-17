@@ -1,6 +1,7 @@
 import type React from "react"
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -82,6 +83,17 @@ export const useFileUpload = (
   })
 
   const inputRef = useRef<HTMLInputElement>(null)
+  const filesRef = useRef<FileWithPreview[]>(state.files)
+  const ownedUrls = useRef(new Set<string>())
+
+  useEffect(() => {
+    const urls = ownedUrls.current
+    return () => { urls.forEach(url => URL.revokeObjectURL(url)); urls.clear() }
+  }, [])
+
+  const releasePreview = useCallback((file: FileWithPreview) => {
+    if (file.preview && ownedUrls.current.delete(file.preview)) URL.revokeObjectURL(file.preview)
+  }, [])
 
   const validateFile = useCallback(
     (file: File | FileMetadata): string | null => {
@@ -124,7 +136,9 @@ export const useFileUpload = (
   const createPreview = useCallback(
     (file: File | FileMetadata): string | undefined => {
       if (file instanceof File) {
-        return URL.createObjectURL(file)
+        const url = URL.createObjectURL(file)
+        ownedUrls.current.add(url)
+        return url
       }
       return file.url
     },
@@ -139,168 +153,53 @@ export const useFileUpload = (
   }, [])
 
   const clearFiles = useCallback(() => {
-    setState((prev) => {
-      // Clean up object URLs
-      for (const file of prev.files) {
-        if (
-          file.preview &&
-          file.file instanceof File &&
-          file.file.type.startsWith("image/")
-        ) {
-          URL.revokeObjectURL(file.preview)
-        }
-      }
+    filesRef.current.forEach(releasePreview)
+    filesRef.current = []
+    if (inputRef.current) inputRef.current.value = ""
+    setState(prev => ({ ...prev, files: [], errors: [] }))
+    onFilesChange?.([])
+  }, [onFilesChange, releasePreview])
 
-      if (inputRef.current) {
-        inputRef.current.value = ""
-      }
-
-      const newState = {
-        ...prev,
-        files: [],
-        errors: [],
-      }
-
-      onFilesChange?.(newState.files)
-      return newState
-    })
-  }, [onFilesChange])
-
-  const addFiles = useCallback(
-    (newFiles: FileList | File[]) => {
-      if (!newFiles || newFiles.length === 0) return
-
-      const newFilesArray = Array.from(newFiles)
-      const errors: string[] = []
-
-      // Clear existing errors when new files are uploaded
-      setState((prev) => ({ ...prev, errors: [] }))
-
-      // In single file mode, clear existing files first
-      if (!multiple) {
-        clearFiles()
-      }
-
-      // Check if adding these files would exceed maxFiles (only in multiple mode)
-      if (
-        multiple &&
-        maxFiles !== Number.POSITIVE_INFINITY &&
-        state.files.length + newFilesArray.length > maxFiles
-      ) {
+  const addFiles = useCallback((newFiles: FileList | File[]) => {
+    const candidates = Array.from(newFiles).slice(0, multiple ? undefined : 1)
+    if (!candidates.length) return
+    const current = filesRef.current
+    const accepted: FileWithPreview[] = []
+    const errors: string[] = []
+    const keys = new Set(multiple ? current.map(item => `${item.file.name}\u0000${item.file.size}`) : [])
+    for (const file of candidates) {
+      const key = `${file.name}\u0000${file.size}`
+      if (keys.has(key)) continue
+      const error = validateFile(file)
+      if (error) { errors.push(error); continue }
+      if (multiple && current.length + accepted.length >= maxFiles) {
         errors.push(`You can only upload a maximum of ${maxFiles} files.`)
-        onError?.(errors)
-        setState((prev) => ({ ...prev, errors }))
-        return
+        continue
       }
+      keys.add(key)
+      accepted.push({ file, id: generateUniqueId(file), preview: createPreview(file) })
+    }
+    if (accepted.length) {
+      if (!multiple) current.forEach(releasePreview)
+      const files = multiple ? [...current, ...accepted] : accepted
+      filesRef.current = files
+      setState(prev => ({ ...prev, files, errors }))
+      onFilesAdded?.(accepted)
+      onFilesChange?.(files)
+    } else {
+      setState(prev => ({ ...prev, errors }))
+    }
+    if (errors.length) onError?.(errors)
+    if (inputRef.current) inputRef.current.value = ""
+  }, [multiple, validateFile, maxFiles, generateUniqueId, createPreview, releasePreview, onFilesAdded, onFilesChange, onError])
 
-      const validFiles: FileWithPreview[] = []
-
-      for (const file of newFilesArray) {
-        // Only check for duplicates if multiple files are allowed
-        if (multiple) {
-          const isDuplicate = state.files.some(
-            (existingFile) =>
-              existingFile.file.name === file.name &&
-              existingFile.file.size === file.size
-          )
-
-          // Skip duplicate files silently
-          if (isDuplicate) {
-            return
-          }
-        }
-
-        // Check file size
-        if (file.size > maxSize) {
-          errors.push(
-            multiple
-              ? `Some files exceed the maximum size of ${formatBytes(maxSize)}.`
-              : `File exceeds the maximum size of ${formatBytes(maxSize)}.`
-          )
-          continue
-        }
-
-        const error = validateFile(file)
-        if (error) {
-          errors.push(error)
-        } else {
-          validFiles.push({
-            file,
-            id: generateUniqueId(file),
-            preview: createPreview(file),
-          })
-        }
-      }
-
-      // Only update state if we have valid files to add
-      if (validFiles.length > 0) {
-        // Call the onFilesAdded callback with the newly added valid files
-        onFilesAdded?.(validFiles)
-
-        setState((prev) => {
-          const newFiles = !multiple
-            ? validFiles
-            : [...prev.files, ...validFiles]
-          onFilesChange?.(newFiles)
-          return {
-            ...prev,
-            files: newFiles,
-            errors,
-          }
-        })
-      } else if (errors.length > 0) {
-        onError?.(errors)
-        setState((prev) => ({
-          ...prev,
-          errors,
-        }))
-      }
-
-      // Reset input value after handling files
-      if (inputRef.current) {
-        inputRef.current.value = ""
-      }
-    },
-    [
-      state.files,
-      maxFiles,
-      multiple,
-      maxSize,
-      validateFile,
-      createPreview,
-      generateUniqueId,
-      clearFiles,
-      onFilesChange,
-      onFilesAdded,
-      onError,
-    ]
-  )
-
-  const removeFile = useCallback(
-    (id: string) => {
-      setState((prev) => {
-        const fileToRemove = prev.files.find((file) => file.id === id)
-        if (
-          fileToRemove &&
-          fileToRemove.preview &&
-          fileToRemove.file instanceof File &&
-          fileToRemove.file.type.startsWith("image/")
-        ) {
-          URL.revokeObjectURL(fileToRemove.preview)
-        }
-
-        const newFiles = prev.files.filter((file) => file.id !== id)
-        onFilesChange?.(newFiles)
-
-        return {
-          ...prev,
-          files: newFiles,
-          errors: [],
-        }
-      })
-    },
-    [onFilesChange]
-  )
+  const removeFile = useCallback((id: string) => {
+    filesRef.current.filter(file => file.id === id).forEach(releasePreview)
+    const files = filesRef.current.filter(file => file.id !== id)
+    filesRef.current = files
+    setState(prev => ({ ...prev, files, errors: [] }))
+    onFilesChange?.(files)
+  }, [onFilesChange, releasePreview])
 
   const clearErrors = useCallback(() => {
     setState((prev) => ({

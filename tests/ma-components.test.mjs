@@ -439,3 +439,51 @@ for (const [name, Component] of [['MaDialog', MaDialog], ['MaDrawer', MaDrawer]]
     assert.equal(target.querySelector('[role="dialog"]'), null)
   })
 }
+
+test('MaProTable 父级传入等价内联配置不会丢失在途响应', async t => {
+  const ref = createRef()
+  const pending = []
+  const renderProps = () => ({ ref, schema: { tableColumns: [{ prop: 'id', label: '编号' }] }, options: { requestOptions: { api: params => new Promise(resolve => pending.push({ params, resolve })), requestParams: { status: 1 } } } })
+  const view = await mount(t, MaProTable, renderProps())
+  await act(async () => ref.current.setProTableOptions({ selection: { crossPage: false } }))
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) })
+  await view.render(renderProps())
+  assert.equal(pending.length, 1)
+  await act(async () => pending[0].resolve({ list: [{ id: '正常数据' }], total: 1 }))
+  assert.match(view.container.textContent, /正常数据/)
+  assert.equal(ref.current.getElTableStates().loading, false)
+})
+
+test('MaProTable 参数与显式数据源键变化自动加载，只接受最新响应', async t => {
+  const ref = createRef(); const pending = []
+  const props = (account, requestKey = 'source-1') => ({ ref, schema: { tableColumns: [{ prop: 'id', label: '编号' }] }, options: { requestOptions: { requestKey, requestParams: { account }, api: params => new Promise(resolve => pending.push({ params, resolve })) } } })
+  const view = await mount(t, MaProTable, props('A'))
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) })
+  await view.render(props('B'))
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) })
+  assert.equal(pending.length, 2); assert.equal(pending[1].params.account, 'B')
+  await act(async () => pending[1].resolve({ list: [{ id: 'B数据' }], total: 1 }))
+  await act(async () => pending[0].resolve({ list: [{ id: 'A旧数据' }], total: 1 }))
+  assert.match(view.container.textContent, /B数据/); assert.doesNotMatch(view.container.textContent, /A旧数据/)
+  await view.render(props('B', 'source-2'))
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) })
+  assert.equal(pending.length, 3)
+  await act(async () => pending[2].resolve({ list: [], total: 0 }))
+})
+
+test('MaProTable 列表和导出共享默认筛选、已提交筛选及归一化，导出去掉自定义分页', async t => {
+  const ref = createRef(); const calls = []
+  const view = await mount(t, MaProTable, { ref, options: {
+    searchOptions: { defaultValue: { status: '1', keyword: ' 名称 ' } },
+    onSearchSubmit: form => ({ ...form, status: Number(form.status) }),
+    onSearchReset: () => ({ status: 0 }),
+    requestOptions: { autoRequest: false, api: params => { calls.push(params); return { list: [], total: 0 } }, requestParams: { tenant: '固定', cursor: 9, limit: 3 }, requestPage: { pageName: 'cursor', sizeName: 'limit', size: 20 }, paramsTransform: params => ({ ...params, ...(typeof params.keyword === 'string' ? { keyword: params.keyword.trim() } : {}) }) },
+  }, schema: { searchItems: [{ prop: 'status' }, { prop: 'keyword' }] } })
+  await act(async () => ref.current.refresh())
+  assert.deepEqual(ref.current.getRequestParams(), { tenant: '固定', status: '1', keyword: '名称' })
+  assert.equal(calls[0].cursor, 1); assert.equal(calls[0].limit, 20)
+  await click(button(view.container, '搜索'))
+  assert.equal(ref.current.getRequestParams().status, 1)
+  await click(button(view.container, '重置'))
+  assert.deepEqual(ref.current.getRequestParams(), { tenant: '固定', status: 0 })
+})

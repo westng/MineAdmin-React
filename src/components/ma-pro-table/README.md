@@ -53,7 +53,7 @@ export function UserList() {
 }
 ```
 
-配置 `requestOptions.api` 后，默认会在挂载后请求一次；`autoRequest: false` 可以关闭首次请求。翻页和调用 `refresh()` 都会按当前参数重新请求。
+配置 `requestOptions.api` 后，默认在挂载后及请求参数、分页映射、响应映射或 `requestKey` 变化时请求；`autoRequest: false` 关闭自动请求。父级传入等价配置不会作废正在进行的请求。API 闭包捕获的数据源发生变化时，必须同步改变 `requestKey`，或调用 `changeApi()`；不会通过函数源码判断变化。翻页和调用 `refresh()` 都会按当前参数重新请求。
 
 ## 组件关系
 
@@ -100,6 +100,13 @@ MaProTable
 | `tableColumns` | 透传给 `MaTable` 的列配置 | `MaProTableColumns<T>[]` |
 
 `MaProTableColumns<T>` 继承 `MaTableColumn<T>`，包括 `cellRenderTo`。单元格插件由底层 `MaTable` 使用共享注册表执行，配置与注册方式见 [MaTable 单元格渲染插件](../ma-table/README.md#单元格渲染插件)。操作列使用 `type: 'operation'` 和 `operationConfigure` 配置；`type: 'auto'` 默认展示前 2 个操作，其余操作收进“更多”，列宽会按操作文字和图标自动设置最小宽度。
+
+### 业务页面的列配置
+
+- 完整列配置放在所属页面的 `views/data/getTableColumns.tsx`。同一业务组件服务多个页面时，放在该组件所属的 `data/getTableColumns.tsx`，不创建跨业务的通用列目录。
+- 操作的名称、文案、图标、顺序、显示和禁用条件都在列工厂中定义，通过 `type: 'operation'`、`operationConfigure.actions` 交给组件渲染。页面只传入权限、忙碌状态及业务回调，不在入口文件组装操作数组，也不用 `cellRender` 手写操作按钮。
+- 请求、确认弹窗和状态变更继续由页面或业务 Hook 处理。提取列配置时，保留权限限制、行级禁用条件、操作顺序和确认流程。
+- 动态列使用 `useMemo` 并列全依赖，保证权限、请求状态和回调变化后使用最新配置；搜索配置独立放在 `getSearchItems.tsx`。
 
 ## MaProTableOptions
 
@@ -269,6 +276,7 @@ await tableRef.current?.refresh()
 | `getTableColumns()` | 获取表格列 | `MaProTableColumns<T>[]` |
 | `setSearchForm(form)` | 合并设置搜索表单 | `void` |
 | `getSearchForm()` | 获取搜索表单 | `T` |
+| `getRequestParams()` | 获取固定参数和已提交筛选，经 `paramsTransform` 归一化后去除分页 | `Record<string, unknown>` |
 | `search(params?)` | 合并额外参数并立即搜索 | `void` |
 | `setProTableOptions(options)` | 动态合并组件配置 | `void` |
 | `getProTableOptions()` | 获取当前组件配置 | `MaProTableOptions<T>` |
@@ -312,3 +320,9 @@ await tableRef.current?.refresh()
 `data?: T[]` 和 `loading?: boolean` 可由页面传入，分别优先于内部请求数据和加载状态。受控模式下总数取 `tableOptions.pagination.total`，未指定时取 `data.length`；默认保留服务端分页约定。完整本地数组可通过 `tableOptions.manualPagination: false` 分页，隐藏分页器则展示整份数组。
 
 部门树表由模块管理组织树、折叠、请求和分页：先按顶级部门切页，再展开当前页子树，通过 `data={visibleRows}` 传入。页码、每页数量、顶级部门总数、禁用状态及 `onChange` 可直接放在 `options.tableOptions.pagination`；既有 `getTableRef().setPagination()` 调用继续保留。子部门不单独占用分页名额。搜索使用 `onSearchSubmit/onSearchReset`，刷新通过 `toolbarRight` 提供，此类页面不配置 `requestOptions.api`。
+
+## 请求参数与导出契约
+
+列表与导出共享 `requestOptions.paramsTransform(params)`。API 包装中存在 trim、空值剔除或业务字段改名时，将同一纯函数配置在这里，避免列表与导出范围不一致。不要在转换函数中改变分页键；自定义分页键由 `requestPage.pageName/sizeName` 声明。接口函数只负责请求及响应解析。
+
+`getRequestParams()` 返回当前固定参数和已提交筛选；搜索框尚未提交的编辑值不会影响导出。默认筛选、`onSearchSubmit` 和 `onSearchReset` 返回的参数都会进入此契约。

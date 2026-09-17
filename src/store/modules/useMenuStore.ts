@@ -20,6 +20,9 @@ interface MenuState {
   clearMenus: () => void
 }
 
+let menuSequence = 0
+let roleSequence = 0
+
 export const useMenuStore = create<MenuState>((set, get) => ({
   menus: removeRetiredMenus(cache.get<MenuVo[]>('menus', [])),
   loading: false,
@@ -28,26 +31,36 @@ export const useMenuStore = create<MenuState>((set, get) => ({
   unauthorized: false,
   roles: [],
   refreshMenus: async () => {
+    const sequence = ++menuSequence
     set({ loading: true, error: null, unauthorized: false })
     try {
       const response = await getMenus()
+      if (sequence !== menuSequence) throw new Error('权限加载已取消')
+      if (!Array.isArray(response.data.data)) throw new Error('菜单数据格式错误')
       const menus = removeRetiredMenus(Array.isArray(response.data.data) ? response.data.data : [])
       cache.set('menus', menus)
       const routes = useRouteStore.getState().build(menus)
       await usePluginStore.getState().callHooks('registerRoute', routes)
-      set({ menus, loading: false, initialized: true })
+      if (sequence !== menuSequence) throw new Error('权限加载已取消')
+      set({ menus, loading: false, initialized: true, error: null, unauthorized: false })
       return menus
     }
     catch (error) {
+      if (sequence !== menuSequence) throw error
       const message = error instanceof Error ? error.message : '动态菜单加载失败'
       const unauthorized = typeof error === 'object' && error !== null && 'code' in error && error.code === 401
-      set({ loading: false, initialized: true, error: message, unauthorized })
-      return []
+      cache.remove('menus')
+      useRouteStore.getState().clear()
+      set({ menus: [], roles: [], loading: false, initialized: false, error: message, unauthorized })
+      throw error
     }
   },
   refreshRoles: async () => {
+    const sequence = ++roleSequence
     try {
       const response = await getRoles()
+      if (sequence !== roleSequence) throw new Error('权限加载已取消')
+      if (!Array.isArray(response.data.data)) throw new Error('角色数据格式错误')
       const roles = Array.isArray(response.data.data)
         ? response.data.data.map(role => role.code).filter((code): code is string => Boolean(code))
         : []
@@ -55,9 +68,12 @@ export const useMenuStore = create<MenuState>((set, get) => ({
       return roles
     }
     catch (error) {
+      if (sequence !== roleSequence) throw error
       const unauthorized = typeof error === 'object' && error !== null && 'code' in error && error.code === 401
-      set({ unauthorized })
-      return []
+      cache.remove('menus')
+      useRouteStore.getState().clear()
+      set({ menus: [], roles: [], loading: false, initialized: false, unauthorized, error: error instanceof Error ? error.message : '角色加载失败' })
+      throw error
     }
   },
   getAllMenus: () => flattenVisibleMenus(get().menus),
@@ -67,6 +83,8 @@ export const useMenuStore = create<MenuState>((set, get) => ({
     return menu?.children?.filter(item => item.status !== 2) || []
   },
   clearMenus: () => {
+    menuSequence += 1
+    roleSequence += 1
     cache.remove('menus')
     useRouteStore.getState().clear()
     set({ menus: [], roles: [], loading: false, initialized: false, error: null, unauthorized: false })

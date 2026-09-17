@@ -1,13 +1,14 @@
 import type { ComponentType } from 'react'
+import { lazyView } from './lazy-view'
 
-type ViewModule = { default?: ComponentType }
+type ViewImporter = () => Promise<{ default?: ComponentType }>
 
 const moduleViews = import.meta.glob('../modules/**/views/**/*.{tsx,jsx}', {
-  eager: true,
-}) as Record<string, ViewModule>
+  eager: false,
+}) as Record<string, ViewImporter>
 const pluginViews = import.meta.glob('../plugins/**/views/**/*.{tsx,jsx}', {
-  eager: true,
-}) as Record<string, ViewModule>
+  eager: false,
+}) as Record<string, ViewImporter>
 
 const legacyViewAliases: Record<string, string> = {
   'base/views/login/index': 'base/auth/views/index',
@@ -38,16 +39,22 @@ function normalize(value: string) {
     .replace(/\\/g, '/')
 }
 
+const resolvedViews = new Map<string, ComponentType>()
+const viewEntries = Object.entries({ ...moduleViews, ...pluginViews })
+
 export function resolveView(component?: string): ComponentType | null {
   if (!component) return null
   const normalizedTarget = normalize(component)
   const target = legacyViewAliases[normalizedTarget] || normalizedTarget
-  const candidates = Object.entries({ ...moduleViews, ...pluginViews })
-  for (const [file, module] of candidates) {
+  for (const [file, importer] of viewEntries) {
     const normalizedFile = normalize(file)
     const legacyPluginFile = normalizedFile.replace('/web/', '/')
     if ([normalizedFile, legacyPluginFile].some(candidate => candidate.endsWith(`/${target}`) || candidate === target)) {
-      return module.default ?? null
+      const cached = resolvedViews.get(file)
+      if (cached) return cached
+      const view = lazyView(importer, target)
+      resolvedViews.set(file, view)
+      return view
     }
   }
   return null

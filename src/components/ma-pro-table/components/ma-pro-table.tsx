@@ -18,6 +18,16 @@ const emptyOptions: MaProTableOptions = {}
 const emptyColumns: MaProTableColumns[] = []
 const emptyData: MaModel[] = []
 
+function requestOptionsSignature(options: MaProTableOptions['requestOptions'] | undefined) {
+  if (!options) return ''
+  // API closures are intentionally excluded. A data source switch uses requestKey
+  // (or changeApi), while inline equivalent options remain safe on every render.
+  return JSON.stringify({ key: options.requestKey, enabled: Boolean(options.api), auto: options.autoRequest,
+    params: options.requestParams, page: options.requestPage, response: options.response }, (_key, value) =>
+    value && Object.getPrototypeOf(value) === Object.prototype
+      ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right))) : value)
+}
+
 function getOperationActionWidth<T extends MaModel>(action: MaProTableOperationAction<T>) {
   const text = typeof action.text === 'string' ? action.text : action.name ?? '操作'
   const textWidth = [...text].reduce((width, character) => width + (character.charCodeAt(0) > 255 ? 14 : 8), 0)
@@ -40,8 +50,9 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
   const [columns, setColumnsState] = usePropState(schema.tableColumns ?? emptyColumns as MaProTableColumns<T>[])
   const [requestedData, setData] = usePropState(options.tableOptions?.data ?? emptyData as T[])
   const [total, setTotal] = usePropState(options.tableOptions?.pagination?.total ?? 0)
-  const [requestState, setRequestState] = React.useState({ options: initialOptions.requestOptions, loading: initialOptions.requestOptions?.autoRequest !== false && Boolean(initialOptions.requestOptions?.api) })
-  const requestLoading = requestState.options === options.requestOptions && requestState.loading
+  const requestOptionsKey = requestOptionsSignature(options.requestOptions)
+  const [requestState, setRequestState] = React.useState({ key: requestOptionsSignature(initialOptions.requestOptions), loading: initialOptions.requestOptions?.autoRequest !== false && Boolean(initialOptions.requestOptions?.api) })
+  const requestLoading = requestState.key === requestOptionsKey && requestState.loading
   const data = controlledData ?? requestedData
   const loading = controlledLoading ?? requestLoading
   const [error, setError] = React.useState('')
@@ -57,22 +68,26 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
   const searchFormRef = React.useRef(searchForm)
   const currentPageRef = React.useRef(currentPage)
   const pageSizeRef = React.useRef(pageSize)
-  const autoRequestedRef = React.useRef(false)
+  const autoRequestedRef = React.useRef<string | undefined>(undefined)
   const requestSequenceRef = React.useRef(0)
   const columnsRef = React.useRef(columns)
   const selectedRowsRef = React.useRef(selectedRows)
+  const requestOptionsKeyRef = React.useRef(requestOptionsKey)
   const reactId = React.useId().replace(/:/g, '')
   const tableId = options.id ?? `ma-pro-table-${reactId}`
 
   React.useLayoutEffect(() => {
-    if (optionsRef.current.requestOptions !== options.requestOptions) requestSequenceRef.current += 1
+    if (requestOptionsKeyRef.current !== requestOptionsKey) {
+      requestSequenceRef.current += 1
+      requestOptionsKeyRef.current = requestOptionsKey
+    }
     optionsRef.current = options
     searchFormRef.current = searchForm
     currentPageRef.current = currentPage
     pageSizeRef.current = pageSize
     columnsRef.current = columns
     selectedRowsRef.current = selectedRows
-  }, [columns, currentPage, options, pageSize, searchForm, selectedRows])
+  }, [columns, currentPage, options, pageSize, requestOptionsKey, searchForm, selectedRows])
 
   const updateOptions = React.useCallback((nextOptions: Partial<MaProTableOptions<T>>) => {
     const merged: MaProTableOptions<T> = { ...optionsRef.current, ...nextOptions }
@@ -82,7 +97,11 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
     if (nextOptions.tableOptions) merged.tableOptions = { ...optionsRef.current.tableOptions, ...nextOptions.tableOptions }
     if (nextOptions.searchOptions) merged.searchOptions = { ...optionsRef.current.searchOptions, ...nextOptions.searchOptions }
     if (nextOptions.searchFormOptions) merged.searchFormOptions = { ...optionsRef.current.searchFormOptions, ...nextOptions.searchFormOptions }
-    if (nextOptions.requestOptions) requestSequenceRef.current += 1
+    if (nextOptions.requestOptions) {
+      requestSequenceRef.current += 1
+      requestOptionsKeyRef.current = requestOptionsSignature(merged.requestOptions)
+      autoRequestedRef.current = requestOptionsKeyRef.current
+    }
     optionsRef.current = merged
     setOptionsState(merged)
   }, [setOptionsState])
@@ -90,6 +109,7 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
   const requestData = React.useCallback(async () => {
     const requestOptions = optionsRef.current.requestOptions
     if (!requestOptions?.api) return
+    autoRequestedRef.current = requestOptionsSignature(requestOptions)
     const requestSequence = requestSequenceRef.current + 1
     requestSequenceRef.current = requestSequence
     const pageName = requestOptions.requestPage?.pageName ?? 'page'
@@ -100,10 +120,10 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
       [pageName]: currentPageRef.current,
       [sizeName]: pageSizeRef.current,
     }
-    setRequestState({ options: requestOptions, loading: true })
+    setRequestState({ key: requestOptionsSignature(requestOptions), loading: true })
     setError('')
     try {
-      const response = await Promise.resolve(requestOptions.api(params))
+      const response = await Promise.resolve(requestOptions.api(requestOptions.paramsTransform?.(params) ?? params))
       if (requestSequence !== requestSequenceRef.current) return
       const dataKey = requestOptions.response?.dataKey ?? 'list'
       const totalKey = requestOptions.response?.totalKey ?? 'total'
@@ -118,19 +138,19 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
       setData([])
       setTotal(0)
     } finally {
-      if (requestSequence === requestSequenceRef.current) setRequestState({ options: requestOptions, loading: false })
+      if (requestSequence === requestSequenceRef.current) setRequestState({ key: requestOptionsSignature(requestOptions), loading: false })
     }
   }, [setData, setTotal])
 
   React.useEffect(() => {
-    if (autoRequestedRef.current || initialOptions.requestOptions?.autoRequest === false || !initialOptions.requestOptions?.api) return
+    if (autoRequestedRef.current === requestOptionsKey || optionsRef.current.requestOptions?.autoRequest === false || !optionsRef.current.requestOptions?.api) return
     const timer = window.setTimeout(() => {
-      if (autoRequestedRef.current) return
-      autoRequestedRef.current = true
+      if (autoRequestedRef.current === requestOptionsKey) return
+      autoRequestedRef.current = requestOptionsKey
       void requestData()
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [initialOptions.requestOptions?.api, initialOptions.requestOptions?.autoRequest, requestData])
+  }, [requestOptionsKey, requestData])
 
   React.useEffect(() => () => { requestSequenceRef.current += 1 }, [])
 
@@ -224,6 +244,17 @@ function MaProTableInner<T extends MaModel>({ schema = {}, options: initialOptio
       setSearchFormState(searchFormRef.current)
     },
     getSearchForm: () => searchFormRef.current,
+    getRequestParams: () => {
+      const requestOptions = optionsRef.current.requestOptions
+      if (!requestOptions) return {}
+      const pageName = requestOptions.requestPage?.pageName ?? 'page'
+      const sizeName = requestOptions.requestPage?.sizeName ?? 'page_size'
+      const rawParams = { ...requestOptions.requestParams, ...searchParamsRef.current }
+      const params = { ...(requestOptions.paramsTransform?.(rawParams) ?? rawParams) }
+      delete params[pageName]
+      delete params[sizeName]
+      return params
+    },
     search: params => {
       if (params) {
         if (optionsRef.current.requestOptions) updateOptions({ requestOptions: { ...optionsRef.current.requestOptions, requestParams: { ...optionsRef.current.requestOptions.requestParams, ...params } } })

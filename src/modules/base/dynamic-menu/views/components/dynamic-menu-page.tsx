@@ -1,11 +1,11 @@
 import { ExternalLink, FileCode2, ShieldCheck } from 'lucide-react'
 import { createElement } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, matchRoutes, useLocation } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useMenuStore } from '@/store/modules/useMenuStore'
-import { findMenuByPath, getMenuLabel, getMenuPath, getMenuType } from '@/router/dynamic-menu'
+import { flattenVisibleMenus, getMenuLabel, getMenuPath, getMenuType } from '@/router/dynamic-menu'
 import { resolveView } from '@/router/component-registry'
 import IframeView from '@/layouts/components/iframe'
 
@@ -14,7 +14,10 @@ export default function DynamicMenuPageView() {
   const menus = useMenuStore(state => state.menus)
   const initialized = useMenuStore(state => state.initialized)
   const loading = useMenuStore(state => state.loading)
-  const menu = findMenuByPath(menus, location.pathname)
+  const menu = matchRoutes(flattenVisibleMenus(menus).flatMap(menu => {
+    const path = getMenuPath(menu)
+    return path ? [{ path, menu }] : []
+  }), location.pathname)?.at(-1)?.route.menu
 
   if (!initialized || loading) {
     return (

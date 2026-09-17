@@ -1,3 +1,5 @@
+import { matchRoutes } from 'react-router-dom'
+import type { AppRoute } from './types'
 import type { RouteMeta } from '@/types/global'
 
 type AccessState = {
@@ -22,4 +24,9 @@ export function hasRouteAccess(meta: RouteMeta | undefined, state: AccessState) 
     if (!state.userInfo?.username || !users.includes(state.userInfo.username)) return false
   }
   return true
+}
+
+export function hasMatchedRouteAccess(routes: AppRoute[], pathname: string, state: AccessState) {
+  const branch = matchRoutes(routes, pathname)
+  return Boolean(branch?.every(({ route }) => [route.meta, ...(route.accessMeta || [])].every(meta => hasRouteAccess(meta, state))))
 }

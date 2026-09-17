@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -109,8 +109,14 @@ export default function PermissionRolePageView() {
   const [form, setForm] = useState<RoleForm>(emptyForm)
   const [permissionRole, setPermissionRole] = useState<RoleVo | null>(null)
   const [permissionNames, setPermissionNames] = useState<string[]>([])
+  const [permissionLoading, setPermissionLoading] = useState(false)
+  const [permissionReady, setPermissionReady] = useState(false)
+  const [permissionSaving, setPermissionSaving] = useState(false)
   const [permissionSearch, setPermissionSearch] = useState('')
   const [confirmDeleteIds, setConfirmDeleteIds] = useState<number[]>([])
+  const permissionRequestRef = useRef(0)
+  const permissionSavingRef = useRef(false)
+  useEffect(() => () => { permissionRequestRef.current += 1 }, [])
 
   const refreshRoles = useCallback(async () => {
     tableRef.current?.getTableRef()?.clearSelection()
@@ -154,30 +160,65 @@ export default function PermissionRolePageView() {
     catch (error) { toast(error instanceof Error ? error.message : '角色删除失败', 'destructive') }
   }
 
+  const closePermissions = useCallback(() => {
+    permissionRequestRef.current += 1
+    permissionSavingRef.current = false
+    setPermissionOpen(false)
+    setPermissionRole(null)
+    setMenus([])
+    setPermissionNames([])
+    setPermissionSearch('')
+    setPermissionLoading(false)
+    setPermissionReady(false)
+    setPermissionSaving(false)
+  }, [])
+
   async function openPermissions(role: RoleVo) {
+    if (!role.id) return
+    if (permissionSavingRef.current) return
+    const requestId = ++permissionRequestRef.current
     setPermissionRole(role)
     setPermissionOpen(true)
+    setMenus([])
+    setPermissionNames([])
     setPermissionSearch('')
+    setPermissionLoading(true)
+    setPermissionReady(false)
     try {
-      const [menuResponse, permissionResponse] = await Promise.all([pageMenus(), getRolePermission(role.id as number)])
+      const [menuResponse, permissionResponse] = await Promise.all([pageMenus(), getRolePermission(role.id)])
+      if (requestId !== permissionRequestRef.current) return
       setMenus(normalizeMenuTree(extractList<MenuVo>(menuResponse.data.data)))
       setPermissionNames(extractList<{ name?: string }>(permissionResponse.data.data).map(item => item.name).filter((name): name is string => Boolean(name)))
+      setPermissionReady(true)
     }
-    catch (error) { toast(error instanceof Error ? error.message : '权限数据加载失败', 'destructive') }
+    catch (error) {
+      if (requestId === permissionRequestRef.current) toast(error instanceof Error ? error.message : '权限数据加载失败', 'destructive')
+    }
+    finally {
+      if (requestId === permissionRequestRef.current) setPermissionLoading(false)
+    }
   }
 
   async function savePermissions() {
-    if (!permissionRole?.id) return
+    if (!permissionRole?.id || permissionLoading || permissionSavingRef.current || !permissionReady) return
+    const requestId = permissionRequestRef.current
+    permissionSavingRef.current = true
+    setPermissionSaving(true)
     try {
       const response = await setRolePermission(permissionRole.id, permissionNames)
+      if (requestId !== permissionRequestRef.current) return
       if (response.data.code !== 200) throw new Error(responseMessage(response))
-      setPermissionOpen(false)
+      closePermissions()
       toast('角色权限更新成功', 'success')
     }
-    catch (error) { toast(error instanceof Error ? error.message : '角色权限更新失败', 'destructive') }
+    catch (error) {
+      if (requestId !== permissionRequestRef.current) return
+      toast(error instanceof Error ? error.message : '角色权限更新失败', 'destructive') }
+    finally { if (requestId === permissionRequestRef.current) { permissionSavingRef.current = false; setPermissionSaving(false) } }
   }
 
   function togglePermission(name: string) {
+    if (permissionSavingRef.current) return
     setPermissionNames(current => current.includes(name) ? current.filter(item => item !== name) : [...current, name])
   }
 
@@ -195,7 +236,7 @@ export default function PermissionRolePageView() {
         onDelete={removeRoles}
       />
       <Dialog open={formOpen} onOpenChange={setFormOpen}><DialogContent className="sm:max-w-xl"><DialogHeader><DialogTitle>{form.id ? '编辑角色' : '新增角色'}</DialogTitle><DialogDescription>角色编码用于权限识别，保存后可继续配置菜单权限。</DialogDescription></DialogHeader><FieldGroup className="grid gap-4 md:grid-cols-2"><Field><FieldLabel>角色名称</FieldLabel><Input value={form.name || ''} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} /></Field><Field><FieldLabel>角色编码</FieldLabel><Input value={form.code || ''} disabled={Boolean(form.id)} onChange={event => setForm(current => ({ ...current, code: event.target.value }))} /></Field><Field><FieldLabel>排序</FieldLabel><Input type="number" value={String(form.sort ?? 0)} onChange={event => setForm(current => ({ ...current, sort: Number(event.target.value) }))} /></Field><Field><FieldLabel>状态</FieldLabel><Select value={String(form.status || 1)} onValueChange={value => setForm(current => ({ ...current, status: Number(value) as 1 | 2 }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">启用</SelectItem><SelectItem value="2">禁用</SelectItem></SelectContent></Select></Field><Field className="md:col-span-2"><FieldLabel>备注</FieldLabel><Input value={form.remark || ''} onChange={event => setForm(current => ({ ...current, remark: event.target.value }))} /></Field></FieldGroup><DialogFooter><Button variant="outline" onClick={() => setFormOpen(false)}>取消</Button><Button onClick={() => void submitForm()}>保存</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={permissionOpen} onOpenChange={setPermissionOpen}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>配置菜单权限</DialogTitle><DialogDescription>{permissionRole?.name || '当前角色'} 可以访问的菜单。</DialogDescription></DialogHeader><div className="relative"><Input className="pr-9" value={permissionSearch} onChange={event => setPermissionSearch(event.target.value)} placeholder="搜索菜单名称、路径或权限编码" aria-label="搜索菜单权限" />{permissionSearch && <button type="button" className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setPermissionSearch('')} aria-label="清除菜单搜索"><X className="size-3.5" aria-hidden="true" /></button>}</div><div className="max-h-[55vh] overflow-y-auto rounded-md border p-3">{filteredPermissionMenus.length ? <PermissionMenuTree key={permissionSearch || 'all'} menus={filteredPermissionMenus} permissionNames={permissionNames} onToggle={togglePermission} /> : <p className="py-8 text-center text-sm text-muted-foreground">{menus.length ? '没有匹配的菜单权限。' : '暂无可配置菜单。'}</p>}</div><DialogFooter><Button variant="outline" onClick={() => setPermissionOpen(false)}>取消</Button><Button onClick={() => void savePermissions()}>保存权限</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={permissionOpen} onOpenChange={open => { if (!permissionSavingRef.current) { if (open) setPermissionOpen(true); else closePermissions() } }}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>配置菜单权限</DialogTitle><DialogDescription>{permissionRole?.name || '当前角色'} 可以访问的菜单。</DialogDescription></DialogHeader>{permissionLoading && <p className="text-sm text-muted-foreground">正在加载权限数据…</p>}{!permissionLoading && !permissionReady && <p className="text-sm text-destructive">权限数据加载失败，请关闭后重试。</p>}{permissionReady && <><div className="relative"><Input className="pr-9" value={permissionSearch} onChange={event => setPermissionSearch(event.target.value)} placeholder="搜索菜单名称、路径或权限编码" aria-label="搜索菜单权限" />{permissionSearch && <button type="button" className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setPermissionSearch('')} aria-label="清除菜单搜索"><X className="size-3.5" aria-hidden="true" /></button>}</div><div className="max-h-[55vh] overflow-y-auto rounded-md border p-3">{filteredPermissionMenus.length ? <PermissionMenuTree key={permissionSearch || 'all'} menus={filteredPermissionMenus} permissionNames={permissionNames} onToggle={togglePermission} /> : <p className="py-8 text-center text-sm text-muted-foreground">{menus.length ? '没有匹配的菜单权限。' : '暂无可配置菜单。'}</p>}</div></>}<DialogFooter><Button variant="outline" onClick={closePermissions} disabled={permissionSaving}>取消</Button><Button disabled={permissionLoading || permissionSaving || !permissionReady || !permissionRole?.id} onClick={() => void savePermissions()}>{permissionSaving ? '保存中…' : '保存权限'}</Button></DialogFooter></DialogContent></Dialog>
       <ConfirmDialog open={confirmDeleteIds.length > 0} title="删除角色" description={`确认删除 ${confirmDeleteIds.length} 个角色吗？`} onClose={() => setConfirmDeleteIds([])} onConfirm={confirmRemoveRoles} />
     </>
   )

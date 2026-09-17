@@ -57,3 +57,12 @@ export function findMenuByPath(menus: MenuVo[], pathname: string): MenuVo | unde
     .sort((left, right) => (getMenuPath(right)?.length || 0) - (getMenuPath(left)?.length || 0))
   return candidates[0]
 }
+
+/** Flatten route entries while keeping every ancestor's access restrictions. */
+export function flattenMenuRoutes(menus: MenuVo[], ancestors: NonNullable<MenuVo['meta']>[] = []): Array<{ menu: MenuVo; accessMeta: NonNullable<MenuVo['meta']>[] }> {
+  return menus.flatMap(menu => {
+    if (!isVisibleMenu(menu)) return []
+    const accessMeta = menu.meta ? [...ancestors, menu.meta] : ancestors
+    return [{ menu, accessMeta }, ...flattenMenuRoutes(menu.children || [], accessMeta)]
+  })
+}

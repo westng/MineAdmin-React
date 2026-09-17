@@ -66,6 +66,10 @@ export interface MaProTableOptions<T extends MaProTableModel = MaProTableModel> 
   /** 注册工具默认显示；按工具名称控制显示状态。 */
   toolStates?: Record<string, boolean | (() => boolean)>
   requestOptions?: {
+    /** Change when the API or its captured data source changes. */
+    requestKey?: string | number
+    /** Shared list/export normalization; keep pagination keys unchanged. */
+    paramsTransform?: (params: Record<string, unknown>) => Record<string, unknown>
     api: MaProTableApi
     autoRequest?: boolean
     response?: { totalKey?: string; dataKey?: string }
@@ -104,6 +108,7 @@ export interface MaProTableExpose<T extends MaProTableModel = MaProTableModel> {
   getSearchRef: () => MaSearchExpose<T> | null
   getTableRef: () => MaTableExpose<T> | null
   getElTableStates: () => { data: T[]; loading: boolean; selectedRows: T[] }
+  getRequestParams: () => Record<string, unknown>
   refresh: () => Promise<void>
   requestData: () => Promise<void>
   changeApi: (api: MaProTableApi, requestNow?: boolean) => void

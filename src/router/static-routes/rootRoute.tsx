@@ -1,6 +1,3 @@
-import InboxPage from '@/modules/notification/views'
-import NotificationDetailPage from '@/modules/notification/views/detail'
-import AnnouncementPage from '@/modules/notification/views/announcements'
 import { Navigate, Outlet } from 'react-router-dom'
 import type { AppRoute } from '@/router/types'
 import AppLayout from '@/layouts'
@@ -9,10 +6,16 @@ import LoginPage from '@/modules/base/auth/views'
 import FeishuCallbackPage from '@/modules/feishu/login/components/FeishuCallbackPage'
 import ErrorPage from '@/layouts/[...all]'
 import DynamicMenuPage from '@/modules/base/dynamic-menu/views'
-import UserCenterPage from '@/modules/base/user-center/views'
-import AccountSettingsPage from '@/modules/base/account-settings/views'
 import dashboardRoute from './dashboardRoute'
 import ucChildren from './ucChildren'
+
+import { lazyView } from '@/router/lazy-view'
+
+const InboxPage = lazyView(() => import('@/modules/notification/views'))
+const NotificationDetailPage = lazyView(() => import('@/modules/notification/views/detail'))
+const AnnouncementPage = lazyView(() => import('@/modules/notification/views/announcements'))
+const UserCenterPage = lazyView(() => import('@/modules/base/user-center/views'))
+const AccountSettingsPage = lazyView(() => import('@/modules/base/account-settings/views'))
 
 const rootRoutes: AppRoute[] = [
   {

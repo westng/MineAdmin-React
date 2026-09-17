@@ -24,26 +24,31 @@ export default function AppLayout() {
   const isDictionaryWorkspace = location.pathname === '/dataCenter/dictionary'
 
   return (
-    <SidebarProvider
-      defaultOpen={sidebarDefaultOpen}
-      className="h-svh flex flex-col overflow-hidden [--sidebar-accent:color-mix(in_oklab,var(--color-primary)_5%,transparent)] [--sidebar-accent-foreground:var(--color-primary)]"
-      style={{ '--sidebar-width': '260px', '--sidebar-width-icon': '62px', '--header-height': '50px' } as CSSProperties}
+    <div
+      className="h-svh"
+      style={{ '--header-height': '50px' } as CSSProperties}
     >
-      <TooltipProvider>
-        <HeaderActionsProvider>
-          <Header className="shrink-0" />
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <MainAside />
-            <SidebarInset className="min-w-0 min-h-0 flex-1 overflow-hidden">
-              <main className={cn('mine-main flex min-h-0 flex-1 flex-col', isDictionaryWorkspace ? 'overflow-hidden' : 'overflow-y-auto', !isMarketingWorkspace && 'p-4')}>
-                <Outlet />
-              </main>
-            </SidebarInset>
-          </div>
-        </HeaderActionsProvider>
-        <BackTop />
-        <MarketingScheduleDrawer />
-      </TooltipProvider>
-    </SidebarProvider>
+      <SidebarProvider
+        defaultOpen={sidebarDefaultOpen}
+        className="flex h-full min-h-0 flex-col overflow-hidden [--sidebar-accent:color-mix(in_oklab,var(--color-primary)_5%,transparent)] [--sidebar-accent-foreground:var(--color-primary)]"
+        style={{ '--sidebar-width': '260px', '--sidebar-width-icon': '62px' } as CSSProperties}
+      >
+        <TooltipProvider>
+          <HeaderActionsProvider>
+            <Header className="shrink-0" />
+            <div className="flex min-h-0 flex-1">
+              <MainAside />
+              <SidebarInset className="min-w-0 min-h-0 flex-1 overflow-hidden">
+                <main className={cn('mine-main flex min-h-0 flex-1 flex-col', isDictionaryWorkspace ? 'overflow-hidden' : 'overflow-y-auto', !isMarketingWorkspace && 'p-4')}>
+                  <Outlet />
+                </main>
+              </SidebarInset>
+            </div>
+          </HeaderActionsProvider>
+          <BackTop />
+          <MarketingScheduleDrawer />
+        </TooltipProvider>
+      </SidebarProvider>
+    </div>
   )
 }
