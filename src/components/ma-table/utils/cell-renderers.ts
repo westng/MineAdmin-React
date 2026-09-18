@@ -14,7 +14,9 @@ export function getTableCellRenderers() {
 
 export function subscribeTableCellRenderers(listener: () => void) {
   listeners.add(listener)
-  return () => { listeners.delete(listener) }
+  return () => {
+    listeners.delete(listener)
+  }
 }
 
 /** 同名注册会替换旧实现；返回值只注销本次注册，便于按需启停。 */

@@ -15,7 +15,11 @@ export interface UseMaTableSortResult<T extends MaTableModel> {
   toggleSort: (column: MaTableColumn<T>) => void
 }
 
-export function useMaTableSort<T extends MaTableModel>({ rows, visibleColumns, onSortChange }: UseMaTableSortOptions<T>): UseMaTableSortResult<T> {
+export function useMaTableSort<T extends MaTableModel>({
+  rows,
+  visibleColumns,
+  onSortChange,
+}: UseMaTableSortOptions<T>): UseMaTableSortResult<T> {
   const [sortState, setSortState] = React.useState<{ prop: string; order: MaTableSortOrder }>({ prop: '', order: null })
   const sortedRows = React.useMemo(() => {
     if (!sortState.prop || !sortState.order) return rows
@@ -27,28 +31,42 @@ export function useMaTableSort<T extends MaTableModel>({ rows, visibleColumns, o
       if (leftValue === rightValue) return 0
       if (leftValue === undefined || leftValue === null) return sortState.order === 'ascending' ? -1 : 1
       if (rightValue === undefined || rightValue === null) return sortState.order === 'ascending' ? 1 : -1
-      const result = typeof leftValue === 'number' && typeof rightValue === 'number'
-        ? leftValue - rightValue
-        : leftValue instanceof Date && rightValue instanceof Date
-          ? leftValue.getTime() - rightValue.getTime()
-          : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' })
+      const result =
+        typeof leftValue === 'number' && typeof rightValue === 'number'
+          ? leftValue - rightValue
+          : leftValue instanceof Date && rightValue instanceof Date
+            ? leftValue.getTime() - rightValue.getTime()
+            : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' })
       return sortState.order === 'ascending' ? result : -result
     })
   }, [rows, sortState, visibleColumns])
 
-  const setSort = React.useCallback((prop: string, order: MaTableSortOrder) => {
-    setSortState({ prop, order })
-    onSortChange?.(prop, order)
-  }, [onSortChange])
+  const setSort = React.useCallback(
+    (prop: string, order: MaTableSortOrder) => {
+      setSortState({ prop, order })
+      onSortChange?.(prop, order)
+    },
+    [onSortChange],
+  )
 
-  const toggleSort = React.useCallback((column: MaTableColumn<T>) => {
-    if (!column.sortable || typeof column.prop !== 'string') return
-    setSortState(current => {
-      const order = current.prop !== column.prop ? 'ascending' : current.order === 'ascending' ? 'descending' : current.order === 'descending' ? null : 'ascending'
-      onSortChange?.(column.prop as string, order)
-      return { prop: column.prop as string, order }
-    })
-  }, [onSortChange])
+  const toggleSort = React.useCallback(
+    (column: MaTableColumn<T>) => {
+      if (!column.sortable || typeof column.prop !== 'string') return
+      setSortState(current => {
+        const order =
+          current.prop !== column.prop
+            ? 'ascending'
+            : current.order === 'ascending'
+              ? 'descending'
+              : current.order === 'descending'
+                ? null
+                : 'ascending'
+        onSortChange?.(column.prop as string, order)
+        return { prop: column.prop as string, order }
+      })
+    },
+    [onSortChange],
+  )
 
   return { sortState, sortedRows, setSort, toggleSort }
 }

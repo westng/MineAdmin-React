@@ -1,11 +1,14 @@
+import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/reui/primitives/button'
 import { useTabStore, type TabItem } from '@/store/modules/useTabStore'
 import { findMenuByPath, getMenuLabel } from '@/router/dynamic-menu'
-import { useMenuStore } from '@/store/modules/useMenuStore'
+import { useRoute } from '@/hooks/framework/use-route'
 import { useSettingStore } from '@/provider/settings'
+
+const tx = createTextTranslator('shell.ui')
 
 const defaultTab: TabItem = {
   name: 'dashboard',
@@ -17,9 +20,12 @@ const defaultTab: TabItem = {
 }
 
 export default function Tabbar() {
+  const localeRevision = useLocaleRevision()
+  void localeRevision
+
   const location = useLocation()
   const navigate = useNavigate()
-  const menus = useMenuStore(state => state.menus)
+  const { menus } = useRoute()
   const enabled = useSettingStore(state => state.settings.tabbar.enable)
   const tabs = useTabStore(state => state.tabs)
   const initialized = useTabStore(state => state.initialized)
@@ -34,7 +40,11 @@ export default function Tabbar() {
       name: location.pathname,
       path: location.pathname,
       fullPath: `${location.pathname}${location.search}${location.hash}`,
-      title: dynamic ? getMenuLabel(dynamic) : location.pathname === '/dashboard' ? 'Overview' : location.pathname.split('/').filter(Boolean).pop() || '页面',
+      title: dynamic
+        ? getMenuLabel(dynamic)
+        : location.pathname === '/dashboard'
+          ? 'Overview'
+          : location.pathname.split('/').filter(Boolean).pop() || tx('页面'),
       affix: location.pathname === '/dashboard',
     })
   }, [add, init, initialized, location.hash, location.pathname, location.search, menus])
@@ -42,7 +52,10 @@ export default function Tabbar() {
   if (!enabled) return null
 
   return (
-    <nav className="flex min-h-10 items-center gap-1 overflow-x-auto border-b border-border bg-muted/20 px-3" aria-label="打开的页面">
+    <nav
+      className="flex min-h-10 items-center gap-1 overflow-x-auto border-b border-border bg-muted/20 px-3"
+      aria-label={tx('打开的页面')}
+    >
       {tabs.map(tab => {
         const active = tab.fullPath === `${location.pathname}${location.search}${location.hash}`
         return (
@@ -60,10 +73,14 @@ export default function Tabbar() {
                 variant={active ? 'secondary' : 'ghost'}
                 size="icon-xs"
                 className="h-7 rounded-l-none px-1"
-                aria-label={`关闭 ${tab.title}`}
+                aria-label={tx('关闭 {0}', { '0': tab.title })}
                 onClick={() => {
                   close(tab.fullPath)
-                  if (active) navigate(tabs[Math.max(0, tabs.findIndex(item => item.fullPath === tab.fullPath) - 1)]?.fullPath || '/dashboard')
+                  if (active)
+                    navigate(
+                      tabs[Math.max(0, tabs.findIndex(item => item.fullPath === tab.fullPath) - 1)]?.fullPath ||
+                        '/dashboard',
+                    )
                 }}
               >
                 <X className="size-3" aria-hidden="true" />

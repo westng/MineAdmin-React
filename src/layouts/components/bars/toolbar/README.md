@@ -3,7 +3,7 @@
 页面组件可以使用 `useHeaderActions` 将页面专属操作注入顶部右侧区域。
 
 ```tsx
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/reui/primitives/button'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
 
 export function ExamplePage() {

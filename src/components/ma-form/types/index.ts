@@ -1,5 +1,5 @@
 import type * as React from 'react'
-import type { MaModel } from '../../shared/types'
+import type { MaModel } from '@/components/reui/utils/types'
 import type { MaFormControlPropsMap, MaFormInputProps } from './controls'
 export type * from './controls'
 
@@ -65,25 +65,38 @@ export interface MaFormItemBase<T extends MaFormModel = MaFormModel> {
 }
 
 type MaFormBuiltInConfig = {
-  [Name in MaFormComponentName]: (
-    { render: Name; component?: Name } | { component: Name; render?: Name }
-  ) & { renderProps?: MaFormControlPropsMap[Name] }
+  [Name in MaFormComponentName]: ({ render: Name; component?: Name } | { component: Name; render?: Name }) & {
+    renderProps?: MaFormControlPropsMap[Name]
+  }
 }[MaFormComponentName]
 
-export type MaFormItem<T extends MaFormModel = MaFormModel> = MaFormItemBase<T> & (
-  MaFormBuiltInConfig |
-  { render?: MaFormComponentName; component?: MaFormComponentName; renderProps?: undefined } |
-  { render?: undefined; component?: undefined; renderProps?: MaFormInputProps } |
-  { render: MaFormRender<T> | React.ComponentType<MaFormRenderContext<T>>; component?: React.ComponentType<Record<string, unknown>>; renderProps?: Record<string, unknown> } |
-  { render?: undefined; component: React.ComponentType<Record<string, unknown>>; renderProps?: Record<string, unknown> }
-)
+export type MaFormItem<T extends MaFormModel = MaFormModel> = MaFormItemBase<T> &
+  (
+    | MaFormBuiltInConfig
+    | { render?: MaFormComponentName; component?: MaFormComponentName; renderProps?: undefined }
+    | { render?: undefined; component?: undefined; renderProps?: MaFormInputProps }
+    | {
+        render: MaFormRender<T> | React.ComponentType<MaFormRenderContext<T>>
+        component?: React.ComponentType<Record<string, unknown>>
+        renderProps?: Record<string, unknown>
+      }
+    | {
+        render?: undefined
+        component: React.ComponentType<Record<string, unknown>>
+        renderProps?: Record<string, unknown>
+      }
+  )
 
 export interface MaFormOptions {
   loading?: boolean
   containerClass?: string
   layout?: 'flex' | 'grid'
   grid?: { columns?: number; gap?: number | string; className?: string; alignment?: React.CSSProperties['alignItems'] }
-  flex?: { gap?: number | string; justify?: React.CSSProperties['justifyContent']; align?: React.CSSProperties['alignItems'] }
+  flex?: {
+    gap?: number | string
+    justify?: React.CSSProperties['justifyContent']
+    align?: React.CSSProperties['alignItems']
+  }
   footerSlot?: React.ReactNode | (() => React.ReactNode)
   inline?: boolean
   labelPosition?: 'left' | 'right' | 'top'

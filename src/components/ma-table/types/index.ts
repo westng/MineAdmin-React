@@ -4,7 +4,7 @@ import type { DataGridFeatures, DataGridProps, DataGridTableInstance } from '@/c
 import type { DataGridTable } from '@/components/reui/data-grid/data-grid-table'
 import type { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination'
 import type { DataGridScrollArea } from '@/components/reui/data-grid/data-grid-scroll-area'
-import type { MaModel } from '../../shared/types'
+import type { MaModel } from '@/components/reui/utils/types'
 
 export type MaTableModel = MaModel
 export type MaTableColumnType = 'selection' | 'index' | 'expand' | 'operation'
@@ -15,15 +15,29 @@ type MaTableManagedState = 'pagination' | 'sorting' | 'rowSelection' | 'expanded
 /** Ma 层管理数据、分页、排序和选择，其余 TanStack 配置可直接扩展。 */
 export type MaTableInstanceOptions<T extends MaTableModel> = Omit<
   Partial<TableOptions<DataGridFeatures, T>>,
-  'features' | 'columns' | 'data' | 'getRowId' | 'state' | 'initialState' |
-  'manualPagination' | 'manualSorting' | 'pageCount' | 'rowCount' |
-  'onPaginationChange' | 'onSortingChange' | 'onRowSelectionChange' | 'onExpandedChange'
+  | 'features'
+  | 'columns'
+  | 'data'
+  | 'getRowId'
+  | 'state'
+  | 'initialState'
+  | 'manualPagination'
+  | 'manualSorting'
+  | 'pageCount'
+  | 'rowCount'
+  | 'onPaginationChange'
+  | 'onSortingChange'
+  | 'onRowSelectionChange'
+  | 'onExpandedChange'
 > & {
   state?: Partial<Omit<TableState<DataGridFeatures>, MaTableManagedState>>
   initialState?: Partial<Omit<TableState<DataGridFeatures>, MaTableManagedState>>
 }
 
-export type MaTableDataGridProps<T extends MaTableModel> = Omit<DataGridProps<DataGridFeatures, T>, 'table' | 'children' | 'recordCount' | 'isLoading'>
+export type MaTableDataGridProps<T extends MaTableModel> = Omit<
+  DataGridProps<DataGridFeatures, T>,
+  'table' | 'children' | 'recordCount' | 'isLoading'
+>
 
 export type MaTableTabValue = string | number
 

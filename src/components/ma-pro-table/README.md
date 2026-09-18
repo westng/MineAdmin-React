@@ -8,7 +8,7 @@
 
 ```tsx
 import { useRef } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/reui/primitives/button'
 import {
   MaProTable,
   type MaProTableApi,
@@ -236,7 +236,7 @@ ReUI 和 TanStack 扩展配置放在 `options.tableOptions` 内，沿用 [MaTabl
 需要将「创建」放到导航栏右侧时，在页面使用现有 `useHeaderActions`。页面负责权限、创建弹窗和保存后的表格刷新，`MaProTable` 负责列表。此插槽由应用布局的 `HeaderActionsProvider` 提供，页面卸载后自动清理。
 
 ```tsx
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/reui/primitives/button'
 import { MaProTable, type MaProTableProps } from '@/components/ma-pro-table'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
 

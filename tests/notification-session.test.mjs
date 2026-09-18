@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 async function harness() {
   const result = await build({
     stdin: {
-      contents: `export * from './src/modules/notification/store/inbox-store'; export { notificationApi } from './src/modules/notification/api'; export { requests } from '@/utils/http'; export { switchAccount } from '@/store/modules/useUserStore'`,
+      contents: `export * from './src/modules/notification/store/inbox-store'; export { notificationApi } from './src/modules/notification/api'; export { requests } from '@/provider/http'; export { switchAccount } from '@/provider/session'`,
       resolveDir: process.cwd(),
     },
     bundle: true,
@@ -22,15 +22,15 @@ async function harness() {
       {
         name: 'notification-doubles',
         setup(builder) {
-          builder.onResolve({ filter: /^@\/(utils\/http|store\/modules\/useUserStore)$/ }, (args) => ({
+          builder.onResolve({ filter: /^@\/(provider\/http|provider\/session)$/ }, args => ({
             path: args.path,
             namespace: 'notification-double',
           }))
-          builder.onLoad({ filter: /.*/, namespace: 'notification-double' }, (args) => ({
+          builder.onLoad({ filter: /.*/, namespace: 'notification-double' }, args => ({
             loader: 'js',
             contents: args.path.endsWith('http')
               ? `export const requests = []; const request = (url, ...args) => new Promise((resolve, reject) => requests.push({ url, args, resolve: data => resolve({ data: { data } }), reject })); export default { get: request, post: request, put: request, patch: request, delete: request };`
-              : `let state = { token: 'token-1', userInfo: { id: 1 } }; const listeners = new Set(); export const useUserStore = { getState: () => state, subscribe: fn => { listeners.add(fn); return () => listeners.delete(fn) } }; export function switchAccount(id) { state = { token: id ? 'token-' + id : null, userInfo: id ? { id } : null }; listeners.forEach(fn => fn()); }`,
+              : `let state = { token: 'token-1', userInfo: { id: 1 } }; const listeners = new Set(); export const useSessionStore = { getState: () => state, subscribe: fn => { listeners.add(fn); return () => listeners.delete(fn) } }; export function switchAccount(id) { state = { token: id ? 'token-' + id : null, userInfo: id ? { id } : null }; listeners.forEach(fn => fn()); }`,
           }))
         },
       },
@@ -44,7 +44,7 @@ async function harness() {
   )
   return module.exports
 }
-const flush = () => new Promise((resolve) => setImmediate(resolve))
+const flush = () => new Promise(resolve => setImmediate(resolve))
 
 test('shared refresh deduplicates requests and still revises visible content when count stays equal', async () => {
   const h = await harness()

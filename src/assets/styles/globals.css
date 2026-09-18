@@ -1,13 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-
-@source "../../plugins";
-@source "../../plugins/west/sys-settings";
-@source "../../modules";
-@source "../../modules/creator/allocation";
-@source "../../modules/creator/create";
-@source "../../modules/marketing/schedule";
-@source "../../modules/notification";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@application-styles';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -149,16 +142,17 @@
   }
 
   button,
-  [role="button"] {
+  [role='button'] {
     cursor: pointer;
   }
 
-  input[type="radio"] {
+  input[type='radio'] {
     accent-color: var(--primary);
   }
 
   @keyframes ring-pulse {
-    0%, 100% {
+    0%,
+    100% {
       transform: scale(1);
       opacity: 1;
     }

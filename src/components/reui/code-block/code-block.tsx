@@ -39,8 +39,8 @@ import type {
   CodeBlockWordSpec,
 } from "@/components/reui/code-block/code-block-highlight"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
 
 /* -------------------------------------------------------------------------- */
 /*                                   Context                                   */

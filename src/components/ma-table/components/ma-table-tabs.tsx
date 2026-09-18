@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/reui/primitives/badge'
+import { Separator } from '@/components/reui/primitives/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/reui/primitives/tabs'
 import type { MaTableTabsConfig, MaTableTabValue } from '../types'
 
 interface MaTableTabsProps {
@@ -12,7 +12,8 @@ interface MaTableTabsProps {
 function ConfiguredTableTabs({ config, children }: { config: MaTableTabsConfig; children: ReactNode }) {
   const [internalValue, setInternalValue] = useState<MaTableTabValue | undefined>(config.defaultValue)
   const enabledItems = config.items.filter(item => !item.disabled)
-  const value = config.value ?? enabledItems.find(item => item.value === internalValue)?.value ?? enabledItems[0]?.value ?? null
+  const value =
+    config.value ?? enabledItems.find(item => item.value === internalValue)?.value ?? enabledItems[0]?.value ?? null
 
   if (config.items.length === 0) return <>{children}</>
 
@@ -38,7 +39,11 @@ function ConfiguredTableTabs({ config, children }: { config: MaTableTabsConfig; 
             >
               {item.label}
               {item.count !== undefined && (
-                <Badge variant={item.value === value ? 'secondary' : 'outline'} radius="full" className="px-1 font-normal tabular-nums">
+                <Badge
+                  variant={item.value === value ? 'secondary' : 'outline'}
+                  radius="full"
+                  className="px-1 font-normal tabular-nums"
+                >
                   {item.count}
                 </Badge>
               )}
@@ -46,7 +51,13 @@ function ConfiguredTableTabs({ config, children }: { config: MaTableTabsConfig; 
           ))}
         </TabsList>
       </div>
-      {value === null ? children : <TabsContent value={value} keepMounted className="min-w-0">{children}</TabsContent>}
+      {value === null ? (
+        children
+      ) : (
+        <TabsContent value={value} keepMounted className="min-w-0">
+          {children}
+        </TabsContent>
+      )}
     </Tabs>
   )
 }
@@ -56,5 +67,15 @@ export function MaTableTabs({ tabs, children }: MaTableTabsProps) {
     return <ConfiguredTableTabs config={tabs}>{children}</ConfiguredTableTabs>
   }
 
-  return <>{tabs && <><div className="px-4 pt-3">{tabs}</div><Separator /></>}{children}</>
+  return (
+    <>
+      {tabs && (
+        <>
+          <div className="px-4 pt-3">{tabs}</div>
+          <Separator />
+        </>
+      )}
+      {children}
+    </>
+  )
 }

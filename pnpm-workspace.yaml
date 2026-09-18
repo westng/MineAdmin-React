@@ -1,4 +1,11 @@
 allowBuilds:
   esbuild: true
+  simple-git-hooks: set this to true or false
 minimumReleaseAgeExclude:
   - lucide-react@1.39.0
+# Keep native dependencies available when macOS Node switches between ARM and Rosetta.
+supportedArchitectures:
+  cpu:
+    - current
+    - arm64
+    - x64

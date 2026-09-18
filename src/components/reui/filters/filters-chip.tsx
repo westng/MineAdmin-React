@@ -45,29 +45,29 @@ import type {
   FilterRule,
 } from "@/components/reui/filters/filters-types"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
 import {
   ButtonGroup,
   ButtonGroupText,
-} from "@/components/ui/button-group"
+} from "@/components/reui/primitives/button-group"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/reui/primitives/dropdown-menu"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/reui/primitives/popover"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/reui/primitives/tooltip"
 import { ChevronRightIcon, CornerDownRightIcon, CopyIcon, ArrowLeftRightIcon, LayersIcon, SlidersHorizontalIcon, Trash2Icon, XIcon, EllipsisVerticalIcon } from "lucide-react"
 
 /** Which part of the chip a pointer or key is aimed at. No `field`: the chip's

@@ -1,6 +1,6 @@
 # MaDialog
 
-`MaDialog` 是项目级对话框封装，基于 `components/ui/dialog` 组合，不修改官方 ReUI 或 Base UI 源码。
+`MaDialog` 是项目级对话框封装，基于 `components/reui/primitives/dialog` 组合，不修改官方 ReUI 或 Base UI 源码。
 
 默认对话框沿用目标站的 ReUI 壳层：响应式 `sm` 宽度、圆角面板、轻量边框光环和官方底部操作区；需要更宽的业务内容时，通过 `contentClassName` 覆盖，而不是修改全局基础组件。
 

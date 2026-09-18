@@ -10,7 +10,7 @@ interface KeepAliveState {
 
 export const useKeepAliveStore = create<KeepAliveState>((set, get) => ({
   names: [],
-  add: name => set(state => state.names.includes(name) ? state : { names: [...state.names, name] }),
+  add: name => set(state => (state.names.includes(name) ? state : { names: [...state.names, name] })),
   remove: name => set(state => ({ names: state.names.filter(item => item !== name) })),
   clean: () => set({ names: [] }),
   has: name => get().names.includes(name),

@@ -18,10 +18,19 @@ export interface UseMaTableSelectionResult<T extends MaTableModel> {
   clearSelection: () => void
 }
 
-export function useMaTableSelection<T extends MaTableModel>({ rows, selectableRows, getRowKey, onSelectionChange }: UseMaTableSelectionOptions<T>): UseMaTableSelectionResult<T> {
+export function useMaTableSelection<T extends MaTableModel>({
+  rows,
+  selectableRows,
+  getRowKey,
+  onSelectionChange,
+}: UseMaTableSelectionOptions<T>): UseMaTableSelectionResult<T> {
   const [selectedKeys, setSelectedKeys] = React.useState<Set<string>>(new Set())
-  const selectedRows = React.useMemo(() => rows.filter((row, index) => selectedKeys.has(getRowKey(row, index))), [getRowKey, rows, selectedKeys])
-  const allSelected = selectableRows.length > 0 && selectableRows.every((row, index) => selectedKeys.has(getRowKey(row, index)))
+  const selectedRows = React.useMemo(
+    () => rows.filter((row, index) => selectedKeys.has(getRowKey(row, index))),
+    [getRowKey, rows, selectedKeys],
+  )
+  const allSelected =
+    selectableRows.length > 0 && selectableRows.every((row, index) => selectedKeys.has(getRowKey(row, index)))
   const partiallySelected = !allSelected && selectableRows.some((row, index) => selectedKeys.has(getRowKey(row, index)))
 
   const onSelectionChangeRef = React.useRef(onSelectionChange)
@@ -31,34 +40,53 @@ export function useMaTableSelection<T extends MaTableModel>({ rows, selectableRo
   }, [onSelectionChange])
   React.useEffect(() => {
     const previous = notifiedSelectionRef.current
-    if (previous && previous.length === selectedRows.length && previous.every((row, index) => row === selectedRows[index])) return
+    if (
+      previous &&
+      previous.length === selectedRows.length &&
+      previous.every((row, index) => row === selectedRows[index])
+    )
+      return
     notifiedSelectionRef.current = selectedRows
     onSelectionChangeRef.current?.(selectedRows)
   }, [selectedRows])
 
-  const updateSelection = React.useCallback((row: T, checked: boolean, index: number) => {
-    const key = getRowKey(row, index)
-    setSelectedKeys(current => {
-      const next = new Set(current)
-      if (checked) next.add(key)
-      else next.delete(key)
-      return next
-    })
-  }, [getRowKey])
-
-  const updateAllSelection = React.useCallback((checked: boolean) => {
-    setSelectedKeys(current => {
-      const next = new Set(current)
-      selectableRows.forEach((row, index) => {
-        const key = getRowKey(row, index)
+  const updateSelection = React.useCallback(
+    (row: T, checked: boolean, index: number) => {
+      const key = getRowKey(row, index)
+      setSelectedKeys(current => {
+        const next = new Set(current)
         if (checked) next.add(key)
         else next.delete(key)
+        return next
       })
-      return next
-    })
-  }, [getRowKey, selectableRows])
+    },
+    [getRowKey],
+  )
+
+  const updateAllSelection = React.useCallback(
+    (checked: boolean) => {
+      setSelectedKeys(current => {
+        const next = new Set(current)
+        selectableRows.forEach((row, index) => {
+          const key = getRowKey(row, index)
+          if (checked) next.add(key)
+          else next.delete(key)
+        })
+        return next
+      })
+    },
+    [getRowKey, selectableRows],
+  )
 
   const clearSelection = React.useCallback(() => setSelectedKeys(new Set()), [])
 
-  return { selectedKeys, selectedRows, allSelected, partiallySelected, updateSelection, updateAllSelection, clearSelection }
+  return {
+    selectedKeys,
+    selectedRows,
+    allSelected,
+    partiallySelected,
+    updateSelection,
+    updateAllSelection,
+    clearSelection,
+  }
 }

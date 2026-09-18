@@ -24,8 +24,8 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { addDays, format } from "date-fns"
 
-import { cn } from "@/lib/utils"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/utils/cn"
+import { ScrollArea } from "@/components/reui/primitives/scroll-area"
 import { CalendarIcon } from "lucide-react"
 
 // The agenda window length is the agendaDayCount SETTING (the store derives

@@ -10,8 +10,8 @@ import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
 import { Subscribe } from "@tanstack/react-table"
 import type { Column } from "@tanstack/react-table"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -24,7 +24,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/reui/primitives/dropdown-menu"
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon, CheckIcon, ArrowLeftToLineIcon, ArrowRightToLineIcon, ArrowLeftIcon, ArrowRightIcon, Settings2Icon, PinOffIcon } from "lucide-react"
 
 interface DataGridColumnHeaderProps<

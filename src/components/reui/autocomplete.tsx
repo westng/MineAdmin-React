@@ -3,8 +3,8 @@
 import { Autocomplete as AutocompletePrimitive } from "@base-ui/react/autocomplete"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@/lib/utils"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/utils/cn"
+import { ScrollArea } from "@/components/reui/primitives/scroll-area"
 import { XIcon, ChevronsUpDownIcon } from "lucide-react"
 
 const inputVariants = cva(

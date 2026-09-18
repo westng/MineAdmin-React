@@ -1,31 +1,92 @@
-import { Gauge } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { SidebarTrigger } from '@/components/ui/sidebar'
-import { findMenuByPath, getMenuLabel } from '@/router/dynamic-menu'
-import { useMenuStore } from '@/store/modules/useMenuStore'
+import { useTranslate } from '@/provider/i18n'
+import { Fragment } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { SidebarTrigger } from '@/components/reui/primitives/sidebar'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/reui/primitives/breadcrumb'
+import { findMenuByPath, findMenuTrail, getMenuLabel } from '@/router/dynamic-menu'
+import { useRoute } from '@/hooks/framework/use-route'
 import HeaderActionSlot from '@/layouts/components/bars/toolbar'
 
-const brandLogo = new URL('../../../assets/images/logo.svg', import.meta.url).href
+import { ShellSlotOutlet } from '@/layouts/slot-outlet'
+import { cn } from '@/utils/cn'
+
+const logo = new URL('../../../assets/images/logo.svg', import.meta.url).href
 
 const titles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/settings': 'Settings',
-  '/uc/index': 'Profile',
-  '/uc/settings': 'Settings',
+  '/dashboard': 'shell.dashboard',
+  '/settings': 'shell.settings',
+  '/uc/index': 'shell.profile',
+  '/uc/settings': 'shell.settings',
 }
 
 export default function Header({ className }: { className?: string }) {
+  const t = useTranslate()
   const location = useLocation()
-  const menus = useMenuStore(state => state.menus)
+  const { menus } = useRoute()
   const dynamicMenu = findMenuByPath(menus, location.pathname)
-  const title = titles[location.pathname] || (dynamicMenu ? getMenuLabel(dynamicMenu) : 'Dashboard')
+  const menuTrail = findMenuTrail(menus, location.pathname)
+  const title = titles[location.pathname]
+    ? t(titles[location.pathname])
+    : dynamicMenu
+      ? getMenuLabel(dynamicMenu)
+      : t('shell.dashboard')
 
-  return <header className={`sticky top-0 z-50 flex h-(--header-height) min-w-0 items-center gap-2 border-b border-border bg-background px-3 sm:gap-3 sm:px-4 ${className || ''}`}>
-    <SidebarTrigger className="shrink-0 md:hidden" aria-label="打开导航菜单" />
-    <img src={brandLogo} alt="博策云工作台" className="h-6 w-auto max-w-40 shrink-0 object-contain" />
-    <span className="text-muted-foreground">/</span>
-    <h1 className="min-w-0 truncate text-sm font-semibold text-foreground sm:text-base">{title}</h1>
-    <div className="ml-auto flex shrink-0 items-center gap-2"><Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5"><Gauge className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Store</span><span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">Attention</span></Button><HeaderActionSlot /></div>
-  </header>
+  return (
+    <header
+      className={cn('sticky top-0 z-50 flex w-full items-center border-b border-border bg-background', className)}
+    >
+      <div className="flex h-(--header-height) w-full items-center gap-2 px-4">
+        <SidebarTrigger className="shrink-0 md:hidden" aria-label={t('shell.openNavigation')} />
+        <Breadcrumb className="min-w-0">
+          <BreadcrumbList className="flex-nowrap gap-2">
+            <BreadcrumbItem className="hidden shrink-0 items-center pl-0.5 md:inline-flex">
+              <img src={logo} alt="博策云工作台" className="h-5 w-auto max-w-40 object-contain" />
+            </BreadcrumbItem>
+            {menuTrail.length > 0 ? (
+              menuTrail.map((item, index) => {
+                const current = index === menuTrail.length - 1
+                const label = current
+                  ? title
+                  : typeof item.menu.meta?.i18n === 'string'
+                    ? t(item.menu.meta.i18n)
+                    : getMenuLabel(item.menu)
+                return (
+                  <Fragment key={`${item.path}-${label}`}>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem className="min-w-0">
+                      {current ? (
+                        <BreadcrumbPage className="truncate text-sm font-semibold sm:text-base">{label}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink asChild className="truncate text-sm">
+                          <Link to={item.path}>{label}</Link>
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </Fragment>
+                )
+              })
+            ) : (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem className="min-w-0">
+                  <BreadcrumbPage className="truncate text-sm font-semibold sm:text-base">{title}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            )}
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <ShellSlotOutlet slot="shell.toolbar" pathname={location.pathname} />
+          <HeaderActionSlot />
+        </div>
+      </div>
+    </header>
+  )
 }

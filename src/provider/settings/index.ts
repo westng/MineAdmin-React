@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { SystemSettings } from '@/types/global'
 import globalConfigSettings from './settings.config'
-import cache from '@/hooks/useCache'
+import cache from '@/services/storage/cache'
 
 const defaultSettings: SystemSettings = {
   app: {
@@ -24,13 +24,17 @@ const defaultSettings: SystemSettings = {
   copyright: {
     enable: true,
     dates: new Date().getFullYear().toString(),
-    company: 'Rally聚势云',
+    company: 'MineAdmin',
     website: 'https://www.mineadmin.com',
-    putOnRecord: '豫ICP备00000000号-1',
+    putOnRecord: '',
   },
 }
 
-const settings = { ...defaultSettings, ...globalConfigSettings, app: { ...defaultSettings.app, ...globalConfigSettings.app } }
+const settings = {
+  ...defaultSettings,
+  ...globalConfigSettings,
+  app: { ...defaultSettings.app, ...globalConfigSettings.app },
+}
 const persistedSettings = cache.get<Partial<SystemSettings>>('settings', {})
 const initialSettings: SystemSettings = {
   ...settings,
@@ -59,28 +63,34 @@ export const useSettingStore = create<SettingState>((set, get) => ({
   title: import.meta.env.VITE_APP_TITLE,
   menuCollapseState: false,
   setTitle: title => set({ title }),
-  getSettings: type => type ? get().settings[type] : get().settings,
-  setSettings: next => set(state => {
-    const nextSettings = {
-      ...state.settings,
-      ...next,
-      app: { ...state.settings.app, ...next.app },
-    }
-    cache.set('settings', nextSettings)
-    if (typeof document !== 'undefined' && nextSettings.app.primaryColor) document.documentElement.style.setProperty('--primary', nextSettings.app.primaryColor)
-    return { settings: nextSettings }
-  }),
+  getSettings: type => (type ? get().settings[type] : get().settings),
+  setSettings: next =>
+    set(state => {
+      const nextSettings = {
+        ...state.settings,
+        ...next,
+        app: { ...state.settings.app, ...next.app },
+      }
+      cache.set('settings', nextSettings)
+      if (typeof document !== 'undefined' && nextSettings.app.primaryColor)
+        document.documentElement.style.setProperty('--primary', nextSettings.app.primaryColor)
+      return { settings: nextSettings }
+    }),
   toggleMenuCollapse: () => set(state => ({ menuCollapseState: !state.menuCollapseState })),
-  setPrimaryColor: color => set(state => {
-    const nextSettings = { ...state.settings, app: { ...state.settings.app, primaryColor: color } }
-    cache.set('settings', nextSettings)
-    if (typeof document !== 'undefined') document.documentElement.style.setProperty('--primary', color)
-    return { settings: nextSettings }
-  }),
+  setPrimaryColor: color =>
+    set(state => {
+      const nextSettings = { ...state.settings, app: { ...state.settings.app, primaryColor: color } }
+      cache.set('settings', nextSettings)
+      if (typeof document !== 'undefined') document.documentElement.style.setProperty('--primary', color)
+      return { settings: nextSettings }
+    }),
   setColorMode: mode => {
-    const resolvedMode = mode === 'autoMode' && typeof window !== 'undefined'
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : mode
+    const resolvedMode =
+      mode === 'autoMode' && typeof window !== 'undefined'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+        : mode
     document.documentElement.classList.toggle('dark', resolvedMode === 'dark')
     set(state => {
       const nextSettings = { ...state.settings, app: { ...state.settings.app, colorMode: mode } }

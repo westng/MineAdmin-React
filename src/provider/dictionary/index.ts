@@ -43,11 +43,12 @@ export const useDictStore = create<DictionaryState>((set, get) => ({
     set(state => ({ dictionaries: { ...state.dictionaries, [name]: [...state.dictionaries[name], item] } }))
     return true
   },
-  remove: name => set(state => {
-    const dictionaries = { ...state.dictionaries }
-    delete dictionaries[name]
-    return { dictionaries }
-  }),
+  remove: name =>
+    set(state => {
+      const dictionaries = { ...state.dictionaries }
+      delete dictionaries[name]
+      return { dictionaries }
+    }),
   clear: () => set({ dictionaries: {} }),
   t: (name, value, attrName = 'label') => {
     const item = get().dictionaries[name]?.find(candidate => String(candidate.value) === String(value))
@@ -57,3 +58,28 @@ export const useDictStore = create<DictionaryState>((set, get) => ({
 }))
 
 export default useDictStore
+
+const extensionDictionaries = new Map<string, { base: Dictionary[] | null; layers: Array<{ values: Dictionary[] }> }>()
+/** Scoped registrations restore the previous active layer even when disposed out of order. */
+export function registerDictionary(name: string, values: Dictionary[], replace = false) {
+  if (!name.trim()) throw new Error('Dictionary name is required')
+  let record = extensionDictionaries.get(name)
+  if (!replace && (record?.layers.length || useDictStore.getState().find(name)))
+    throw new Error(`Dictionary conflict: ${name}`)
+  if (!record) {
+    record = { base: useDictStore.getState().find(name), layers: [] }
+    extensionDictionaries.set(name, record)
+  }
+  const layer = { values }
+  record.layers.push(layer)
+  useDictStore.getState().push(name, values, true)
+  return () => {
+    const index = record.layers.indexOf(layer)
+    if (index < 0) return
+    record.layers.splice(index, 1)
+    const current = record.layers.at(-1)?.values ?? record.base
+    if (current) useDictStore.getState().push(name, current, true)
+    else useDictStore.getState().remove(name)
+    if (!record.layers.length) extensionDictionaries.delete(name)
+  }
+}

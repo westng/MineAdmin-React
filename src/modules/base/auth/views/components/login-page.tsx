@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BriefcaseBusiness } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { LoginForm, type LoginFormValues } from './login-form'
-import { useUserStore } from '@/store/modules/useUserStore'
-import { exchangeLoginTicket, type FeishuLoginResult } from '@/modules/feishu/login/api/login'
-import { postFeishuTicketToOpener, isFeishuTicket } from '@/modules/feishu/login/utils/oauth-popup'
-import { feishuResultMessage } from '@/modules/feishu/login/utils/result-message'
-import { useToast } from '@/components/common/use-toast'
+import { useSession } from '@/hooks/framework/use-session'
+import { useTranslate } from '@/provider/i18n'
+import { cn } from '@/utils/cn'
 import { getWebsiteLoginConfig } from '../../api/website'
-import { defaultWebsiteLoginConfig, normalizeWebsiteLoginConfig, type WebsiteLoginConfig } from '../../data/website'
+import { getLoginPageConfig, normalizeWebsiteLoginConfig, type WebsiteLoginConfig } from '../../data/website'
+import { LoginForm, type LoginFormValues } from './login-form'
 
 function BrandMark({ siteName }: { siteName: string }) {
   return (
@@ -23,7 +21,7 @@ function BrandMark({ siteName }: { siteName: string }) {
 
 function BrandContent({ config }: { config: WebsiteLoginConfig }) {
   return (
-    <div className="absolute bottom-5 left-10 z-10 w-[85%] text-white">
+    <div className="absolute bottom-5 left-10 z-10 w-[85%] text-black">
       <div className="flex flex-col gap-3 text-[40px] font-bold leading-normal">
         {config.headline && <p>{config.headline}</p>}
         {config.subheadline && <p>{config.subheadline}</p>}
@@ -33,12 +31,29 @@ function BrandContent({ config }: { config: WebsiteLoginConfig }) {
       <div className="mt-[90px] text-xs">
         {config.language_labels.length > 0 && (
           <p className="mb-1 flex flex-wrap gap-x-2">
-            {config.language_labels.map((label, index) => <span key={`${label}-${index}`}>{label}</span>)}
+            {config.language_labels.map((label, index) => (
+              <span key={`${label}-${index}`}>{label}</span>
+            ))}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          {config.icp_number && <span>{config.icp_number}</span>}
-          {config.copyright_text && <><span>Copyright</span><span>©</span><span>{config.copyright_text}</span></>}
+          {config.icp_number && (
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-4 hover:underline"
+            >
+              {config.icp_number}
+            </a>
+          )}
+          {config.copyright_text && (
+            <>
+              <span>Copyright</span>
+              <span>©</span>
+              <span>{config.copyright_text}</span>
+            </>
+          )}
           {config.company_text && <span>{config.company_text}</span>}
         </div>
       </div>
@@ -47,113 +62,92 @@ function BrandContent({ config }: { config: WebsiteLoginConfig }) {
 }
 
 export default function LoginPage() {
+  const { branding: brandingDefaults, subtitle, usernameType, showAccountLinks } = getLoginPageConfig()
   const navigate = useNavigate()
-  const location = useLocation()
-  const login = useUserStore(state => state.login)
-  const loginWithTokens = useUserStore(state => state.loginWithTokens)
-  const { toast } = useToast()
-  const [branding, setBranding] = useState(defaultWebsiteLoginConfig)
-  const [feishuLoading, setFeishuLoading] = useState(false)
-  const handledTicket = useRef<string | null>(null)
+  const { search } = useLocation()
+  const login = useSession(state => state.login)
+  const t = useTranslate()
+  const [branding, setBranding] = useState(brandingDefaults)
+  const hasBranding = Boolean(
+    branding.video_url || branding.logo_url || branding.headline || branding.subheadline || branding.description,
+  )
 
   useEffect(() => {
     const controller = new AbortController()
-    void getWebsiteLoginConfig(controller.signal).then(response => {
-      if (!controller.signal.aborted) setBranding(normalizeWebsiteLoginConfig(response.data.data))
-    }).catch(() => undefined) // 展示配置不可用时保留默认内容，不阻断登录。
+    void getWebsiteLoginConfig(controller.signal)
+      .then(response => {
+        if (!controller.signal.aborted) setBranding(normalizeWebsiteLoginConfig(response.data.data, brandingDefaults))
+      })
+      .catch(() => undefined)
     return () => controller.abort()
-  }, [])
+  }, [brandingDefaults])
 
-  const applyFeishuResult = useCallback(async (result: FeishuLoginResult) => {
-    setFeishuLoading(true)
-    try {
-      if (result.result_code === 'FEISHU_LOGIN_SUCCESS' && result.tokens) {
-        await loginWithTokens(result.tokens)
-        const redirect = new URLSearchParams(location.search).get('redirect') || '/dashboard'
-        navigate(redirect, { replace: true })
-      }
-      else {
-        toast(feishuResultMessage(result.result_code), result.result_code === 'FEISHU_LOGIN_PENDING' ? 'info' : 'destructive')
-      }
-    }
-    catch {
-      toast('飞书登录结果处理失败，请重新发起登录', 'destructive')
-    }
-    finally {
-      setFeishuLoading(false)
-    }
-  }, [location.search, loginWithTokens, navigate, toast])
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search)
-    const ticket = params.get('feishu_ticket')
-    if (!isFeishuTicket(ticket) || handledTicket.current === ticket) return
-
-    handledTicket.current = ticket
-    params.delete('feishu_ticket')
-    navigate({ pathname: '/login', search: params.toString() }, { replace: true })
-    setFeishuLoading(true)
-    if (postFeishuTicketToOpener(ticket)) {
-      return
-    }
-    void exchangeLoginTicket(ticket).then(response => applyFeishuResult(response.data.data)).catch(() => {
-      toast('飞书登录结果已失效，请重新发起登录', 'destructive')
-    }).finally(() => {
-      setFeishuLoading(false)
-    })
-  }, [applyFeishuResult, location.search, navigate, toast])
-
-  const handleLogin = useCallback(async (values: LoginFormValues) => {
-    await login(values)
-    const redirect = new URLSearchParams(location.search).get('redirect') || '/dashboard'
-    navigate(redirect, { replace: true })
-  }, [location.search, login, navigate])
+  const handleLogin = useCallback(
+    async (values: LoginFormValues) => {
+      await login(values)
+      const target = new URLSearchParams(search).get('redirect') || '/dashboard'
+      navigate(target.startsWith('/') && !target.startsWith('//') ? target : '/dashboard', { replace: true })
+    },
+    [search, login, navigate],
+  )
 
   return (
     <main className="min-h-screen bg-background">
       <div className="flex min-h-screen">
-        <aside className="relative hidden w-1/2 bg-muted lg:block lg:w-[70%]" aria-label="品牌展示区域">
-          <video
-            className="absolute inset-0 size-full object-cover"
-            src={branding.video_url}
-            autoPlay
-            loop
-            muted
-            playsInline
-            aria-hidden="true"
-            onError={event => {
-              if (event.currentTarget.getAttribute('src') !== defaultWebsiteLoginConfig.video_url) {
-                event.currentTarget.src = defaultWebsiteLoginConfig.video_url
-              }
-            }}
-          />
-          <div className="absolute left-10 top-9 z-10 text-white">
-            <img
-              src={branding.logo_url}
-              alt={branding.site_name}
-              className="h-10 w-auto"
+        {hasBranding && (
+          <aside className="relative hidden w-1/2 bg-muted lg:block lg:w-[70%]" aria-label="品牌展示区域">
+            <video
+              className="absolute inset-0 size-full object-cover"
+              src={branding.video_url || undefined}
+              autoPlay
+              loop
+              muted
+              playsInline
+              aria-hidden="true"
               onError={event => {
-                if (event.currentTarget.getAttribute('src') !== defaultWebsiteLoginConfig.logo_url) {
-                  event.currentTarget.src = defaultWebsiteLoginConfig.logo_url
+                if (
+                  brandingDefaults.video_url &&
+                  event.currentTarget.getAttribute('src') !== brandingDefaults.video_url
+                ) {
+                  event.currentTarget.src = brandingDefaults.video_url
                 }
               }}
             />
-          </div>
-          <BrandContent config={branding} />
-        </aside>
-        <section className="relative flex min-h-screen w-full items-center justify-center bg-background px-6 py-20 lg:w-[30%] lg:px-10">
-          <div className="absolute left-6 top-8 text-foreground lg:hidden">
+            <div className="absolute left-10 top-9 z-10 text-white">
+              <img
+                src={branding.logo_url || undefined}
+                alt={branding.site_name}
+                className="h-10 w-auto"
+                onError={event => {
+                  if (
+                    brandingDefaults.logo_url &&
+                    event.currentTarget.getAttribute('src') !== brandingDefaults.logo_url
+                  ) {
+                    event.currentTarget.src = brandingDefaults.logo_url
+                  }
+                }}
+              />
+            </div>
+            <BrandContent config={branding} />
+          </aside>
+        )}
+        <section
+          className={cn(
+            'relative flex min-h-screen w-full items-center justify-center bg-background px-6 py-20',
+            hasBranding && 'lg:w-[30%] lg:px-10',
+          )}
+        >
+          <div className={cn('absolute left-6 top-8 text-foreground', hasBranding && 'lg:hidden')}>
             <BrandMark siteName={branding.site_name} />
           </div>
 
           <div className="w-full max-w-[320px] translate-y-6">
             <div className="mb-7 space-y-2 text-left">
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">👋 · 登录您的账户</h1>
-              <p className="text-sm leading-6 text-muted-foreground">让每一次登录，都成为营销按计划发生的起点。</p>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">👋 · {t('auth.welcome')}</h1>
+              {subtitle && <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>}
             </div>
 
-            {feishuLoading && <p className="mb-3 text-sm text-muted-foreground" role="status">正在确认飞书登录…</p>}
-            <LoginForm onSubmit={handleLogin} onFeishuResult={applyFeishuResult} />
+            <LoginForm onSubmit={handleLogin} usernameType={usernameType} showAccountLinks={showAccountLinks} />
           </div>
         </section>
       </div>

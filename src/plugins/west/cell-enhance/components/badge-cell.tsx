@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/cn'
 import { useDictionaryOptions } from '../hooks/use-dictionary-options'
 import type { BadgeCellProps } from '../types'
 import { resolveBadgeCell } from '../utils/badge-utils'

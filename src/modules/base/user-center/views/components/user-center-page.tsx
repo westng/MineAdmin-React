@@ -1,12 +1,18 @@
-import { useUserStore } from '@/store/modules/useUserStore'
+import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useSession } from '@/hooks/framework/use-session'
 import { ProfileForm } from './profile-form'
 
+const tx = createTextTranslator('base.user-center.ui')
+
 export default function UserCenterPage() {
-  const userInfo = useUserStore(state => state.userInfo)
-  const setUserInfo = useUserStore(state => state.setUserInfo)
+  const localeRevision = useLocaleRevision()
+  void localeRevision
+
+  const userInfo = useSession(state => state.userInfo)
+  const setUserInfo = useSession(state => state.setUserInfo)
 
   if (!userInfo) {
-    return <div className="w-full py-12 text-center text-sm text-muted-foreground">正在加载个人资料…</div>
+    return <div className="w-full py-12 text-center text-sm text-muted-foreground">{tx('正在加载个人资料…')}</div>
   }
 
   return (

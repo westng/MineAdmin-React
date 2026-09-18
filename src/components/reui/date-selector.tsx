@@ -19,13 +19,13 @@ import {
 } from "date-fns"
 import type { DateRange, DayButton } from "react-day-picker"
 
-import { useIsMobile } from "@/hooks/use-mobile"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useIsMobile } from "@/hooks/framework/use-mobile"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
+import { Calendar, CalendarDayButton } from "@/components/reui/primitives/calendar"
+import { Input } from "@/components/reui/primitives/input"
+import { ScrollArea } from "@/components/reui/primitives/scroll-area"
+import { Tabs, TabsList, TabsTrigger } from "@/components/reui/primitives/tabs"
 import { CornerUpLeftIcon, CornerUpRightIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 
 export interface DateSelectorI18nConfig {

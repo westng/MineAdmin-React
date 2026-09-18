@@ -4,8 +4,8 @@ import { createContext, useContext, useMemo, useState } from "react"
 import * as BasePhoneInput from "react-phone-number-input"
 import flags from "react-phone-number-input/flags"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
 import {
   Combobox,
   ComboboxContent,
@@ -16,9 +16,9 @@ import {
   ComboboxSeparator,
   ComboboxTrigger,
   ComboboxValue,
-} from "@/components/ui/combobox"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
+} from "@/components/reui/primitives/combobox"
+import { Input } from "@/components/reui/primitives/input"
+import { ScrollArea } from "@/components/reui/primitives/scroll-area"
 import { GlobeIcon } from "lucide-react"
 
 type PhoneInputSize = "sm" | "default" | "lg"

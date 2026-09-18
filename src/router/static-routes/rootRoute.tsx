@@ -1,19 +1,15 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import type { AppRoute } from '@/router/types'
-import AppLayout from '@/layouts'
-import ClinicSectionPage from '@/modules/base/clinic/views'
-import LoginPage from '@/modules/base/auth/views'
-import FeishuCallbackPage from '@/modules/feishu/login/components/FeishuCallbackPage'
-import ErrorPage from '@/layouts/[...all]'
+import ErrorPage from '@/router/pages/not-found'
 import DynamicMenuPage from '@/modules/base/dynamic-menu/views'
 import dashboardRoute from './dashboardRoute'
 import ucChildren from './ucChildren'
 
 import { lazyView } from '@/router/lazy-view'
 
-const InboxPage = lazyView(() => import('@/modules/notification/views'))
-const NotificationDetailPage = lazyView(() => import('@/modules/notification/views/detail'))
-const AnnouncementPage = lazyView(() => import('@/modules/notification/views/announcements'))
+const AppLayout = lazyView(() => import('@/layouts'))
+const ClinicSectionPage = lazyView(() => import('@/modules/base/clinic/views'))
+const LoginPage = lazyView(() => import('@/modules/base/auth/views'))
 const UserCenterPage = lazyView(() => import('@/modules/base/user-center/views'))
 const AccountSettingsPage = lazyView(() => import('@/modules/base/account-settings/views'))
 
@@ -29,9 +25,6 @@ const rootRoutes: AppRoute[] = [
         element: <Navigate to="dashboard" replace />,
       },
       dashboardRoute,
-      { name: 'notifications', path: 'notifications', element: <InboxPage />, meta: { title: '通知中心' } },
-      { name: 'notification-announcements', path: 'settings/announcements', element: <AnnouncementPage />, meta: { title: '公告管理' } },
-      { name: 'notification-detail', path: 'notifications/:id', element: <NotificationDetailPage />, meta: { title: '通知详情', hidden: true } },
       {
         name: 'calendar',
         path: 'calendar',
@@ -99,12 +92,6 @@ const rootRoutes: AppRoute[] = [
     path: '*',
     element: <ErrorPage />,
     meta: { hidden: true, i18n: 'menu.pageError', useDefaultLayout: false },
-  },
-  {
-    name: 'feishu-callback',
-    path: '/login/feishu/callback',
-    element: <FeishuCallbackPage />,
-    meta: { title: '飞书授权', hidden: true, useDefaultLayout: false },
   },
 ]
 

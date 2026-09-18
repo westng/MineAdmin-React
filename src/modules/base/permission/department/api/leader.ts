@@ -1,6 +1,9 @@
-import http from '@/utils/http'
+import { createResourceQueries } from '@/provider/query/resource'
+import http from '@/provider/http'
 import type { PageList, ResponseStruct } from '@/types/api'
 import type { DepartmentUserVo } from './department'
+
+const queries = createResourceQueries('permission', 'leaders')
 
 export interface LeaderRecord {
   dept_id: number
@@ -18,17 +21,25 @@ export interface LeaderVo {
 }
 
 export function page(params: { user_id?: string; dept_id?: number; page?: number; page_size?: number } = {}) {
-  return http.get<ResponseStruct<PageList<LeaderRecord>>>('/admin/leader/list', { params })
+  return queries.fetch(params, querySignal =>
+    http.get<ResponseStruct<PageList<LeaderRecord>>>('/admin/leader/list', { params, signal: querySignal }),
+  )
 }
 
 export function create(data: LeaderVo) {
-  return http.post<ResponseStruct<null>>('/admin/leader', data)
+  return queries.mutate(() => http.post<ResponseStruct<null>>('/admin/leader', data), [['permission', 'departments']])
 }
 
 export function save(id: number, data: LeaderVo) {
-  return http.put<ResponseStruct<null>>(`/admin/leader/${id}`, data)
+  return queries.mutate(
+    () => http.put<ResponseStruct<null>>(`/admin/leader/${id}`, data),
+    [['permission', 'departments']],
+  )
 }
 
 export function deleteByDoubleKey(dept_id: number, user_ids: number[]) {
-  return http.delete<ResponseStruct<null>>('/admin/leader', { data: { dept_id, user_ids } })
+  return queries.mutate(
+    () => http.delete<ResponseStruct<null>>('/admin/leader', { data: { dept_id, user_ids } }),
+    [['permission', 'departments']],
+  )
 }

@@ -1,5 +1,8 @@
+import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/reui/primitives/button'
+
+const tx = createTextTranslator('base.auth.ui')
 
 const CODE_POOL = 'abcdefghjkmnpqrstuvwxyz23456789'
 
@@ -26,6 +29,9 @@ function randomColor(min: number, max: number) {
 }
 
 export function VerifyCode({ width = 120, height = 32, size = 4, onRefresh, disabled, ref }: VerifyCodeProps) {
+  const localeRevision = useLocaleRevision()
+  void localeRevision
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const codeRef = useRef('')
 
@@ -85,12 +91,12 @@ export function VerifyCode({ width = 120, height = 32, size = 4, onRefresh, disa
       variant="outline"
       size="default"
       className="h-8 w-[120px] overflow-hidden border-0 p-0 leading-none"
-      aria-label="刷新验证码"
+      aria-label={tx('刷新验证码')}
       onClick={drawCode}
       disabled={disabled}
     >
       <canvas ref={canvasRef} className="block h-full w-full" width={width} height={height} aria-hidden="true" />
-      <span className="sr-only">点击刷新验证码</span>
+      <span className="sr-only">{tx('点击刷新验证码')}</span>
     </Button>
   )
 }

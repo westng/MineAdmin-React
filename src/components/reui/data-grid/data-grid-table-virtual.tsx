@@ -37,8 +37,8 @@ import type {
   VirtualizerOptions,
 } from "@tanstack/react-virtual"
 
-import { cn } from "@/lib/utils"
-import { Spinner } from "@/components/ui/spinner"
+import { cn } from "@/utils/cn"
+import { Spinner } from "@/components/reui/primitives/spinner"
 
 type DataGridTableVirtualScrollElements = {
   containerElement: HTMLDivElement | null

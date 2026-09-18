@@ -1,6 +1,6 @@
 import { Badge } from '@/components/reui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { cn } from '@/lib/utils'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/reui/primitives/avatar'
+import { cn } from '@/utils/cn'
 import type { AvatarInfoCellProps } from '../types/avatar-info'
 import { avatarInfoInitials, avatarInfoText } from '../utils/avatar-info-utils'
 

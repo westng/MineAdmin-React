@@ -3,7 +3,7 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import type { ItemInstance } from "@headless-tree/core"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/cn"
 import { MinusIcon, PlusIcon, ChevronDownIcon } from "lucide-react"
 
 type ToggleIconType = "chevron" | "plus-minus"

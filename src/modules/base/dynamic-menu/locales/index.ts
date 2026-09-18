@@ -6,3 +6,5 @@ export const dynamicMenuLocaleMessages = {
     'menu.pageError': 'Page not found',
   },
 } as const
+
+export default { namespace: 'app', messages: dynamicMenuLocaleMessages }

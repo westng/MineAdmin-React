@@ -49,10 +49,10 @@ import type {
   FilterOptionsState,
 } from "@/components/reui/filters/filters-types"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ButtonGroup } from "@/components/ui/button-group"
-import { Input } from "@/components/ui/input"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
+import { ButtonGroup } from "@/components/reui/primitives/button-group"
+import { Input } from "@/components/reui/primitives/input"
 import { CheckIcon, XIcon } from "lucide-react"
 
 /* -------------------------------------------------------------------------- */

@@ -1,8 +1,15 @@
 import type * as React from 'react'
 import type { MaFormOptions } from '../../ma-form/types'
 import type { MaSearchItem, MaSearchExpose, MaSearchOptions } from '../../ma-search/types'
-import type { MaTableCellContext, MaTableColumn, MaTableExpose, MaTableOptions, MaTablePagination, MaTableTabsConfig } from '../../ma-table/types'
-import type { MaModel } from '../../shared/types'
+import type {
+  MaTableCellContext,
+  MaTableColumn,
+  MaTableExpose,
+  MaTableOptions,
+  MaTablePagination,
+  MaTableTabsConfig,
+} from '../../ma-table/types'
+import type { MaModel } from '@/components/reui/utils/types'
 
 export type MaProTableModel = MaModel
 

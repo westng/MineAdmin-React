@@ -29,13 +29,13 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { addDays, format } from "date-fns"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/cn"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/reui/primitives/tooltip"
 import { RepeatIcon } from "lucide-react"
 
 /** Event color presets; each stays legible on light and dark surfaces. */

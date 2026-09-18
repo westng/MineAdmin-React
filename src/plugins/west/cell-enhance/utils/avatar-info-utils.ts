@@ -1,5 +1,5 @@
 import type { MaTableCellContext, MaTableModel } from '@/components/ma-table/types'
-import { getPathValue } from '@/components/shared/path'
+import { getPathValue } from '@/components/reui/utils/path'
 import type { AvatarInfoCellOptions, AvatarInfoCellProps } from '../types/avatar-info'
 
 export function avatarInfoText(value: unknown): string | undefined {

@@ -1,6 +1,8 @@
+import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { PermissionGate } from '@/hooks/framework/use-permission'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { MaIconPicker } from '@/components/common/icon-picker'
-import { MaIcon } from '@/components/common/ma-icon'
+import { MaIconPicker } from '@/components/ma-icon-picker'
+import { MaIcon } from '@/components/ma-icon'
 import { CheckCircle2, CircleDot, FileCog, Plus, RefreshCw, Save, Trash2, X, XCircle } from 'lucide-react'
 import { hotkeysCoreFeature, syncDataLoaderFeature, type ItemInstance } from '@headless-tree/core'
 import { useTree } from '@headless-tree/react'
@@ -9,22 +11,31 @@ import { DataGrid, dataGridFeatures, type DataGridFeatures } from '@/components/
 import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header'
 import { DataGridScrollArea } from '@/components/reui/data-grid/data-grid-scroll-area'
 import { DataGridTable } from '@/components/reui/data-grid/data-grid-table'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/reui/primitives/badge'
+import { Button } from '@/components/reui/primitives/button'
+import { Card, CardContent } from '@/components/reui/primitives/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/reui/primitives/dialog'
+import { Field, FieldGroup, FieldLabel } from '@/components/reui/primitives/field'
+import { Input } from '@/components/reui/primitives/input'
+import { ScrollArea } from '@/components/reui/primitives/scroll-area'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/reui/primitives/select'
 import * as menuApi from '@/modules/base/permission/menu/api/menu'
 import type { MenuVo } from '@/modules/base/permission/menu/api/menu'
 import { Tree, TreeItem, TreeItemLabel } from '@/components/reui/tree'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
 import { getMenuLabel, getMenuType, isVisibleMenu } from '@/router/dynamic-menu'
 import { MenuCascader } from '@/modules/base/permission/menu/components/menu-cascader'
-import { resolveView } from '@/router/component-registry'
+import { useRuntime } from '@/hooks/framework/use-runtime'
 import { Frame, FramePanel, FrameHeader, FrameTitle, FrameDescription } from '@/components/reui/frame'
+
+const tx = createTextTranslator('base.permission.menu.ui')
 
 type ButtonPermission = {
   id?: number
@@ -128,6 +139,9 @@ type MenuTreeItem = {
 }
 
 function MenuDataIcon({ menu }: { menu?: MenuVo }) {
+  const localeRevision = useLocaleRevision()
+  void localeRevision
+
   const icon = menu?.icon || menu?.meta?.icon
 
   if (!icon) {
@@ -139,13 +153,12 @@ function MenuDataIcon({ menu }: { menu?: MenuVo }) {
 
 function createMenuTreeData(menus: MenuVo[]) {
   const rootItemId = 'menu-root'
-  const items: Record<string, MenuTreeItem> = { [rootItemId]: { label: '菜单', children: [] } }
+  const items: Record<string, MenuTreeItem> = { [rootItemId]: { label: tx('菜单'), children: [] } }
   const expandedItems: string[] = []
 
   function addMenu(menu: MenuVo, path: number[]): string {
     const itemId = `menu-${menu.id ?? path.join('-')}`
-    const children = (menu.children || [])
-      .map((child, index) => addMenu(child, [...path, index]))
+    const children = (menu.children || []).map((child, index) => addMenu(child, [...path, index]))
     items[itemId] = { label: getMenuLabel(menu), menu, type: getMenuType(menu), children }
     return itemId
   }
@@ -154,8 +167,22 @@ function createMenuTreeData(menus: MenuVo[]) {
   return { rootItemId, items, expandedItems }
 }
 
-function MenuTree({ menus, selectedId, onSelect }: { menus: MenuVo[]; selectedId?: number; onSelect: (menu: MenuVo) => void }) {
-  const treeData = useMemo(() => createMenuTreeData(menus), [menus])
+function MenuTree({
+  menus,
+  selectedId,
+  onSelect,
+}: {
+  menus: MenuVo[]
+  selectedId?: number
+  onSelect: (menu: MenuVo) => void
+}) {
+  const localeRevision = useLocaleRevision()
+  void localeRevision
+
+  const treeData = useMemo(() => {
+    void localeRevision // Rebuild translated configuration when the active locale changes.
+    return createMenuTreeData(menus)
+  }, [menus, localeRevision])
   const tree = useTree<MenuTreeItem>({
     initialState: { expandedItems: treeData.expandedItems },
     indent: 20,
@@ -194,11 +221,17 @@ function MenuTree({ menus, selectedId, onSelect }: { menus: MenuVo[]; selectedId
 
         return (
           <TreeItem key={item.getId()} item={item} className="w-full text-left">
-            <TreeItemLabel className={`w-full justify-start text-left${isSelected ? ' bg-accent text-accent-foreground' : ''}`}>
+            <TreeItemLabel
+              className={`w-full justify-start text-left${isSelected ? ' bg-accent text-accent-foreground' : ''}`}
+            >
               <span className="flex min-w-0 w-full items-center justify-start gap-2 text-left">
                 <MenuDataIcon menu={menu} />
                 <span className="min-w-0 flex-1 truncate">{item.getItemName()}</span>
-                {menu && <Badge variant="outline" className="text-[10px]">{getMenuType(menu)}</Badge>}
+                {menu && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {getMenuType(menu)}
+                  </Badge>
+                )}
               </span>
             </TreeItemLabel>
           </TreeItem>
@@ -224,13 +257,13 @@ type ButtonPermissionRow = ButtonPermission & {
 const buttonPermissionColumns: ColumnDef<DataGridFeatures, ButtonPermissionRow, unknown>[] = [
   {
     accessorKey: 'title',
-    header: ({ column }) => <DataGridColumnHeader column={column} title="按钮名称" />,
+    header: ({ column }) => <DataGridColumnHeader column={column} title={tx('按钮名称')} />,
     cell: ({ row }) => (
       <Input
         value={row.original.title}
         onChange={event => row.original.onUpdate('title', event.target.value)}
-        placeholder="例如：菜单列表"
-        aria-label={`第 ${row.index + 1} 项按钮名称`}
+        placeholder={tx('例如：菜单列表')}
+        aria-label={tx('第 {0} 项按钮名称', { '0': row.index + 1 })}
       />
     ),
     size: 200,
@@ -241,13 +274,13 @@ const buttonPermissionColumns: ColumnDef<DataGridFeatures, ButtonPermissionRow, 
   },
   {
     accessorKey: 'code',
-    header: ({ column }) => <DataGridColumnHeader column={column} title="按钮编码" />,
+    header: ({ column }) => <DataGridColumnHeader column={column} title={tx('按钮编码')} />,
     cell: ({ row }) => (
       <Input
         value={row.original.code}
         onChange={event => row.original.onUpdate('code', event.target.value)}
-        placeholder="例如：permission:menu:index"
-        aria-label={`第 ${row.index + 1} 项按钮编码`}
+        placeholder={tx('例如：permission:menu:index')}
+        aria-label={tx('第 {0} 项按钮编码', { '0': row.index + 1 })}
       />
     ),
     size: 300,
@@ -255,14 +288,14 @@ const buttonPermissionColumns: ColumnDef<DataGridFeatures, ButtonPermissionRow, 
   },
   {
     id: 'actions',
-    header: () => <span className="sr-only">操作</span>,
+    header: () => <span className="sr-only">{tx('操作')}</span>,
     cell: ({ row }) => (
       <Button
         type="button"
         size="icon-sm"
         variant="ghost"
         onClick={row.original.onRemove}
-        aria-label={`删除${row.original.title || `第 ${row.index + 1} 项按钮权限`}`}
+        aria-label={tx('删除{0}', { '0': row.original.title || `第 ${row.index + 1} 项按钮权限` })}
       >
         <Trash2 aria-hidden="true" />
       </Button>
@@ -275,7 +308,16 @@ const buttonPermissionColumns: ColumnDef<DataGridFeatures, ButtonPermissionRow, 
   },
 ]
 
-function ButtonPermissionTable({ value, onChange }: { value: ButtonPermission[]; onChange: (value: ButtonPermission[]) => void }) {
+function ButtonPermissionTable({
+  value,
+  onChange,
+}: {
+  value: ButtonPermission[]
+  onChange: (value: ButtonPermission[]) => void
+}) {
+  const localeRevision = useLocaleRevision()
+  void localeRevision
+
   function addButton() {
     onChange([...value, { title: '', code: '' }])
   }
@@ -301,7 +343,7 @@ function ButtonPermissionTable({ value, onChange }: { value: ButtonPermission[];
     features: dataGridFeatures,
     data: rows,
     columns: buttonPermissionColumns,
-    getRowId: (row, index) => row.id === undefined ? `new-${index}` : String(row.id),
+    getRowId: (row, index) => (row.id === undefined ? `new-${index}` : String(row.id)),
     manualPagination: true,
     enableSorting: false,
     enableRowSelection: false,
@@ -313,14 +355,16 @@ function ButtonPermissionTable({ value, onChange }: { value: ButtonPermission[];
       <FrameHeader className="flex-row items-center justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <FrameTitle>按钮权限</FrameTitle>
-            <Badge variant="secondary">{value.length} 项</Badge>
+            <FrameTitle>{tx('按钮权限')}</FrameTitle>
+            <Badge variant="secondary">
+              {value.length} {tx('项')}
+            </Badge>
           </div>
-          <FrameDescription>配置按钮名称和对应的权限编码。</FrameDescription>
+          <FrameDescription>{tx('配置按钮名称和对应的权限编码。')}</FrameDescription>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={addButton}>
           <Plus data-icon="inline-start" aria-hidden="true" />
-          新增按钮
+          {tx('新增按钮')}
         </Button>
       </FrameHeader>
       <FramePanel className="p-0 shadow-none">
@@ -328,7 +372,7 @@ function ButtonPermissionTable({ value, onChange }: { value: ButtonPermission[];
           table={table}
           recordCount={value.length}
           tableLayout={{ dense: true, width: 'fixed' }}
-          emptyMessage="暂无按钮权限，点击右上角“新增按钮”添加。"
+          emptyMessage={tx('暂无按钮权限，点击右上角“新增按钮”添加。')}
         >
           <DataGridScrollArea>
             <DataGridTable />
@@ -340,6 +384,10 @@ function ButtonPermissionTable({ value, onChange }: { value: ButtonPermission[];
 }
 
 export default function PermissionMenuPageView() {
+  const { components } = useRuntime()
+  const localeRevision = useLocaleRevision()
+  void localeRevision
+
   const [menus, setMenus] = useState<MenuVo[]>([])
   const [selected, setSelected] = useState<MenuVo | null>(null)
   const [form, setForm] = useState<MenuForm>(emptyForm)
@@ -359,11 +407,9 @@ export default function PermissionMenuPageView() {
         setSelected(currentMenu || null)
         setForm(currentMenu ? toForm(currentMenu) : emptyForm)
       }
-    }
-    catch (error) {
-      setNotice(error instanceof Error ? error.message : '菜单加载失败')
-    }
-    finally {
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : tx('菜单加载失败'))
+    } finally {
       setLoading(false)
     }
   }, [])
@@ -387,20 +433,18 @@ export default function PermissionMenuPageView() {
 
   async function saveMenu() {
     if (!form.title || !form.name || (form.type !== 'B' && !form.path)) {
-      setNotice(isButton ? '按钮名称和权限编码不能为空' : '菜单名称、编码和菜单路由不能为空')
+      setNotice(isButton ? tx('按钮名称和权限编码不能为空') : tx('菜单名称、编码和菜单路由不能为空'))
       return
     }
     setLoading(true)
     try {
       const response = form.id ? await menuApi.save(form.id, toPayload(form)) : await menuApi.create(toPayload(form))
-      if (response.data.code !== 200) throw new Error(response.data.message || '保存失败')
-      setNotice(`${isButton ? '按钮权限' : '菜单'}${form.id ? '更新' : '创建'}成功`)
+      if (response.data.code !== 200) throw new Error(response.data.message || tx('保存失败'))
+      setNotice(tx('{0}{1}成功', { '0': isButton ? '按钮权限' : '菜单', '1': form.id ? '更新' : '创建' }))
       await loadMenus(form.id)
-    }
-    catch (error) {
-      setNotice(error instanceof Error ? error.message : '菜单保存失败')
-    }
-    finally {
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : tx('菜单保存失败'))
+    } finally {
       setLoading(false)
     }
   }
@@ -410,17 +454,15 @@ export default function PermissionMenuPageView() {
     setLoading(true)
     try {
       const response = await menuApi.deleteByIds([form.id])
-      if (response.data.code !== 200) throw new Error(response.data.message || '删除失败')
-      setNotice(`${isButton ? '按钮权限' : '菜单'}删除成功`)
+      if (response.data.code !== 200) throw new Error(response.data.message || tx('删除失败'))
+      setNotice(tx('{0}删除成功', { '0': isButton ? '按钮权限' : '菜单' }))
       setDeleteOpen(false)
       setSelected(null)
       setForm(emptyForm)
       await loadMenus()
-    }
-    catch (error) {
-      setNotice(error instanceof Error ? error.message : '菜单删除失败')
-    }
-    finally {
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : tx('菜单删除失败'))
+    } finally {
       setLoading(false)
     }
   }
@@ -428,19 +470,21 @@ export default function PermissionMenuPageView() {
   const parentMenus = useMemo(() => menus.filter(menu => isVisibleMenu(menu) && getMenuType(menu) === 'M'), [menus])
   const componentValid = useMemo(() => {
     if (!form.component || form.type === 'B') return null
-    return resolveView(form.component) !== null
-  }, [form.component, form.type])
+    return components.has(form.component)
+  }, [components, form.component, form.type])
 
   useHeaderActions(
     <>
       <Button variant="outline" onClick={() => void loadMenus(selected?.id)} disabled={loading}>
         <RefreshCw className="size-4" aria-hidden="true" />
-        刷新
+        {tx('刷新')}
       </Button>
-      <Button onClick={() => createMenu()}>
-        <Plus className="size-4" aria-hidden="true" />
-        新增顶级菜单
-      </Button>
+      <PermissionGate permission="permission:menu:create">
+        <Button onClick={() => createMenu()}>
+          <Plus className="size-4" aria-hidden="true" />
+          {tx('新增顶级菜单')}
+        </Button>
+      </PermissionGate>
     </>,
   )
 
@@ -450,11 +494,11 @@ export default function PermissionMenuPageView() {
         <CardContent className="grid min-h-0 flex-1 gap-0 p-0 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.5fr)]">
           <aside className="min-h-0 flex flex-col border-b p-4 lg:border-r lg:border-b-0">
             <div className="mb-3 flex shrink-0 items-center justify-between">
-              <span className="text-sm font-medium">菜单树</span>
+              <span className="text-sm font-medium">{tx('菜单树')}</span>
               <Badge variant="outline">{flattenMenus(menus).length}</Badge>
             </div>
             {loading && !menus.length ? (
-              <p className="text-sm text-muted-foreground">加载中…</p>
+              <p className="text-sm text-muted-foreground">{tx('加载中…')}</p>
             ) : menus.length ? (
               <ScrollArea className="min-h-0 flex-1 pr-2">
                 <MenuTree
@@ -465,53 +509,59 @@ export default function PermissionMenuPageView() {
                 />
               </ScrollArea>
             ) : (
-              <p className="text-sm text-muted-foreground">暂无菜单数据。</p>
+              <p className="text-sm text-muted-foreground">{tx('暂无菜单数据。')}</p>
             )}
           </aside>
           <section className="min-h-0 overflow-y-auto p-4">
             <div className="mb-4 flex items-center justify-between border-b pb-3">
               <div>
                 <h2 className="flex items-center gap-2 text-base font-semibold">
-                  {`${form.id ? '编辑' : '新增'}${isButton ? '按钮权限' : '菜单'}`}
+                  {`${form.id ? tx('编辑') : tx('新增')}${isButton ? tx('按钮权限') : tx('菜单')}`}
                   <Badge variant="outline">{form.type}</Badge>
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {isButton ? '配置按钮名称、权限编码和所属菜单，用于控制操作权限。' : '菜单保存后会同步影响登录用户的动态路由。'}
+                  {isButton
+                    ? tx('配置按钮名称、权限编码和所属菜单，用于控制操作权限。')
+                    : tx('菜单保存后会同步影响登录用户的动态路由。')}
                 </p>
               </div>
               <div className="flex gap-2">
                 {form.id && (
-                  <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-                    <Trash2 className="size-4" aria-hidden="true" />
-                    删除
-                  </Button>
+                  <PermissionGate permission="permission:menu:delete">
+                    <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+                      <Trash2 className="size-4" aria-hidden="true" />
+                      {tx('删除')}
+                    </Button>
+                  </PermissionGate>
                 )}
-                <Button size="sm" onClick={() => void saveMenu()} disabled={loading}>
-                  <Save className="size-4" aria-hidden="true" />
-                  保存
-                </Button>
+                <PermissionGate permission={form.id ? 'permission:menu:save' : 'permission:menu:create'}>
+                  <Button size="sm" onClick={() => void saveMenu()} disabled={loading}>
+                    <Save className="size-4" aria-hidden="true" />
+                    {tx('保存')}
+                  </Button>
+                </PermissionGate>
               </div>
             </div>
             {notice && (
               <div className="mb-4 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
                 <span>{notice}</span>
-                <Button variant="ghost" size="icon-xs" aria-label="关闭提示" onClick={() => setNotice('')}>
+                <Button variant="ghost" size="icon-xs" aria-label={tx('关闭提示')} onClick={() => setNotice('')}>
                   <X className="size-3" />
                 </Button>
               </div>
             )}
             <FieldGroup className="grid gap-4 md:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="menu-title">{isButton ? '按钮名称' : '菜单名称'}</FieldLabel>
+                <FieldLabel htmlFor="menu-title">{isButton ? tx('按钮名称') : tx('菜单名称')}</FieldLabel>
                 <Input
                   id="menu-title"
                   value={form.title}
                   onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
-                  placeholder={isButton ? '例如：查看用户' : '例如：用户管理'}
+                  placeholder={isButton ? tx('例如：查看用户') : tx('例如：用户管理')}
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="menu-name">{isButton ? '权限编码' : '菜单编码'}</FieldLabel>
+                <FieldLabel htmlFor="menu-name">{isButton ? tx('权限编码') : tx('菜单编码')}</FieldLabel>
                 <Input
                   id="menu-name"
                   value={form.name}
@@ -520,7 +570,7 @@ export default function PermissionMenuPageView() {
                 />
               </Field>
               <Field>
-                <FieldLabel>父级菜单</FieldLabel>
+                <FieldLabel>{tx('父级菜单')}</FieldLabel>
                 <MenuCascader
                   menus={parentMenus}
                   value={form.parent_id}
@@ -529,22 +579,25 @@ export default function PermissionMenuPageView() {
                 />
               </Field>
               <Field>
-                <FieldLabel>菜单类型</FieldLabel>
-                <Select value={form.type} onValueChange={value => setForm(current => ({ ...current, type: value || 'M' }))}>
+                <FieldLabel>{tx('菜单类型')}</FieldLabel>
+                <Select
+                  value={form.type}
+                  onValueChange={value => setForm(current => ({ ...current, type: value || 'M' }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="M">菜单（M）</SelectItem>
-                    <SelectItem value="L">外链（L）</SelectItem>
-                    <SelectItem value="I">内嵌（I）</SelectItem>
-                    <SelectItem value="B">按钮（B）</SelectItem>
+                    <SelectItem value="M">{tx('菜单（M）')}</SelectItem>
+                    <SelectItem value="L">{tx('外链（L）')}</SelectItem>
+                    <SelectItem value="I">{tx('内嵌（I）')}</SelectItem>
+                    <SelectItem value="B">{tx('按钮（B）')}</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
               {form.type !== 'B' && (
                 <Field>
-                  <FieldLabel>路由地址</FieldLabel>
+                  <FieldLabel>{tx('路由地址')}</FieldLabel>
                   <Input
                     value={form.path}
                     onChange={event => setForm(current => ({ ...current, path: event.target.value }))}
@@ -554,24 +607,31 @@ export default function PermissionMenuPageView() {
               )}
               {form.type === 'M' && (
                 <Field>
-                  <FieldLabel>组件路径</FieldLabel>
+                  <FieldLabel>{tx('组件路径')}</FieldLabel>
                   <div className="relative">
                     <Input
                       value={form.component}
                       onChange={event => setForm(current => ({ ...current, component: event.target.value }))}
                       placeholder="base/permission/user/views/index"
                     />
-                    {form.component && (componentValid ? (
-                      <CheckCircle2 className="text-green-600 dark:text-green-400 absolute right-3 top-1/2 size-4 -translate-y-1/2" aria-hidden="true" />
-                    ) : (
-                      <XCircle className="text-destructive absolute right-3 top-1/2 size-4 -translate-y-1/2" aria-hidden="true" />
-                    ))}
+                    {form.component &&
+                      (componentValid ? (
+                        <CheckCircle2
+                          className="text-green-600 dark:text-green-400 absolute right-3 top-1/2 size-4 -translate-y-1/2"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <XCircle
+                          className="text-destructive absolute right-3 top-1/2 size-4 -translate-y-1/2"
+                          aria-hidden="true"
+                        />
+                      ))}
                   </div>
                 </Field>
               )}
               {form.type !== 'B' && (
                 <Field>
-                  <FieldLabel htmlFor="menu-icon">图标</FieldLabel>
+                  <FieldLabel htmlFor="menu-icon">{tx('图标')}</FieldLabel>
                   <MaIconPicker
                     id="menu-icon"
                     value={form.icon}
@@ -582,7 +642,7 @@ export default function PermissionMenuPageView() {
               )}
               {(form.type === 'L' || form.type === 'I') && (
                 <Field>
-                  <FieldLabel>外链地址</FieldLabel>
+                  <FieldLabel>{tx('外链地址')}</FieldLabel>
                   <Input
                     value={form.link}
                     onChange={event => setForm(current => ({ ...current, link: event.target.value }))}
@@ -592,16 +652,16 @@ export default function PermissionMenuPageView() {
               )}
               {form.type === 'M' && (
                 <Field>
-                  <FieldLabel>重定向</FieldLabel>
+                  <FieldLabel>{tx('重定向')}</FieldLabel>
                   <Input
                     value={form.redirect}
                     onChange={event => setForm(current => ({ ...current, redirect: event.target.value }))}
-                    placeholder="默认子路由"
+                    placeholder={tx('默认子路由')}
                   />
                 </Field>
               )}
               <Field>
-                <FieldLabel>排序</FieldLabel>
+                <FieldLabel>{tx('排序')}</FieldLabel>
                 <Input
                   type="number"
                   value={String(form.sort)}
@@ -609,14 +669,17 @@ export default function PermissionMenuPageView() {
                 />
               </Field>
               <Field>
-                <FieldLabel>状态</FieldLabel>
-                <Select value={String(form.status)} onValueChange={value => setForm(current => ({ ...current, status: Number(value) }))}>
+                <FieldLabel>{tx('状态')}</FieldLabel>
+                <Select
+                  value={String(form.status)}
+                  onValueChange={value => setForm(current => ({ ...current, status: Number(value) }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">启用</SelectItem>
-                    <SelectItem value="2">禁用</SelectItem>
+                    <SelectItem value="1">{tx('启用')}</SelectItem>
+                    <SelectItem value="2">{tx('禁用')}</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
@@ -630,7 +693,7 @@ export default function PermissionMenuPageView() {
             {form.type === 'M' && (
               <div className="mt-5 rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
                 <FileCog className="mr-2 inline size-4" aria-hidden="true" />
-                组件路径需要与 React `src/modules/**/views` 下的文件匹配；找不到时会显示安全占位页。
+                {tx('组件路径需要与 React `src/modules/**/views` 下的文件匹配；找不到时会显示安全占位页。')}
               </div>
             )}
           </section>
@@ -640,18 +703,25 @@ export default function PermissionMenuPageView() {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>删除{isButton ? '按钮权限' : '菜单'}</DialogTitle>
+            <DialogTitle>
+              {tx('删除')}
+              {isButton ? tx('按钮权限') : tx('菜单')}
+            </DialogTitle>
             <DialogDescription>
-              {isButton ? '删除后，关联角色将失去该按钮权限，确认继续吗？' : '删除菜单可能影响其子菜单和用户权限，确认继续吗？'}
+              {isButton
+                ? tx('删除后，关联角色将失去该按钮权限，确认继续吗？')
+                : tx('删除菜单可能影响其子菜单和用户权限，确认继续吗？')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              取消
+              {tx('取消')}
             </Button>
-            <Button variant="destructive" onClick={() => void deleteMenu()}>
-              确认删除
-            </Button>
+            <PermissionGate permission="permission:menu:delete">
+              <Button variant="destructive" onClick={() => void deleteMenu()}>
+                {tx('确认删除')}
+              </Button>
+            </PermissionGate>
           </DialogFooter>
         </DialogContent>
       </Dialog>

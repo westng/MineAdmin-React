@@ -1,6 +1,10 @@
 export { MaProTable } from './components/ma-pro-table'
 export { getProTableToolbars, registerProTableToolbar, removeProTableToolbar } from './utils/toolbars'
-export { getTableCellRenderers, registerTableCellRenderer, removeTableCellRenderer } from '../ma-table/utils/cell-renderers'
+export {
+  getTableCellRenderers,
+  registerTableCellRenderer,
+  removeTableCellRenderer,
+} from '../ma-table/utils/cell-renderers'
 export type {
   MaProTableApi,
   MaProTableColumns,

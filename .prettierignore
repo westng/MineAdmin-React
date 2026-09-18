@@ -1,0 +1,26 @@
+node_modules
+dist
+pnpm-lock.yaml
+src/assets/icons/catalog.json
+src/components/reui/*
+src/plugins/**
+src/modules/*
+!src/modules/base
+!src/modules/base/**
+*.md
+*.svg
+*.html
+
+# Public primitives and project-owned ReUI extensions are checked.
+!src/components/reui/primitives/
+!src/components/reui/primitives/**
+!src/components/reui/utils/
+!src/components/reui/utils/**
+!src/components/reui/toast.tsx
+!src/components/reui/toast-api.ts
+!src/components/reui/toast-context.ts
+!src/components/reui/use-toast.ts
+!src/components/reui/theme-color-picker.tsx
+!src/components/reui/confirm-dialog.tsx
+!src/components/reui/error-boundary.tsx
+src/app/private/**

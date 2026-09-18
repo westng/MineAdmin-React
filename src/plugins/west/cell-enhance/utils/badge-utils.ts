@@ -1,5 +1,5 @@
 import type { BadgeProps } from '@/components/reui/badge'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/cn'
 import type { Dictionary } from '@/provider/dictionary'
 import { dictionaryBadgeVariants } from '../config/badge'
 import type { BadgeCellOption, BadgeCellProps, BadgeCellValue, BadgeCellView } from '../types'

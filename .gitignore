@@ -9,11 +9,16 @@ dist*
 .env
 .env.*
 !.env.example
-# 本地维护的插件源码
-src/plugins/*
-!src/plugins/west/
-src/plugins/west/*
-!src/plugins/west/cell-enhance/
+# Application integrations and all local plugins are private.
+src/app/application.tsx
+src/app/branding.ts
+src/app/menu-policy.ts
+src/app/application.css
+src/plugins/**
+# Private compatibility components are not public API.
+src/components/*
+!src/components/ma-*/
+!src/components/reui/
 src/modules/*
 !src/modules/base/
 !src/modules/base/**

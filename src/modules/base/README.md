@@ -5,7 +5,7 @@
 ```text
 base/
 ├── auth/                # 登录与当前用户认证
-├── dashboard/           # 框架仪表盘
+├── dashboard/           # 框架首页空壳；业务通过 Dashboard Slot 注入
 ├── permission/          # 权限业务及其用户、角色、菜单、部门子模块
 ├── user-center/         # 个人资料与附件
 ├── account-settings/    # 账号偏好与安全设置

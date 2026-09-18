@@ -1,6 +1,8 @@
-import http from '@/utils/http'
+import http from '@/provider/http'
+import { createResourceQueries } from '@/provider/query/resource'
 import type { AxiosRequestConfig } from 'axios'
 import type { ResponseStruct } from '@/types/api'
+const queries = createResourceQueries('base', 'attachments')
 
 export type AttachmentVo = {
   id: number
@@ -35,13 +37,21 @@ export type AttachmentSearchParams = {
 export function upload(file: File, options?: Pick<AxiosRequestConfig, 'signal' | 'onUploadProgress' | 'timeout'>) {
   const formData = new FormData()
   formData.append('file', file)
-  return http.post<ResponseStruct<AttachmentVo>>('/admin/attachment/upload', formData, options)
+  return queries.mutate(() => http.post<ResponseStruct<AttachmentVo>>('/admin/attachment/upload', formData, options))
 }
 
-export function pageList(params: AttachmentSearchParams = {}, options?: Pick<AxiosRequestConfig, 'signal'>) {
-  return http.get<ResponseStruct<{ list: AttachmentVo[]; total: number }>>('/admin/attachment/list', { ...options, params })
+export function pageList(params: AttachmentSearchParams = {}, options?: { signal?: AbortSignal }) {
+  return queries.fetch(
+    params,
+    signal =>
+      http.get<ResponseStruct<{ list: AttachmentVo[]; total: number }>>('/admin/attachment/list', {
+        signal,
+        params,
+      }),
+    options?.signal,
+  )
 }
 
 export function deleteById(id: number) {
-  return http.delete<ResponseStruct<null>>(`/admin/attachment/${id}`)
+  return queries.mutate(() => http.delete<ResponseStruct<null>>(`/admin/attachment/${id}`))
 }

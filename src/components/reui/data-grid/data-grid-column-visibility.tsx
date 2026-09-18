@@ -13,7 +13,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/reui/primitives/dropdown-menu"
 
 function DataGridColumnVisibility<TData extends object>({
   table,

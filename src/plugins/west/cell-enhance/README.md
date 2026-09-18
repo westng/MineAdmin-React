@@ -1,6 +1,6 @@
 # Cell Enhance
 
-React 表格单元格插件，直接维护在本目录。提供徽章 `badge` 和头像信息 `avatar-info` 两种类型，复用项目的 `@/components/reui/badge` 与 `@/components/ui/avatar`。
+React 表格单元格插件，直接维护在本目录。提供徽章 `badge`、头像信息 `avatar-info` 和商品信息 `product-info` 三种类型，复用项目的 `@/components/reui/badge` 与 `@/components/reui/primitives/avatar`。
 
 ## 表格用法
 
@@ -135,6 +135,58 @@ import { AvatarInfoCell } from '$/west/cell-enhance'
 
 完整类型示例见 `examples/avatar-info-columns.tsx`。
 
+## 商品信息单元格
+
+`type: 'product-info'` 对应 `ProductInfoCell`，按商品图片 + 名称 + 小徽章 + 副标题的布局组合，适合抖店商品列表、订单商品和商品选择结果。字段映射和配置方式与 `avatar-info` 一致：
+
+```tsx
+import type { CellEnhanceRenderTo } from '$/west/cell-enhance'
+
+type ProductRow = {
+  product: { image?: string; name: string }
+  shop?: { name: string }
+  status: string
+}
+
+const columns = [{
+  label: '商品',
+  prop: 'product.name',
+  minWidth: 280,
+  cellRenderTo: {
+    name: 'west/cell-enhance',
+    props: {
+      type: 'product-info',
+      props: {
+        fields: {
+          image: 'product.image',
+          name: 'product.name',
+          badge: 'status',
+          description: 'shop.name',
+        },
+        badgeProps: { variant: 'success-light' },
+      },
+    },
+  },
+} satisfies CellEnhanceRenderTo<ProductRow>]
+```
+
+`image` 接受商品图片 URL；图片缺失或加载失败时显示商品名称首字。`name`、`badge` 和 `description` 支持字符串或数字，`0` 会正常显示。商品名称和副标题过长时省略，鼠标悬停可查看完整文字。所有内容为空时显示 `emptyText`，默认是 `-`。`imageSize` 支持 `sm`、`default`、`lg`，有徽章或副标题时默认使用 `default`。
+
+直接使用组件时传展示值即可：
+
+```tsx
+import { ProductInfoCell } from '$/west/cell-enhance'
+
+<ProductInfoCell
+  image={product.img}
+  name={product.name}
+  badge={product.status_text}
+  description={product.shop_name}
+/>
+```
+
+完整类型示例见 `examples/product-info-columns.tsx`。
+
 ## 选项来源
 
 Badge 同时支持两种配置：
@@ -236,17 +288,20 @@ cell-enhance/
     avatar-info-cell.tsx         # 头像、姓名、徽章与副标题
     badge-cell.tsx               # 单元格布局与空态
     badge-item.tsx               # 单个 ReUI Badge 展示
+    product-info-cell.tsx        # 商品图片、名称、徽章与副标题
   hooks/
     use-dictionary-options.ts    # 按分类 code 响应式读取字典
   types/
     index.ts                     # 类型出口
     avatar-info.ts               # 头像信息参数与字段映射
     badge.ts                     # Badge 参数及展示数据
+    product-info.ts              # 商品信息参数与字段映射
     renderer.ts                  # cellRenderTo 契约
   utils/
     avatar-info-utils.ts         # 当前行字段取值与头像首字占位
     badge-utils.ts               # 取值、过滤、映射、插槽和属性合并
     option-utils.ts              # 数组选项与字典项的值匹配
+    product-info-utils.ts        # 当前行字段取值与商品首字占位
     render-cell-enhance.ts       # 渲染类型选择与表格值传递
     register-renderers.ts        # 注册共享表格渲染器
   examples/

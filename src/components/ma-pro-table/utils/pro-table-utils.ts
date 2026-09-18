@@ -1,5 +1,5 @@
-import { getPathValue } from '../../shared/path'
-import type { MaModel } from '../../shared/types'
+import { getPathValue } from '@/components/reui/utils/path'
+import type { MaModel } from '@/components/reui/utils/types'
 
 export interface ResponseRecord {
   [key: string]: unknown
@@ -18,13 +18,18 @@ function getResponseRecords(response: unknown): ResponseRecord[] {
   return records
 }
 
-export function readResponseList<T extends MaModel>(response: unknown, dataKey: string): { list: T[]; record: ResponseRecord } {
+export function readResponseList<T extends MaModel>(
+  response: unknown,
+  dataKey: string,
+): { list: T[]; record: ResponseRecord } {
   const records = getResponseRecords(response)
   for (const record of records) {
     const value = getPathValue(record, dataKey)
     if (Array.isArray(value)) return { list: value as T[], record }
   }
-  const fallback = records.find(record => Array.isArray(record.list) || Array.isArray(record.items) || Array.isArray(record.data))
+  const fallback = records.find(
+    record => Array.isArray(record.list) || Array.isArray(record.items) || Array.isArray(record.data),
+  )
   if (fallback) return { list: (fallback.list ?? fallback.items ?? fallback.data) as T[], record: fallback }
   return { list: [], record: records[0] ?? {} }
 }
@@ -39,9 +44,9 @@ export function readResponseTotal(response: unknown, totalKey: string, fallback:
 }
 
 export function resolveText(value: string | (() => string) | undefined, fallback: string): string {
-  return typeof value === 'function' ? value() : value ?? fallback
+  return typeof value === 'function' ? value() : (value ?? fallback)
 }
 
 export function resolveVisible(value: boolean | (() => boolean) | undefined, fallback: boolean): boolean {
-  return typeof value === 'function' ? value() : value ?? fallback
+  return typeof value === 'function' ? value() : (value ?? fallback)
 }

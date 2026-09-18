@@ -1,4 +1,6 @@
-import http from '@/utils/http'
+import { validateResponse } from '@/services/auth/schemas'
+import { menusSchema, rolesSchema } from './schema'
+import http from '@/provider/http'
 
 export interface MenuMeta {
   title?: string
@@ -37,10 +39,16 @@ export interface RoleVo {
   remark?: string
 }
 
-export function getMenus() {
-  return http.get<{ data: MenuVo[] }>('/admin/permission/menus')
+export function getMenus(signal?: AbortSignal) {
+  return http.get<{ data: MenuVo[] }>('/admin/permission/menus', { signal }).then(response => ({
+    ...response,
+    data: { ...response.data, data: validateResponse(menusSchema, response.data.data, 'auth.menus') },
+  }))
 }
 
-export function getRoles() {
-  return http.get<{ data: RoleVo[] }>('/admin/permission/roles')
+export function getRoles(signal?: AbortSignal) {
+  return http.get<{ data: RoleVo[] }>('/admin/permission/roles', { signal }).then(response => ({
+    ...response,
+    data: { ...response.data, data: validateResponse(rolesSchema, response.data.data, 'auth.roles') },
+  }))
 }

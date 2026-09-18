@@ -3,16 +3,16 @@
 import type { JSX, ReactNode } from "react"
 import { useDataGrid } from "@/components/reui/data-grid/data-grid"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
+} from "@/components/reui/primitives/select"
+import { Skeleton } from "@/components/reui/primitives/skeleton"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 
 interface DataGridPaginationProps {

@@ -58,7 +58,7 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import type { Locale } from "date-fns"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/cn"
 
 const DEFAULT_INTERACTIONS: GanttInteractions = {
   drag: true,

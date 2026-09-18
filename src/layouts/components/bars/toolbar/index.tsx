@@ -6,9 +6,7 @@ export function HeaderActionsProvider({ children }: PropsWithChildren) {
 
   return (
     <HeaderActionsSetterContext.Provider value={setActions}>
-      <HeaderActionsContext.Provider value={actions}>
-        {children}
-      </HeaderActionsContext.Provider>
+      <HeaderActionsContext.Provider value={actions}>{children}</HeaderActionsContext.Provider>
     </HeaderActionsSetterContext.Provider>
   )
 }

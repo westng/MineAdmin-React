@@ -13,10 +13,10 @@
   "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "utils": "@/utils/cn",
+    "ui": "@/components/reui/primitives",
+    "lib": "@/utils",
+    "hooks": "@/hooks/framework"
   },
   "registries": {
     "@reui": "https://reui.io/r/{style}/{name}.json"

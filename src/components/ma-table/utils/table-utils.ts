@@ -1,5 +1,5 @@
 import type * as React from 'react'
-import { getPathValue } from '../../shared/path'
+import { getPathValue } from '@/components/reui/utils/path'
 import type { MaTableColumn, MaTableModel, MaTableOptions } from '../types'
 
 export function getColumnValue<T extends MaTableModel>(row: T, column: MaTableColumn<T>): unknown {
@@ -8,8 +8,17 @@ export function getColumnValue<T extends MaTableModel>(row: T, column: MaTableCo
   return undefined
 }
 
-export function resolveRowKey<T extends MaTableModel>(row: T, index: number, rowKey: MaTableOptions<T>['rowKey']): string {
-  const value = typeof rowKey === 'function' ? rowKey(row) : typeof rowKey === 'string' ? getPathValue(row, rowKey) : (row.id ?? row.key ?? index)
+export function resolveRowKey<T extends MaTableModel>(
+  row: T,
+  index: number,
+  rowKey: MaTableOptions<T>['rowKey'],
+): string {
+  const value =
+    typeof rowKey === 'function'
+      ? rowKey(row)
+      : typeof rowKey === 'string'
+        ? getPathValue(row, rowKey)
+        : (row.id ?? row.key ?? index)
   return String(value)
 }
 
@@ -18,14 +27,22 @@ export function resolveColumnLabel<T extends MaTableModel>(column: MaTableColumn
   return column.label
 }
 
-export function resolveRowClass<T extends MaTableModel>(row: T, index: number, rowClassName: MaTableOptions<T>['rowClassName']): string | undefined {
+export function resolveRowClass<T extends MaTableModel>(
+  row: T,
+  index: number,
+  rowClassName: MaTableOptions<T>['rowClassName'],
+): string | undefined {
   return typeof rowClassName === 'function' ? rowClassName(row, index) : rowClassName
 }
 
-export function resolveRowStyle<T extends MaTableModel>(row: T, index: number, rowStyle: MaTableOptions<T>['rowStyle']): React.CSSProperties | undefined {
+export function resolveRowStyle<T extends MaTableModel>(
+  row: T,
+  index: number,
+  rowStyle: MaTableOptions<T>['rowStyle'],
+): React.CSSProperties | undefined {
   return typeof rowStyle === 'function' ? rowStyle(row, index) : rowStyle
 }
 
 export function flattenColumns<T extends MaTableModel>(columns: MaTableColumn<T>[]): MaTableColumn<T>[] {
-  return columns.flatMap(column => column.children?.length ? flattenColumns(column.children) : [column])
+  return columns.flatMap(column => (column.children?.length ? flattenColumns(column.children) : [column]))
 }

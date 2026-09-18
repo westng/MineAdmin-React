@@ -28,10 +28,10 @@ import type {
 import { flexRender, Subscribe } from "@tanstack/react-table"
 import type { Cell, Column, Header, Row, Table } from "@tanstack/react-table"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Spinner } from "@/components/ui/spinner"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
+import { Checkbox } from "@/components/reui/primitives/checkbox"
+import { Spinner } from "@/components/reui/primitives/spinner"
 import { PlusIcon } from "lucide-react"
 
 // Static spacing lookups; called once per cell, so they stay plain string

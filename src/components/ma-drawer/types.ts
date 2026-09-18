@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import type { Dialog } from '@base-ui/react/dialog'
 
-export type InteractionType = Parameters<Extract<NonNullable<Dialog.Popup.Props['initialFocus']>, (...args: never[]) => unknown>>[0]
+export type InteractionType = Parameters<
+  Extract<NonNullable<Dialog.Popup.Props['initialFocus']>, (...args: never[]) => unknown>
+>[0]
 
 export type MaDrawerAction = 'ok' | 'cancel'
 
@@ -10,14 +12,9 @@ export type MaDrawerActionContext = {
   setLoading: (loading: boolean) => void
 }
 
-export type MaDrawerActionHandler = (
-  context: MaDrawerActionContext,
-) => void | boolean | Promise<void | boolean>
+export type MaDrawerActionHandler = (context: MaDrawerActionContext) => void | boolean | Promise<void | boolean>
 
-export type MaDrawerActionErrorHandler = (
-  error: unknown,
-  action: MaDrawerAction,
-) => void
+export type MaDrawerActionErrorHandler = (error: unknown, action: MaDrawerAction) => void
 
 export type MaDrawerFooterAlign = 'left' | 'center' | 'right'
 
@@ -54,10 +51,7 @@ export interface MaDrawerProps<Payload = unknown> extends Dialog.Root.Props<Payl
   closeProps?: Dialog.Close.Props
 }
 
-export type MaDrawerStaticProps = Omit<
-  MaDrawerProps,
-  'open' | 'defaultOpen' | 'onOpenChange' | 'children'
->
+export type MaDrawerStaticProps = Omit<MaDrawerProps, 'open' | 'defaultOpen' | 'onOpenChange' | 'children'>
 
 export type UseMaDrawerOptions = MaDrawerStaticProps
 

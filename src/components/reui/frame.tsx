@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/cn"
 
 /**
  * CSS variable architecture for FramePanel theming:

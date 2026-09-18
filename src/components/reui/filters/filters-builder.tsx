@@ -36,13 +36,13 @@ import {
 import { getDefaultFilterOperator } from "@/components/reui/filters/filters-operators"
 import type { FilterField } from "@/components/reui/filters/filters-types"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/reui/primitives/popover"
 import { ListFilterPlusIcon } from "lucide-react"
 
 /**

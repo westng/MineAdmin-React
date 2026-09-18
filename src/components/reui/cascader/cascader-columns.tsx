@@ -18,8 +18,8 @@ import {
 } from "@/components/reui/cascader/cascader-lib"
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
 
-import { cn } from "@/lib/utils"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/utils/cn"
+import { ScrollArea } from "@/components/reui/primitives/scroll-area"
 import { LoaderCircleIcon } from "lucide-react"
 
 export interface CascaderColumnsProps extends Omit<

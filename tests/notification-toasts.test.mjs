@@ -8,7 +8,7 @@ import { build } from 'esbuild'
 async function harness() {
   const result = await build({
     stdin: {
-      contents: `export * from './src/modules/notification/store/inbox-toast-monitor'; export { useInboxStore, update } from './src/modules/notification/store/inbox-store'; export { requests } from './src/modules/notification/api'; export { shown, dismissed } from '@/components/common/use-toast'`,
+      contents: `export * from './src/modules/notification/store/inbox-toast-monitor'; export { useInboxStore, update } from './src/modules/notification/store/inbox-store'; export { requests } from './src/modules/notification/api'; export { shown, dismissed } from '@/components/reui/use-toast'`,
       resolveDir: process.cwd(),
     },
     bundle: true,
@@ -19,14 +19,15 @@ async function harness() {
       {
         name: 'notification-toast-doubles',
         setup(builder) {
-          builder.onResolve(
-            { filter: /(?:inbox-store|notification\/api|^\.\.\/api|common\/use-toast)$/ },
-            (args) => ({
-              path: args.path.endsWith('inbox-store') ? 'inbox-store' : args.path.endsWith('use-toast') ? 'use-toast' : 'api',
-              namespace: 'double',
-            }),
-          )
-          builder.onLoad({ filter: /.*/, namespace: 'double' }, (args) => ({
+          builder.onResolve({ filter: /(?:inbox-store|notification\/api|^\.\.\/api|reui\/use-toast)$/ }, args => ({
+            path: args.path.endsWith('inbox-store')
+              ? 'inbox-store'
+              : args.path.endsWith('use-toast')
+                ? 'use-toast'
+                : 'api',
+            namespace: 'double',
+          }))
+          builder.onLoad({ filter: /.*/, namespace: 'double' }, args => ({
             loader: 'js',
             contents: args.path.endsWith('inbox-store')
               ? `let state = { accountId: 1, epoch: 0, enabled: true, blocked: false, revision: 1, count: 1 }; const listeners = new Set(); export const useInboxStore = { getState: () => state, subscribe: fn => { listeners.add(fn); return () => listeners.delete(fn) } }; export function update(patch = {}) { const previous = state; state = { ...state, revision: state.revision + 1, ...patch }; listeners.forEach(fn => fn(state, previous)); }`
@@ -47,18 +48,18 @@ async function harness() {
   const h = module.exports
   let active = true
   const paths = []
-  const stop = h.startInboxToastMonitor({ isActive: () => active, navigate: (path) => paths.push(path) })
+  const stop = h.startInboxToastMonitor({ isActive: () => active, navigate: path => paths.push(path) })
   return {
     ...h,
     stop,
     paths,
-    setActive: (value) => {
+    setActive: value => {
       active = value
     },
   }
 }
 
-const flush = () => new Promise((resolve) => setImmediate(resolve))
+const flush = () => new Promise(resolve => setImmediate(resolve))
 const item = (id, time, extra = {}) => ({
   receipt_id: String(id),
   delivered_at: `2026-09-08T10:00:${time}Z`,
@@ -198,7 +199,7 @@ test('read or revoked content dismisses its toast; disabling notifications clear
 })
 
 test('cleanup and an invalid login abort pending responses without creating reminders', async () => {
-  for (const invalidate of [(h) => h.stop(), (h) => h.update({ blocked: true, epoch: 1, enabled: false })]) {
+  for (const invalidate of [h => h.stop(), h => h.update({ blocked: true, epoch: 1, enabled: false })]) {
     const h = await harness()
     await respond(h, [])
     h.update()

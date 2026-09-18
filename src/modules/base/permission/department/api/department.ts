@@ -1,5 +1,8 @@
-import http from '@/utils/http'
+import { createResourceQueries } from '@/provider/query/resource'
+import http from '@/provider/http'
 import type { PageList, ResponseStruct } from '@/types/api'
+
+const queries = createResourceQueries('permission', 'departments')
 
 export interface DepartmentUserVo {
   id?: number
@@ -26,17 +29,19 @@ export interface DepartmentVo {
 }
 
 export function page(params: { name?: string } = {}) {
-  return http.get<ResponseStruct<PageList<DepartmentVo>>>('/admin/department/list?level=1', { params })
+  return queries.fetch(params, querySignal =>
+    http.get<ResponseStruct<PageList<DepartmentVo>>>('/admin/department/list?level=1', { params, signal: querySignal }),
+  )
 }
 
 export function create(data: DepartmentVo) {
-  return http.post<ResponseStruct<null>>('/admin/department', data)
+  return queries.mutate(() => http.post<ResponseStruct<null>>('/admin/department', data))
 }
 
 export function save(id: number, data: DepartmentVo) {
-  return http.put<ResponseStruct<null>>(`/admin/department/${id}`, data)
+  return queries.mutate(() => http.put<ResponseStruct<null>>(`/admin/department/${id}`, data))
 }
 
 export function deleteByIds(ids: number[]) {
-  return http.delete<ResponseStruct<null>>('/admin/department', { data: ids })
+  return queries.mutate(() => http.delete<ResponseStruct<null>>('/admin/department', { data: ids }))
 }

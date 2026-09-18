@@ -1,7 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { Dialog } from '@base-ui/react/dialog'
 
-export type InteractionType = Parameters<Extract<NonNullable<Dialog.Popup.Props['initialFocus']>, (...args: never[]) => unknown>>[0]
+export type InteractionType = Parameters<
+  Extract<NonNullable<Dialog.Popup.Props['initialFocus']>, (...args: never[]) => unknown>
+>[0]
 
 export type MaDialogAction = 'ok' | 'cancel'
 
@@ -10,14 +12,9 @@ export type MaDialogActionContext = {
   setLoading: (loading: boolean) => void
 }
 
-export type MaDialogActionHandler = (
-  context: MaDialogActionContext,
-) => void | boolean | Promise<void | boolean>
+export type MaDialogActionHandler = (context: MaDialogActionContext) => void | boolean | Promise<void | boolean>
 
-export type MaDialogActionErrorHandler = (
-  error: unknown,
-  action: MaDialogAction,
-) => void
+export type MaDialogActionErrorHandler = (error: unknown, action: MaDialogAction) => void
 
 export type MaDialogSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full'
 
@@ -60,10 +57,7 @@ export interface MaDialogProps<Payload = unknown> extends Dialog.Root.Props<Payl
   closeProps?: Dialog.Close.Props
 }
 
-export type MaDialogStaticProps = Omit<
-  MaDialogProps,
-  'open' | 'defaultOpen' | 'onOpenChange' | 'children'
->
+export type MaDialogStaticProps = Omit<MaDialogProps, 'open' | 'defaultOpen' | 'onOpenChange' | 'children'>
 
 export type UseMaDialogOptions = MaDialogStaticProps
 

@@ -30,18 +30,18 @@ import type {
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/cn"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu"
+} from "@/components/reui/primitives/context-menu"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/reui/primitives/tooltip"
 import { RepeatIcon, CheckIcon } from "lucide-react"
 
 /**

@@ -18,10 +18,12 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "#/*": ["types/*"],
+      "#/*": ["src/types/*"],
       "$/*": ["src/plugins/*"],
-      "~/*": ["src/modules/*"]
-    }
+      "~/*": ["src/modules/*"],
+      "@application": ["src/app/default-application.ts"]
+    },
+    "types": ["vite/client", "node"]
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "examples"]
 }

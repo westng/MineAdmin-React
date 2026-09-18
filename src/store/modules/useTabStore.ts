@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import cache from '@/hooks/useCache'
+import cache from '@/services/storage/cache'
 
 export interface TabItem {
   name: string
@@ -24,7 +24,7 @@ interface TabState {
 }
 
 const storedTabs = cache.get<TabItem[]>('tabs', [])
-const removedRoutePaths = new Set(['/welcome', '/dashboard/workbench', '/dashboard/analysis', '/dashboard/report', '/marketing/calendar'])
+const removedRoutePaths = new Set(['/welcome', '/dashboard/workbench', '/dashboard/analysis', '/dashboard/report'])
 
 function persist(tabs: TabItem[]) {
   cache.set('tabs', tabs)

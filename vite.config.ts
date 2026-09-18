@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { existsSync } from 'node:fs'
 import process from 'node:process'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -8,6 +9,16 @@ export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const isProduction = mode === 'production'
   const proxyPrefix = env.VITE_PROXY_PREFIX || '/dev'
+  const iframeOrigins = (env.VITE_IFRAME_ORIGINS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean)
+  for (const origin of iframeOrigins) {
+    const url = new URL(origin)
+    if (!['https:', 'http:'].includes(url.protocol) || url.origin !== origin)
+      throw new Error('Invalid VITE_IFRAME_ORIGINS')
+  }
+  const framePolicy = `frame-src ${iframeOrigins.length ? iframeOrigins.join(' ') : "'none'"}; object-src 'none'; base-uri 'self'`
 
   return {
     base: env.VITE_APP_ROOT_BASE || '/',
@@ -23,7 +34,20 @@ export default defineConfig(({ mode, command }) => {
         },
       },
     },
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'mineadmin-frame-policy',
+        transformIndexHtml: () => [
+          {
+            tag: 'meta',
+            attrs: { 'http-equiv': 'Content-Security-Policy', content: framePolicy },
+            injectTo: 'head-prepend',
+          },
+        ],
+      },
+    ],
     build: {
       outDir: isProduction ? 'dist' : `dist-${mode}`,
       sourcemap: env.VITE_BUILD_SOURCEMAP === 'true',
@@ -47,8 +71,16 @@ export default defineConfig(({ mode, command }) => {
     resolve: {
       alias: {
         '@': path.resolve(process.cwd(), 'src'),
-        '#': path.resolve(process.cwd(), 'types'),
-        '$': path.resolve(process.cwd(), 'src/plugins'),
+        '@application-styles': path.resolve(
+          process.cwd(),
+          existsSync('src/app/application.css') ? 'src/app/application.css' : 'src/app/default-styles.css',
+        ),
+        '@application': path.resolve(
+          process.cwd(),
+          existsSync('src/app/application.tsx') ? 'src/app/application.tsx' : 'src/app/default-application.ts',
+        ),
+        '#': path.resolve(process.cwd(), 'src/types'),
+        $: path.resolve(process.cwd(), 'src/plugins'),
         '~': path.resolve(process.cwd(), 'src/modules'),
       },
     },

@@ -1,4 +1,5 @@
-import http from '@/utils/http'
+import http from '@/provider/http'
+import { createResourceQueries } from '@/provider/query/resource'
 import type { ResponseStruct } from '@/types/api'
 
 export type UserLoginLogVo = {
@@ -47,12 +48,22 @@ export type OperationLogParams = LogPageParams & {
   created_at?: [string, string]
 }
 
+const loginQueries = createResourceQueries('permission', 'login-logs')
+const operationQueries = createResourceQueries('permission', 'operation-logs')
 export const userLoginLogApi = {
-  page: (params: LoginLogParams = {}) => http.get<ResponseStruct<LogPage<UserLoginLogVo>>>('/admin/user-login-log/list', { params }),
-  delete: (ids: number[]) => http.delete<ResponseStruct<null>>('/admin/user-login-log', { data: { ids } }),
+  page: (params: LoginLogParams = {}) =>
+    loginQueries.fetch(params, signal =>
+      http.get<ResponseStruct<LogPage<UserLoginLogVo>>>('/admin/user-login-log/list', { params, signal }),
+    ),
+  delete: (ids: number[]) =>
+    loginQueries.mutate(() => http.delete<ResponseStruct<null>>('/admin/user-login-log', { data: { ids } })),
 }
 
 export const userOperationLogApi = {
-  page: (params: OperationLogParams = {}) => http.get<ResponseStruct<LogPage<UserOperationLogVo>>>('/admin/user-operation-log/list', { params }),
-  delete: (ids: number[]) => http.delete<ResponseStruct<null>>('/admin/user-operation-log', { data: { ids } }),
+  page: (params: OperationLogParams = {}) =>
+    operationQueries.fetch(params, signal =>
+      http.get<ResponseStruct<LogPage<UserOperationLogVo>>>('/admin/user-operation-log/list', { params, signal }),
+    ),
+  delete: (ids: number[]) =>
+    operationQueries.mutate(() => http.delete<ResponseStruct<null>>('/admin/user-operation-log', { data: { ids } })),
 }

@@ -1,5 +1,8 @@
-import http from '@/utils/http'
+import { createResourceQueries } from '@/provider/query/resource'
+import http from '@/provider/http'
 import type { ResponseStruct } from '@/types/api'
+
+const queries = createResourceQueries('auth', 'profile')
 
 export interface PermissionUpdateParams {
   nickname?: string
@@ -12,5 +15,5 @@ export interface PermissionUpdateParams {
 }
 
 export function updateCurrentUser(data: PermissionUpdateParams) {
-  return http.post<ResponseStruct<null>>('/admin/permission/update', data)
+  return queries.mutate(() => http.post<ResponseStruct<null>>('/admin/permission/update', data))
 }

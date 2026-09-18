@@ -4,7 +4,11 @@ let toolbars: ReadonlyMap<string, MaProTableToolbar> = new Map()
 const listeners = new Set<() => void>()
 
 function publish(next: Map<string, MaProTableToolbar>) {
-  toolbars = new Map([...next].sort(([, left], [, right]) => (left.order ?? 0) - (right.order ?? 0) || left.name.localeCompare(right.name)))
+  toolbars = new Map(
+    [...next].sort(
+      ([, left], [, right]) => (left.order ?? 0) - (right.order ?? 0) || left.name.localeCompare(right.name),
+    ),
+  )
   listeners.forEach(listener => listener())
 }
 
@@ -14,7 +18,9 @@ export function getProTableToolbars() {
 
 export function subscribeProTableToolbars(listener: () => void) {
   listeners.add(listener)
-  return () => { listeners.delete(listener) }
+  return () => {
+    listeners.delete(listener)
+  }
 }
 
 /** 同名注册替换旧工具；清理函数只注销本次注册。 */

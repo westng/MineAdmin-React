@@ -6,3 +6,5 @@ export const dashboardLocaleMessages = {
     'menu.dashboard': 'Dashboard',
   },
 } as const
+
+export default { namespace: 'app', messages: dashboardLocaleMessages }

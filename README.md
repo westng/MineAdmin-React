@@ -1,116 +1,58 @@
-# MineAdmin-Recat
+# MineAdmin React
 
-MineAdmin 3.2 的 React 前端，使用 React 19、Vite、TypeScript、Tailwind CSS、Zustand 和 ReUI 构建。
+基于 MineAdmin 3.2 的 React 后台应用模板。使用 React 19、TypeScript、Vite、React Router、TanStack Query、Zustand、Tailwind CSS、ReUI 和 Ma 组件；当前不发布独立 npm SDK。
 
-## 快速开始
+## 开始开发
 
-环境要求：Node.js `>=20.19.0`，pnpm `11.7.0`。
+需要 Node.js `>=20.19.0` 与 pnpm `11.7.0`。CI 使用 Node 20.19 和 22。
 
 ```bash
 pnpm install --frozen-lockfile
+# 首次配置时复制示例；不要覆盖已有环境文件。
+cp .env.example .env.development.local
 pnpm run dev
 ```
 
-开发服务器默认监听 `http://127.0.0.1:2777`。开发环境请求通过 `/dev` 代理到 MineAdmin 后端 `http://127.0.0.1:9601`；请先从父仓库启动后端服务。
+默认端口为 2777，示例配置将 `/dev` 代理到本机 MineAdmin 后端 9601 端口。开发服务器地址以实际配置为准。`VITE_` 变量进入浏览器产物，不得保存服务端凭据。
 
-## 常用命令
+## 架构与扩展
+
+- `src/app`：应用组合、启动、Provider 装配与可选应用适配入口。
+- `src/services`、`src/provider`：纯平台服务与会话、导航、HTTP、Query、插件、语言的应用装配。
+- `src/router`：唯一 Route Registry、组件 Manifest、访问策略与可选页面缓存。
+- `src/layouts`：classic、columns、mixed 布局及共享 Shell 插槽。
+- `src/modules/base`：公共基础功能，按 api、hooks、locales、views 聚合。
+- `src/components/ma-*`、`src/components/reui`：公共组件与 UI 原语。
+- `src/hooks/framework`、`src/hooks/shell`：框架和布局 Hooks。
+
+[架构文档](ARCHITECTURE.md) 定义公共入口与依赖规则。[扩展指南](docs/EXTENSIONS.md) 包含插件、模块、Dashboard 与布局接入；[迁移指南](docs/MIGRATION.md) 说明兼容路径和旧菜单别名。
+
+应用扩展从 `src/app/application.tsx` 装配；缺少该文件时使用默认空适配器。应用模块、私有插件和私有组件不属于公共模板。发布清单由 `scripts/public-files.mjs` 维护，不能仅依赖 `.gitignore` 判定历史 Git 文件是否公开。
+
+## 检查
 
 | 命令 | 作用 |
 | --- | --- |
-| `pnpm run dev` | 启动 Vite 开发服务器 |
-| `pnpm run typecheck` | 执行 TypeScript 项目检查 |
-| `pnpm run check:ma` | 六个 Ma 组件的专项类型、ESLint 和无浏览器行为检查 |
-| `pnpm run lint` | 执行 ESLint 严格检查 |
-| `pnpm run build` | 类型检查并构建生产包到 `dist/` |
-| `pnpm run serve` | 使用静态服务器预览 `dist/` |
+| `pnpm run check` | 全项目 TypeScript、ESLint、格式检查 |
+| `pnpm run check:ma` | Ma/ReUI 类型及 Ma 组件 lint、行为测试 |
+| `pnpm run check:framework` | 物理目录、组件闭包、架构依赖和框架行为测试 |
+| `pnpm run check:bootstrap` | 合成存储、阻断网络的启动装配检查 |
+| `pnpm run build` | 当前应用的生产构建 |
+| `pnpm run build:public-smoke` | 仅公共源码的临时目录构建 |
+| `pnpm run export:public` | 导出公共源码与 SHA-256 清单到新的 dist-source 目录 |
+| `pnpm run check:public-index` | Git 跟踪内容的发布边界检查 |
+| `pnpm audit --prod --audit-level=high` | 生产依赖安全审计 |
 
-## 环境配置
+安装脚本启用本项目 Git hooks，提交与推送运行 `check`。CI 还检查公共架构和构建。DOM 模拟测试、构建、真实浏览器、真实后端和生产验收是不同的验证层级。
 
-`.env.example` 提供无凭据的开发示例。首次配置可复制为 `.env.development.local`；已有环境文件按需修改。`VITE_` 变量会暴露给浏览器，不能用于保存服务端密钥。
+## 配置与限制
 
-- `.env.development` 使用 `2777` 端口、Hash 路由和 `/dev` API 代理。
-- 生产环境的 API 地址需按实际部署配置；当前 Vite 配置不负责生成 gzip 或 Brotli 文件。
-- `VITE_APP_API_BASEURL`、`VITE_PROXY_PREFIX` 和 `VITE_OPEN_PROXY` 控制请求目标；环境文件属于本地配置，不要提交密钥或覆盖用户现有值。
+`.env.example` 是配置说明入口。路由支持 hash/history；使用 history 时，部署服务器必须配置 SPA 回退。默认 iframe 白名单为空；`VITE_IFRAME_ORIGINS` 使用逗号分隔的精确 origin，构建会生成 frame-src CSP。反向代理的 CSP 也必须与它一致。
 
-## 目录与架构
+`VITE_BUILD_SOURCEMAP` 控制生产 sourcemap。项目不自动生成 gzip/Brotli 归档。页面缓存为显式选择，最多 8 页；国际化支持语言注册和缺失回退，不表示所有页面已经完整翻译。尚未实现的旧设置字段在类型和迁移文档中标记为兼容字段。
 
-```text
-src/
-├── components/
-│   ├── reui/           # ReUI registry 原始组件
-│   ├── ui/             # shadcn/Base UI 基础组件
-│   ├── common/         # 项目级通用封装，例如 Toast
-│   └── ma-*/           # MineAdmin 通用表单、搜索、表格组件
-├── layouts/            # 应用布局、导航、账户中心布局
-├── modules/base/       # 已纳入仓库的基础业务模块
-├── plugins/            # 本地插件扩展目录
-├── provider/           # 设置、字典、插件注册和生命周期
-├── router/             # 静态路由、动态菜单和插件路由
-├── store/              # 用户、菜单、路由、标签页和 KeepAlive 状态
-└── utils/              # HTTP、权限、资源和 API 响应辅助函数
-```
+组件参考：[MaForm](src/components/ma-form/README.md)、[MaSearch](src/components/ma-search/README.md)、[MaTable](src/components/ma-table/README.md)、[MaProTable](src/components/ma-pro-table/README.md)、[MaDialog](src/components/ma-dialog/README.md)、[MaDrawer](src/components/ma-drawer/README.md)。UI 原语由 `components.json` 配置统一生成到 `components/reui/primitives`。
 
-### 基础组件
+## 许可
 
-- `MaForm` 负责字段模型与校验，`MaSearch` 负责搜索交互，`MaTable` 负责表格展示，`MaProTable` 组合搜索、请求、响应解析和表格。
-- 动态配置、内置表单控件和 ReUI 扩展入口的契约见 [MaForm](./src/components/ma-form/README.md)、[MaSearch](./src/components/ma-search/README.md)、[MaTable](./src/components/ma-table/README.md)、[MaProTable](./src/components/ma-pro-table/README.md)、[MaDialog](./src/components/ma-dialog/README.md)、[MaDrawer](./src/components/ma-drawer/README.md)。这些是业务组合组件，Ma 层管理的模型和分页不由底层扩展参数重复控制。
-- 每个 `ma-*` 目录通过 `index.ts` 暴露公开组件和类型；公开接口放在 `types/`，渲染和状态逻辑放在 `components/`，辅助逻辑放在 `utils/`。
-- `MaDialog`、`MaDrawer` 和 Toast 是项目级封装；业务页面只组合这些封装，不修改 `components/reui` 或 `components/ui` 的原始源码。
-- Toast 使用官方 Sonner，支持其完整 API 并兼容 `toast(message, variant)`；调用示例与全局配置见 [Toast 文档](./src/components/common/toast.md)。
-
-### 业务模块
-
-`src/modules/base` 按业务子模块维护 `api/`、`locales/`、`views/` 和按需创建的注册文件。新增业务使用以下结构，并将页面专属组件放到对应 `views/components/`：
-
-```text
-src/modules/<业务域>/<业务子类>/
-├── api/
-├── locales/
-├── register-*.ts
-└── views/
-    ├── components/
-    ├── data/
-    └── index.tsx
-```
-
-尚未迁移为 React 页面组件的 Vue 版视图由动态菜单占位页承接；页面路由、权限和菜单仍由后端返回的数据驱动。
-
-### Base 菜单视图迁移（重要）
-
-Base 页面已从旧的 Vue 目录约定迁移为 React 目录约定。后端 `menu.component` 保存的是视图地址；如果继续使用旧地址，菜单可能进入动态菜单占位页，新增或未迁移页面也不会自动兼容。
-
-- 旧地址到新地址的精确映射见 [`scripts/migrate-base-menu-components.sql`](./scripts/migrate-base-menu-components.sql)。执行前请备份 `menu` 表，并先运行脚本中的查询确认命中记录；建议在数据库事务中执行更新语句。
-- 脚本只修改已经有 React 页面实现的 11 个 Base 菜单地址，重复执行不会改动已迁移地址；`meta` 中的 Vue 配置会原样保留。
-- 当前前端保留旧地址兼容别名作为过渡措施，不代表所有旧页面都可用。`base/views/log/userLogin`、`base/views/log/userOperation` 和 `base/views/dataCenter/attachment/index` 在当前 React 前端没有对应页面，请按业务需要接入插件或继续使用原 Vue 页面。
-- 更新后重新登录或刷新菜单缓存，并检查最后一条查询返回的 `base/views/%` 记录；仍有记录表示需要人工迁移，不能直接删除菜单。
-
-### 插件系统
-
-插件入口位于 `src/plugins/<vendor>/<name>/index.ts`，可以注册视图、字典、安装逻辑和生命周期钩子。插件启动时会按 `config.enable` 和 `config.info` 合并配置，再依次执行安装和初始化；网络请求与路由跳转也会触发对应钩子。
-
-## 仓库边界
-
-- 当前 Git 仓库只跟踪 `src/modules/base` 以及公共组件、布局、Provider 和基础设施代码。
-- `src/plugins/` 与 `src/modules/` 下除 `base` 以外的业务目录由 `.gitignore` 忽略，作为本地业务扩展保留；要把某个插件或业务模块发布到仓库，需先明确调整忽略规则并单独审核其依赖。
-- `node_modules/`、`dist/`、`.env.*` 和构建临时文件不纳入提交。
-
-## 开发约定
-
-- ReUI 组件通过 `components.json` 中的 `@reui` registry 安装；不要新增未经 registry 提供的替代组件或第二套 UI primitive。
-- 请求统一经过 `src/utils/http.ts`，由现有认证、刷新 Token、语言和插件网络钩子链路处理。
-- 操作成功、失败、校验和筛选重置等短反馈使用 `src/components/common/toast.tsx`；持续上下文信息才使用 Alert。
-- 图表使用已安装的 Recharts；不要另行引入 ECharts 运行时。
-
-## 验证
-
-Ma 组件修改使用专项检查；测试通过 React DOM 和本地 DOM 模拟环境覆盖行为，不启动浏览器或连接业务接口：
-
-```bash
-pnpm run check:ma
-```
-
-`.github/workflows/ma-components.yml` 在独立 `web` 仓库中执行同一组检查。全项目类型检查使用 `pnpm run typecheck`；完整生产构建按任务需要单独执行。组件检查不覆盖个人业务源码的交付完整性，也不等同于生产构建和浏览器验收。
-
-## 许可与来源
-
-本目录附带父项目已有的 [Apache-2.0 许可证](./LICENSE)。ReUI、shadcn/ui 和 Base UI 的上游版权与许可文本见 [第三方声明](./THIRD_PARTY_NOTICES.md)，相应代码保留其原许可。这里没有发布独立 npm 组件包。
+使用 [Apache-2.0](LICENSE)。ReUI、shadcn/ui、Base UI 等上游来源见 [第三方声明](THIRD_PARTY_NOTICES.md)；迁移目录不改变上游许可。

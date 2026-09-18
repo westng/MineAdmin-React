@@ -26,20 +26,28 @@ declare global {
 export interface AppSettings {
   colorMode: 'light' | 'dark' | 'autoMode'
   useLocale: string
+  /** @deprecated Compatibility field; not implemented by the default Shell. */
   whiteRoute: string[]
-  layout: 'columns' | 'classic' | 'mixed' | 'banner'
+  layout: 'columns' | 'classic' | 'mixed' | (string & {})
+  /** @deprecated Compatibility field; not implemented by the default Shell. */
   pageAnimate: string
+  /** @deprecated Compatibility field; not implemented by the default Shell. */
   enableWatermark: boolean
   primaryColor: string
+  /** @deprecated Compatibility field; not implemented by the default Shell. */
   asideDark: boolean
+  /** @deprecated Compatibility field; not implemented by the default Shell. */
   showBreadcrumb: boolean
   loadUserSetting: boolean
+  /** @deprecated Compatibility field; not implemented by the default Shell. */
   watermarkText: string | string[]
 }
 
 export interface SystemSettings {
   app: AppSettings
+  /** @deprecated Legacy display preferences; default Shell uses the current navigation contract. */
   mainAside: { showIcon: boolean; showTitle: boolean; enableOpenFirstRoute: boolean }
+  /** @deprecated Legacy display preferences. */
   subAside: { showIcon: boolean; showTitle: boolean; fixedAsideState: boolean; showCollapseButton: boolean }
   tabbar: { enable: boolean; mode: 'rectangle' | 'card' | 'chrome' }
   toolBars: Array<{ name: string; show: boolean }>
@@ -56,7 +64,8 @@ export interface RouteMeta {
   copyright?: boolean
   breadcrumbEnable?: boolean
   useDefaultLayout?: boolean
-  auth?: boolean
+  /** Legacy menu permission codes; booleans are retained as non-authorizing metadata. */
+  auth?: boolean | string | string[]
   role?: string | string[]
   roles?: string | string[]
   permission?: string | string[]

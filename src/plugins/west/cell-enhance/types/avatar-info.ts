@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react'
 import type { BadgeProps } from '@/components/reui/badge'
-import type { Avatar } from '@/components/ui/avatar'
+import type { Avatar } from '@/components/reui/primitives/avatar'
 
 export type AvatarInfoCellText = string | number | null
 

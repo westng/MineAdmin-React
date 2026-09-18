@@ -13,7 +13,11 @@ const result = await build({
     ].join('\n'),
     resolveDir: fileURLToPath(new URL('../', import.meta.url)),
   },
-  bundle: true, write: false, platform: 'node', format: 'cjs', packages: 'external',
+  bundle: true,
+  write: false,
+  platform: 'node',
+  format: 'cjs',
+  packages: 'external',
 })
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, require)
@@ -30,8 +34,10 @@ function form() {
   return {
     advertiser_id: [accounts[0].value],
     tiktok_data: identify('测试达人 987654321098765432 000777'),
-    auth_type: 'AWEME_COOPERATOR', global_auth: 'VIDEO_PROM_GOODS',
-    shop_id: '123', end_time: '2026-09-13T23:59:59',
+    auth_type: 'AWEME_COOPERATOR',
+    global_auth: 'VIDEO_PROM_GOODS',
+    shop_id: '123',
+    end_time: '2026-09-13T23:59:59',
   }
 }
 
@@ -62,12 +68,17 @@ test('日期校验日历有效性，同时支持分钟和秒格式', () => {
   assert.equal(parseDateTime('2026-09-31T12:30:00'), null)
   assert.equal(parseDateTime('2026-09-12T25:00:00'), null)
   assert.equal(parseDateTime('2026-09-12'), null)
-  assert.match(validateAuthorization({ ...form(), end_time: '2026-09-12T12:00:00' }, accounts, shops, false, now).end_time, /晚于当前时间/)
+  assert.match(
+    validateAuthorization({ ...form(), end_time: '2026-09-12T12:00:00' }, accounts, shops, false, now).end_time,
+    /晚于当前时间/,
+  )
   assert.throws(() => authorizationPayload({ ...form(), end_time: 'invalid' }), /有效的授权时间/)
 })
 
 test('限制账户和无效店铺不能提交，直播全域不会携带残留店铺', () => {
-  assert.ok(validateAuthorization({ ...form(), advertiser_id: [accounts[2].value] }, accounts, shops, false, now).advertiser_id)
+  assert.ok(
+    validateAuthorization({ ...form(), advertiser_id: [accounts[2].value] }, accounts, shops, false, now).advertiser_id,
+  )
   assert.ok(validateAuthorization({ ...form(), shop_id: 'missing' }, accounts, shops, false, now).shop_id)
   const live = { ...form(), global_auth: 'LIVE_PROM_GOODS', shop_id: 'missing' }
   assert.deepEqual(validateAuthorization(live, accounts, shops, false, now), {})
@@ -75,9 +86,17 @@ test('限制账户和无效店铺不能提交，直播全域不会携带残留�
 })
 
 test('迁移只接受不同且可用的源、目标账户以及合法授权设置', () => {
-  const migration = { old_advertiser_id: [accounts[0].value], advertiser_id: [accounts[1].value], auth_type: 'SELF', end_time: '2026-09-13T23:59:59' }
+  const migration = {
+    old_advertiser_id: [accounts[0].value],
+    advertiser_id: [accounts[1].value],
+    auth_type: 'SELF',
+    end_time: '2026-09-13T23:59:59',
+  }
   assert.deepEqual(validateMigration(migration, accounts, now), {})
-  assert.match(validateMigration({ ...migration, advertiser_id: migration.old_advertiser_id }, accounts, now).advertiser_id, /不能重叠/)
+  assert.match(
+    validateMigration({ ...migration, advertiser_id: migration.old_advertiser_id }, accounts, now).advertiser_id,
+    /不能重叠/,
+  )
   assert.ok(validateMigration({ ...migration, old_advertiser_id: [] }, accounts, now).old_advertiser_id)
   assert.ok(validateMigration({ ...migration, auth_type: 'ALL' }, accounts, now).auth_type)
   assert.ok(validateMigration({ ...migration, advertiser_id: [accounts[2].value] }, accounts, now).advertiser_id)
@@ -85,23 +104,38 @@ test('迁移只接受不同且可用的源、目标账户以及合法授权设�
 
 async function apiHarness() {
   const calls = []
-  const http = Object.fromEntries(['get', 'post', 'put', 'delete'].map(method => [
-    method, (...args) => { calls.push({ method, args }); return Promise.resolve({ data: { code: 200, data: {} } }) },
-  ]))
+  const http = Object.fromEntries(
+    ['get', 'post', 'put', 'delete'].map(method => [
+      method,
+      (...args) => {
+        calls.push({ method, args })
+        return Promise.resolve({ data: { code: 200, data: {} } })
+      },
+    ]),
+  )
   const bundled = await build({
     stdin: {
-      contents: ['list', 'info', 'allocation', 'task', 'taskLog', 'allocationOperationLog']
-        .map(name => "export * as " + name + "Api from './src/modules/creator/" + name + "/api/" + name + "'").join('\n'),
+      // creator/info has been retired; keep transport assertions for the five existing modules.
+      contents: ['list', 'allocation', 'task', 'taskLog', 'allocationOperationLog']
+        .map(name => 'export * as ' + name + "Api from './src/modules/creator/" + name + '/api/' + name + "'")
+        .join('\n'),
       resolveDir: fileURLToPath(new URL('../', import.meta.url)),
     },
-    bundle: true, write: false, platform: 'node', format: 'cjs',
-    plugins: [{
-      name: 'creator-http-fixture',
-      setup(build) {
-        build.onResolve({ filter: /^@\/utils\/http$/ }, () => ({ path: 'http', namespace: 'creator-fixture' }))
-        build.onLoad({ filter: /.*/, namespace: 'creator-fixture' }, () => ({ contents: 'export default __creatorHttpFixture' }))
+    bundle: true,
+    write: false,
+    platform: 'node',
+    format: 'cjs',
+    plugins: [
+      {
+        name: 'creator-http-fixture',
+        setup(build) {
+          build.onResolve({ filter: /^@\/provider\/http$/ }, () => ({ path: 'http', namespace: 'creator-fixture' }))
+          build.onLoad({ filter: /.*/, namespace: 'creator-fixture' }, () => ({
+            contents: 'export default __creatorHttpFixture',
+          }))
+        },
       },
-    }],
+    ],
   })
   const loaded = { exports: {} }
   new Function('module', 'exports', '__creatorHttpFixture', bundled.outputFiles[0].text)(loaded, loaded.exports, http)
@@ -110,12 +144,18 @@ async function apiHarness() {
 
 test('CRUD 提交保持长 ID 与授权数组，清空可选字段，删除采用 ids 对象', async () => {
   const { api, calls } = await apiHarness()
-  await api.listApi.save(7, { aweme_id: '987654321098765432', advertiser_id: accounts[0].value, auth_type: ['SELF', 'VIDEO'], aweme_name: ' 测试达人 ', end_time: '' })
+  await api.listApi.save(7, {
+    aweme_id: '987654321098765432',
+    advertiser_id: accounts[0].value,
+    auth_type: ['SELF', 'VIDEO'],
+    aweme_name: ' 测试达人 ',
+    end_time: '',
+  })
   assert.equal(calls[0].args[1].aweme_id, '987654321098765432')
   assert.deepEqual(calls[0].args[1].auth_type, ['SELF', 'VIDEO'])
   assert.equal(calls[0].args[1].aweme_name, '测试达人')
   assert.equal(calls[0].args[1].end_time, null)
-  for (const name of ['list', 'info', 'allocation', 'task', 'taskLog', 'allocationOperationLog']) {
+  for (const name of ['list', 'allocation', 'task', 'taskLog', 'allocationOperationLog']) {
     await api[name + 'Api'].deleteByIds([7, 8])
     assert.equal(calls.at(-1).method, 'delete')
     assert.deepEqual(calls.at(-1).args[1], { data: { ids: [7, 8] } })
@@ -126,8 +166,6 @@ test('日期查询覆盖当天，任务明细保留任务与结果分组条件',
   const { api, calls } = await apiHarness()
   await api.taskApi.page({ created_at: '2026-09-12', task_id: '', page: 1 })
   assert.deepEqual(calls[0].args[1].params, { created_at: ['2026-09-12 00:00:00', '2026-09-12 23:59:59'], page: 1 })
-  await api.infoApi.page({ add_time: '2026-09-12' })
-  assert.deepEqual(calls[1].args[1].params.add_time, ['2026-09-12 00:00:00', '2026-09-12 23:59:59'])
   await api.taskLogApi.page({ task_id: '987654321098765432', result_status: 'fail' })
-  assert.deepEqual(calls[2].args[1].params, { task_id: '987654321098765432', result_status: 'fail' })
+  assert.deepEqual(calls[1].args[1].params, { task_id: '987654321098765432', result_status: 'fail' })
 })

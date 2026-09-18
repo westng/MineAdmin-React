@@ -5,3 +5,5 @@ export const settingsLocale = {
   dark: '深色',
   system: '跟随系统',
 } as const
+
+export default { namespace: 'base.settings', messages: { zh_CN: settingsLocale } }

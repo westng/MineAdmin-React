@@ -1,58 +1,17 @@
-import http from '@/utils/http'
-
-export interface LoginParams {
-  username: string
-  password: string
-  code?: string
-}
-
-export interface LoginResult {
-  access_token: string
-  expire_at: number
-  refresh_token: string
-}
-
-export interface UserDepartmentInfo {
-  id: number
-  name: string
-}
-
-export interface UserPositionInfo {
-  id: number
-  dept_id: number
-  name: string
-}
-
-export interface UserRoleInfo {
-  id: number
-  code: string
-  name: string
-}
-
-export interface CurrentUserInfo {
-  id: number
-  username: string
-  nickname: string
-  avatar?: string | null
-  phone?: string | null
-  email?: string | null
-  signed?: string | null
-  status?: 1 | 2
-  login_ip?: string | null
-  login_time?: string | null
-  dashboard?: string
-  backend_setting?: Record<string, unknown> | unknown[] | null
-  departments?: UserDepartmentInfo[]
-  positions?: UserPositionInfo[]
-  roles?: UserRoleInfo[]
-}
+import http from '@/provider/http'
+import type { LoginParams, LoginResult, CurrentUserInfo } from '@/services/auth/types'
+import { profileSchema, validateResponse } from '@/services/auth/schemas'
+export type * from '@/services/auth/types'
 
 export function loginApi(data: LoginParams) {
   return http.post<{ data: LoginResult }>('/admin/passport/login', data)
 }
 
-export function getInfo() {
-  return http.get<{ data: CurrentUserInfo }>('/admin/passport/getInfo')
+export function getInfo(signal?: AbortSignal) {
+  return http.get<{ data: CurrentUserInfo }>('/admin/passport/getInfo', { signal }).then(response => {
+    validateResponse(profileSchema, response.data.data, 'auth.profile')
+    return response
+  })
 }
 
 export function refreshApi(refreshToken: string) {
@@ -62,5 +21,9 @@ export function refreshApi(refreshToken: string) {
 }
 
 export function logoutApi(token?: string) {
-  return http.post('/admin/passport/logout', undefined, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+  return http.post(
+    '/admin/passport/logout',
+    undefined,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+  )
 }

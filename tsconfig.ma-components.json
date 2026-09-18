@@ -1,5 +1,8 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
   "include": [
     "src/components/ma-dialog",
     "src/components/ma-drawer",
@@ -7,7 +10,10 @@
     "src/components/ma-search",
     "src/components/ma-table",
     "src/components/ma-pro-table",
-    "src/components/shared",
-    "tests/ma-components.types.tsx"
+    "src/components/ma-icon",
+    "src/components/reui",
+    "tests/ma-components.types.tsx",
+    "src/components/ma-icon-picker",
+    "src/components/ma-access"
   ]
 }

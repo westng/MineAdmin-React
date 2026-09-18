@@ -18,8 +18,8 @@ import type {
 } from "@/components/reui/data-grid/data-grid"
 import { Subscribe } from "@tanstack/react-table"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
 
 /** Where a finished edit sends the focused cell, or null to stay. */
 type DataGridEditorAdvance = "down" | "up" | "right" | "left" | null

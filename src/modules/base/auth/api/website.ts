@@ -1,7 +1,14 @@
-import http from '@/utils/http'
+import http from '@/provider/http'
 import type { ResponseStruct } from '@/types/api'
 import type { WebsiteLoginConfig } from '../data/website'
+import { createResourceQueries } from '@/provider/query/resource'
+
+const queries = createResourceQueries('auth', 'website')
 
 export function getWebsiteLoginConfig(signal?: AbortSignal) {
-  return http.get<ResponseStruct<WebsiteLoginConfig>>('/system/website/login', { signal })
+  return queries.fetch(
+    {},
+    querySignal => http.get<ResponseStruct<WebsiteLoginConfig>>('/system/website/login', { signal: querySignal }),
+    signal,
+  )
 }

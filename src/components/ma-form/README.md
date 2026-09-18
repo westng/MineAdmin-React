@@ -8,7 +8,7 @@
 
 ```tsx
 import { useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/reui/primitives/button'
 import { MaForm, type MaFormExpose, type MaFormItem } from '@/components/ma-form'
 
 interface Profile {

@@ -74,21 +74,21 @@ import {
   type Locale,
 } from "date-fns"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { cn } from "@/utils/cn"
+import { Button } from "@/components/reui/primitives/button"
+import { Checkbox } from "@/components/reui/primitives/checkbox"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+} from "@/components/reui/primitives/context-menu"
+import { ScrollArea, ScrollBar } from "@/components/reui/primitives/scroll-area"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/reui/primitives/tooltip"
 import { PlusIcon, MinusIcon, GripVerticalIcon, ChevronRightIcon, ChevronLeftIcon } from "lucide-react"
 
 /** Current time, refreshed on an interval and on tab focus. */

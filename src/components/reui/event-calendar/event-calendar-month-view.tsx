@@ -48,13 +48,13 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { addDays, format, getWeek } from "date-fns"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/cn"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
+} from "@/components/reui/primitives/popover"
+import { ScrollArea } from "@/components/reui/primitives/scroll-area"
 import { PlusIcon } from "lucide-react"
 
 // Layout-effect on the client (measure before paint, no flash), plain effect on
