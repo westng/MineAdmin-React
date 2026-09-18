@@ -20,6 +20,8 @@ const roots = new Set([
   'components.json',
   'index.html',
   'LICENSE',
+  'MENU_FIX_SUMMARY.md',
+  'QUICK_START.md',
   'THIRD_PARTY_NOTICES.md',
   'README.md',
   'ARCHITECTURE.md',

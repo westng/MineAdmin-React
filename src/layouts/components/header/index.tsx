@@ -17,7 +17,9 @@ import HeaderActionSlot from '@/layouts/components/bars/toolbar'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 import { cn } from '@/utils/cn'
 
-const logo = new URL('../../../assets/images/logo.svg', import.meta.url).href
+const logo = import.meta.url
+  ? new URL('../../../assets/images/logo.svg', import.meta.url).href
+  : '/src/assets/images/logo.svg'
 
 const titles: Record<string, string> = {
   '/dashboard': 'shell.dashboard',
