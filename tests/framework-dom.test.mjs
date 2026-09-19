@@ -239,18 +239,52 @@ test('Layout switching keeps the page mounted and slot disposal removes extensio
       ),
     ),
   )
-  const input = container.querySelector('input[aria-label="保留的页面输入"]')
+  const findPageInput = () =>
+    [...container.querySelectorAll('input')].find(input => input.getAttribute('aria-label') === '保留的页面输入')
+  const input = findPageInput()
+  assert.ok(input)
   for (const layout of ['columns', 'mixed', 'classic', 'unknown']) {
     await act(async () => {
       const store = core.useSettingStore.getState()
       store.setSettings({ app: { ...store.settings.app, layout } })
     })
-    assert.equal(container.querySelector('input[aria-label="保留的页面输入"]'), input)
+    assert.equal(findPageInput(), input)
     assert.equal(container.querySelector('[data-layout]').dataset.layout, layout === 'unknown' ? 'classic' : layout)
   }
   assert.match(container.textContent, /extension-content/)
   await act(async () => remove())
   assert.doesNotMatch(container.textContent, /extension-content/)
+})
+
+test('Verve layout mounts as an inset shell', async () => {
+  const settings = core.useSettingStore.getState().settings
+  core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout: 'verve' } } })
+  setTabs(['/dashboard'])
+  const container = await mount(
+    React.createElement(
+      core.RuntimeContext.Provider,
+      { value: runtime() },
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/dashboard'] },
+        React.createElement(
+          Routes,
+          null,
+          React.createElement(
+            Route,
+            { path: '/', element: React.createElement(core.AppLayout) },
+            React.createElement(Route, { path: 'dashboard', element: React.createElement('div', null, 'verve-page') }),
+          ),
+        ),
+      ),
+    ),
+  )
+  assert.equal(container.querySelector('[data-layout]')?.getAttribute('data-layout'), 'verve')
+  assert.ok(container.querySelector('[data-slot="sidebar-inset"]'))
+  await act(async () => {
+    for (const root of roots.splice(0)) root.unmount()
+  })
+  core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout: 'classic' } } })
 })
 
 test('Router, permissions and Shell consume the same injected session and route registry', async () => {

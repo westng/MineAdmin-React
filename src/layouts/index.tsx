@@ -14,6 +14,8 @@ import { cn } from '@/utils/cn'
 import { ShellProvider } from './shell-provider'
 import { ShellSlotOutlet } from './slot-outlet'
 import { shellPagePolicies } from './slots'
+import type { LayoutDefinition } from './registry'
+import { VerveHeader } from './verve'
 
 const tx = createTextTranslator('shell.ui')
 
@@ -23,13 +25,22 @@ function getSidebarDefaultOpen() {
   return match ? match[1] === 'true' : true
 }
 export default function AppLayout() {
+  const layout = useLayout()
+
+  return (
+    <ShellProvider>
+      <DefaultLayout layout={layout} />
+    </ShellProvider>
+  )
+}
+
+function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
   const localeRevision = useLocaleRevision()
   void localeRevision
 
   const t = useTranslate()
   const location = useLocation()
   const [sidebarDefaultOpen] = useState(getSidebarDefaultOpen)
-  const layout = useLayout()
   const policies = useSyncExternalStore(
     shellPagePolicies.subscribe,
     shellPagePolicies.getSnapshot,
@@ -38,61 +49,124 @@ export default function AppLayout() {
   const policy = policies.find(item => item.path === location.pathname)
   const Navigation = layout.navigation
   const HeaderNavigation = layout.headerNavigation
+  if (layout.shell === 'inset') return renderInsetLayout({ layout, location, policy, t, sidebarDefaultOpen })
+
   return (
-    <ShellProvider>
-      <SidebarProvider
-        data-layout={layout.id}
-        defaultOpen={sidebarDefaultOpen}
-        className="flex h-svh min-h-0 flex-col overflow-hidden [--sidebar-accent:color-mix(in_oklab,var(--color-primary)_5%,transparent)] [--sidebar-accent-foreground:var(--color-primary)]"
-        style={
-          {
-            '--sidebar-width': '260px',
-            '--sidebar-width-icon': '62px',
-            '--header-height': '50px',
-            '--shell-header-height': HeaderNavigation ? '94px' : '50px',
-            minHeight: 0,
-          } as CSSProperties
-        }
-      >
-        <TooltipProvider>
-          <HeaderActionsProvider>
-            <a
-              href="#main-content"
-              className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2"
-            >
-              {t('shell.skipContent')}
-            </a>
-            <Header className="shrink-0" />
-            {HeaderNavigation && (
-              <div className="h-11 shrink-0 overflow-hidden">
-                <HeaderNavigation />
-              </div>
-            )}
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-              <ErrorBoundary label={tx('导航')}>
-                <Navigation />
-              </ErrorBoundary>
-              <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />
-              <SidebarInset className="min-w-0 min-h-0 flex-1 overflow-hidden">
-                <Tabbar />
-                <main
-                  id="main-content"
-                  tabIndex={-1}
-                  className={cn(
-                    'mine-main flex min-h-0 flex-1 flex-col',
-                    policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
-                    policy?.padding !== false && 'p-4',
-                  )}
-                >
-                  <Outlet />
-                </main>
-              </SidebarInset>
+    <SidebarProvider
+      data-layout={layout.id}
+      defaultOpen={sidebarDefaultOpen}
+      className="flex h-svh min-h-0 flex-col overflow-hidden [--sidebar-accent:color-mix(in_oklab,var(--color-primary)_5%,transparent)] [--sidebar-accent-foreground:var(--color-primary)]"
+      style={
+        {
+          '--sidebar-width': '260px',
+          '--sidebar-width-icon': '62px',
+          '--header-height': '50px',
+          '--shell-header-height': HeaderNavigation ? '94px' : '50px',
+          minHeight: 0,
+        } as CSSProperties
+      }
+    >
+      <TooltipProvider>
+        <HeaderActionsProvider>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2"
+          >
+            {t('shell.skipContent')}
+          </a>
+          <Header className="shrink-0" />
+          {HeaderNavigation && (
+            <div className="h-11 shrink-0 overflow-hidden">
+              <HeaderNavigation />
             </div>
-          </HeaderActionsProvider>
+          )}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <ErrorBoundary label={tx('导航')}>
+              <Navigation />
+            </ErrorBoundary>
+            <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />
+            <SidebarInset className="min-w-0 min-h-0 flex-1 overflow-hidden">
+              <Tabbar />
+              <main
+                id="main-content"
+                tabIndex={-1}
+                className={cn(
+                  'mine-main flex min-h-0 flex-1 flex-col',
+                  policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
+                  policy?.padding !== false && 'p-4',
+                )}
+              >
+                <Outlet />
+              </main>
+            </SidebarInset>
+          </div>
+        </HeaderActionsProvider>
+        <BackTop />
+        <ShellSlotOutlet slot="shell.overlays" pathname={location.pathname} />
+      </TooltipProvider>
+    </SidebarProvider>
+  )
+}
+
+function renderInsetLayout({
+  layout,
+  location,
+  policy,
+  t,
+  sidebarDefaultOpen,
+}: {
+  layout: LayoutDefinition
+  location: ReturnType<typeof useLocation>
+  policy: ReturnType<typeof shellPagePolicies.getSnapshot>[number] | undefined
+  t: ReturnType<typeof useTranslate>
+  sidebarDefaultOpen: boolean
+}) {
+  const Navigation = layout.navigation
+
+  return (
+    <SidebarProvider
+      data-layout={layout.id}
+      defaultOpen={sidebarDefaultOpen}
+      className="flex h-svh min-h-0 overflow-hidden bg-muted/20 [--sidebar-accent:color-mix(in_oklab,var(--color-primary)_5%,transparent)] [--sidebar-accent-foreground:var(--color-primary)]"
+      style={
+        {
+          '--sidebar-width': '63px',
+          '--sidebar-width-icon': '48px',
+          '--header-height': '50px',
+          minHeight: 0,
+        } as CSSProperties
+      }
+    >
+      <TooltipProvider>
+        <HeaderActionsProvider>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2"
+          >
+            {t('shell.skipContent')}
+          </a>
+          <ErrorBoundary label={t('导航')}>
+            <Navigation />
+          </ErrorBoundary>
+          <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />
+          <SidebarInset className="min-h-0 min-w-0 flex-1 overflow-hidden border border-border shadow-none">
+            <VerveHeader />
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className={cn(
+                'mine-main flex min-h-0 flex-1 flex-col overflow-y-auto',
+                policy?.overflow === 'hidden' && 'overflow-hidden',
+                policy?.padding !== false && 'p-4',
+              )}
+            >
+              <Outlet />
+            </main>
+          </SidebarInset>
           <BackTop />
           <ShellSlotOutlet slot="shell.overlays" pathname={location.pathname} />
-        </TooltipProvider>
-      </SidebarProvider>
-    </ShellProvider>
+        </HeaderActionsProvider>
+      </TooltipProvider>
+    </SidebarProvider>
   )
 }

@@ -6,6 +6,7 @@ export interface LayoutDefinition {
   label: string
   navigation: ComponentType
   headerNavigation?: ComponentType
+  shell?: 'default' | 'inset'
   order?: number
   enabled?: boolean
 }
