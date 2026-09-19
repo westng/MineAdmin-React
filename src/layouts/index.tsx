@@ -50,7 +50,6 @@ export default function AppLayout() {
             '--sidebar-width-icon': '62px',
             '--header-height': '50px',
             '--shell-header-height': HeaderNavigation ? '94px' : '50px',
-            height: '100%',
             minHeight: 0,
           } as CSSProperties
         }
