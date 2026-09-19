@@ -1,10 +1,20 @@
 import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 import { toast } from '@/components/reui/use-toast'
-import { useState } from 'react'
-import { KeyRound, LoaderCircle, MessageSquare, MonitorSmartphone, ShieldCheck } from 'lucide-react'
+import { useState, useSyncExternalStore } from 'react'
+import {
+  KeyRound,
+  LayoutDashboard,
+  LoaderCircle,
+  MessageSquare,
+  Monitor,
+  MonitorSmartphone,
+  Palette,
+  ShieldCheck,
+} from 'lucide-react'
 import { Switch } from '@base-ui/react/switch'
 import { Button } from '@/components/reui/primitives/button'
+import { IconTile } from '@/components/reui/icon-tile'
 import {
   Card,
   CardContent,
@@ -24,6 +34,12 @@ import { updateCurrentUser } from '@/modules/base/account-settings/api/account'
 import { useSession } from '@/hooks/framework/use-session'
 import type { UserInfo } from '@/services/auth/session-manager'
 import { PasswordForm } from '@/modules/base/user-center/views/components/password-form'
+import { ThemeColorPicker } from '@/components/reui/theme-color-picker'
+import { useSettingStore } from '@/provider/settings'
+import { themeColors } from '@/provider/settings/colors'
+import { settingsModes } from '@/modules/base/settings/views/data'
+import { layoutRegistry } from '@/layouts/builtins'
+import { cn } from '@/utils/cn'
 
 const tx = createTextTranslator('base.account-settings.ui')
 
@@ -84,9 +100,9 @@ function PreferenceRow({
   return (
     <div className="flex items-center justify-between gap-6 border-b px-4 py-4 last:border-b-0">
       <div className="flex min-w-0 items-start gap-3">
-        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
           <Icon className="size-4" aria-hidden="true" />
-        </div>
+        </IconTile>
         <div className="min-w-0">
           <p className="text-sm font-medium">{label}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
@@ -105,6 +121,90 @@ function PreferenceRow({
   )
 }
 
+function LayoutPreview({ kind }: { kind: string }) {
+  if (kind === 'columns') {
+    return (
+      <span aria-hidden="true" className="flex h-10 w-[4.5rem] gap-0.5 overflow-hidden rounded-[3px] bg-muted/30 p-0.5">
+        <span className="w-1.5 shrink-0 rounded-[2px] bg-primary" />
+        <span className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[3px] border border-primary/30">
+          <span className="h-1.5 shrink-0 border-b border-primary/20 bg-primary/10" />
+          <span className="flex min-h-0 flex-1">
+            <span className="w-1/4 border-r border-primary/20 bg-primary/45" />
+            <span className="min-w-0 flex-1 bg-primary/15" />
+          </span>
+        </span>
+      </span>
+    )
+  }
+
+  if (kind === 'mixed') {
+    return (
+      <span className="flex h-10 w-[4.5rem] flex-col gap-0.5 overflow-hidden rounded-[3px] bg-muted/30 p-0.5">
+        <span className="h-1/5 rounded-[2px] bg-primary" />
+        <span className="flex min-h-0 flex-1 gap-0.5">
+          <span className="w-1/4 rounded-[2px] bg-primary/55" />
+          <span className="min-w-0 flex-1 rounded-[2px] bg-primary/15" />
+        </span>
+      </span>
+    )
+  }
+
+  return (
+    <span className="flex h-10 w-[4.5rem] gap-0.5 overflow-hidden rounded-[3px] bg-muted/30 p-0.5">
+      <span className="w-1/4 rounded-[2px] bg-primary" />
+      <span className="min-w-0 flex-1 rounded-[2px] bg-primary/25" />
+    </span>
+  )
+}
+
+function LayoutPicker({
+  layouts,
+  value,
+  onChange,
+}: {
+  layouts: readonly { id: string; label: string }[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div role="radiogroup" aria-label={tx('布局')} className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
+      {layouts.map((layout, index) => {
+        const selected = value === layout.id
+        return (
+          <button
+            key={layout.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={layout.label}
+            title={layout.label}
+            tabIndex={selected || (!layouts.some(item => item.id === value) && index === 0) ? 0 : -1}
+            onClick={() => onChange(layout.id)}
+            onKeyDown={event => {
+              const delta = ['ArrowRight', 'ArrowDown'].includes(event.key)
+                ? 1
+                : ['ArrowLeft', 'ArrowUp'].includes(event.key)
+                  ? -1
+                  : 0
+              if (!delta) return
+              event.preventDefault()
+              const next = (index + delta + layouts.length) % layouts.length
+              onChange(layouts[next].id)
+              event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus()
+            }}
+            className={cn(
+              'flex h-[3.75rem] w-[5.25rem] items-center justify-center rounded-md border-2 bg-background p-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              selected ? 'border-primary shadow-sm' : 'border-border hover:border-primary/50',
+            )}
+          >
+            <LayoutPreview kind={layout.id} />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function AccountSettingsPage({ userInfo, onUserInfoChange }: AccountSettingsPageProps) {
   const localeRevision = useLocaleRevision()
   void localeRevision
@@ -112,6 +212,11 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   const storeUserInfo = useSession(state => state.userInfo)
   const setStoreUserInfo = useSession(state => state.setUserInfo)
   const activeUserInfo = userInfo ?? storeUserInfo
+  const appSettings = useSettingStore(state => state.settings.app)
+  const setColorMode = useSettingStore(state => state.setColorMode)
+  const setPrimaryColor = useSettingStore(state => state.setPrimaryColor)
+  const setSystemSettings = useSettingStore(state => state.setSettings)
+  const layouts = useSyncExternalStore(layoutRegistry.subscribe, layoutRegistry.getSnapshot, layoutRegistry.getSnapshot)
   const [settings, setSettings] = useState(() => readAccountSettings(activeUserInfo))
   const [saving, setSaving] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
@@ -146,6 +251,73 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
         </CardHeader>
         <CardContent className="p-0">
           <ShellSlotOutlet slot="account.preferences" />
+          <div className="border-b px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
+                <Palette className="size-4" aria-hidden="true" />
+              </IconTile>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{tx('主题')}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择浅色、深色或跟随系统。')}</p>
+              </div>
+              <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
+                {settingsModes.map(({ value, icon: Icon }) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={appSettings.colorMode === value ? 'default' : 'outline'}
+                    onClick={() => setColorMode(value)}
+                  >
+                    <Icon aria-hidden="true" />
+                    {tx(value === 'light' ? '浅色' : '深色')}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={appSettings.colorMode === 'autoMode' ? 'default' : 'outline'}
+                  onClick={() => setColorMode('autoMode')}
+                >
+                  <Monitor aria-hidden="true" />
+                  {tx('跟随系统')}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="border-b px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
+                <Palette className="size-4" aria-hidden="true" />
+              </IconTile>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{tx('配色')}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择界面的主题配色。')}</p>
+              </div>
+              <ThemeColorPicker
+                className="ml-auto shrink-0"
+                colors={themeColors}
+                value={appSettings.primaryColor}
+                onChange={setPrimaryColor}
+              />
+            </div>
+          </div>
+          <div className="border-b px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
+                <LayoutDashboard className="size-4" aria-hidden="true" />
+              </IconTile>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{tx('布局')}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择主导航布局。')}</p>
+              </div>
+              <LayoutPicker
+                layouts={layouts.filter(layout => layout.enabled !== false)}
+                value={layoutRegistry.resolve(appSettings.layout).id}
+                onChange={layout => setSystemSettings({ app: { ...appSettings, layout } })}
+              />
+            </div>
+          </div>
           <PreferenceRow
             icon={MonitorSmartphone}
             label={tx('是否多设备登录')}
@@ -173,9 +345,9 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-4 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <IconTile variant="elevated" size="sm" className="text-muted-foreground">
               <ShieldCheck className="size-4" aria-hidden="true" />
-            </div>
+            </IconTile>
             <div>
               <p className="text-sm font-medium">{tx('登录密码')}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{tx('使用当前密码验证后设置新密码。')}</p>

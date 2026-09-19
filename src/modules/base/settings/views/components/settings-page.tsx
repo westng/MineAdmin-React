@@ -72,7 +72,7 @@ export default function SettingsPageView() {
                 .map(layout => (
                   <Button
                     key={layout.id}
-                    variant={settings.app.layout === layout.id ? 'default' : 'outline'}
+                    variant={layoutRegistry.resolve(settings.app.layout).id === layout.id ? 'default' : 'outline'}
                     onClick={() => setSettings({ app: { ...settings.app, layout: layout.id } })}
                   >
                     {layout.label}

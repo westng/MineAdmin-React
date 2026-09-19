@@ -18,7 +18,21 @@ export async function setupApplication(runtime: AppRuntime) {
 
 Dashboard 业务通过 `registerDashboardSlot({ id, slot, order, render })` 接入，应用卸载时调用返回的 disposer；无注册时首页为空壳。业务数据通过 Query Hook 获取，组件不要向框架 Slot 注册表写入数据缓存。
 
-Shell slot 支持 `shell.toolbar`、`shell.overlays`、`shell.pane`、`auth.methods`、`account.preferences`、`account.bindings`、`settings.extensions` 和 `notifications`。Context 给扩展传入 pathname、userId、disabled 等公共参数。
+Shell slot 支持 `shell.toolbar`、`shell.overlays`、`shell.pane`、`shell.section.content`、`auth.methods`、`account.preferences`、`account.bindings`、`settings.extensions` 和 `notifications`。Context 给扩展传入 pathname、userId、disabled 等公共参数。
+
+`shell.section.content` 位于分栏导航的二级菜单下方，占据剩余高度并独立滚动，随二级侧栏一起折叠；无二级菜单时不挂载，无注册内容时保持空白。组件额外接收 `sectionPath`、`sectionLabel`，表示当前点击选中的一级菜单；点击一级菜单未跳转页面时，`pathname` 仍是原页面地址。需要按一级菜单显示内容时，在组件中判断 `sectionPath`；注册项的 `match` 仍只匹配页面地址。
+
+```tsx
+import { registerShellSlot } from '@/layouts/slots'
+import { AnnualSidebar } from './components/annual-sidebar'
+
+const dispose = registerShellSlot({
+  id: 'my-app.annual-sidebar',
+  slot: 'shell.section.content',
+  component: ({ sectionPath }) => (sectionPath === '/annual' ? <AnnualSidebar /> : null),
+})
+// 应用或插件卸载时调用 dispose()；插件也可使用 ctx.registerSlot() 注册。
+```
 
 登录页只在“其他登录方式”区域提供 `auth.methods` 插槽。开发者注册自己的快捷方式组件，应用也使用同一入口；无需复制或替换登录页。组件可自行管理授权弹窗和回调，并使用 `useSession(state => state.loginWithTokens)` 接入公共会话。该区域位于表单内，快捷按钮应设置 `type="button"` 并尊重传入的 `disabled`。
 

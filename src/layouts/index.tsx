@@ -15,7 +15,9 @@ import { ShellProvider } from './shell-provider'
 import { ShellSlotOutlet } from './slot-outlet'
 import { shellPagePolicies } from './slots'
 import type { LayoutDefinition } from './registry'
-import { VerveHeader } from './verve'
+import { VerveHeader, VerveBreadcrumb } from './verve'
+import { VerveSectionNavigation, VerveSectionToggle } from './verve/section-navigation'
+import { VerveNavigationProvider } from './verve/navigation-provider'
 
 const tx = createTextTranslator('shell.ui')
 
@@ -127,11 +129,11 @@ function renderInsetLayout({
     <SidebarProvider
       data-layout={layout.id}
       defaultOpen={sidebarDefaultOpen}
-      className="flex h-svh min-h-0 overflow-hidden bg-muted/20 [--sidebar-accent:color-mix(in_oklab,var(--color-primary)_5%,transparent)] [--sidebar-accent-foreground:var(--color-primary)]"
+      className="flex h-svh min-h-0 overflow-hidden bg-muted/20 [--sidebar-accent:color-mix(in_oklab,var(--foreground)_5%,transparent)] [--sidebar-accent-foreground:var(--foreground)]"
       style={
         {
           '--sidebar-width': '63px',
-          '--sidebar-width-icon': '48px',
+          '--sidebar-width-icon': '47px',
           '--header-height': '50px',
           minHeight: 0,
         } as CSSProperties
@@ -139,32 +141,39 @@ function renderInsetLayout({
     >
       <TooltipProvider>
         <HeaderActionsProvider>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2"
-          >
-            {t('shell.skipContent')}
-          </a>
-          <ErrorBoundary label={t('导航')}>
-            <Navigation />
-          </ErrorBoundary>
-          <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />
-          <SidebarInset className="min-h-0 min-w-0 flex-1 overflow-hidden border border-border shadow-none">
-            <VerveHeader />
-            <main
-              id="main-content"
-              tabIndex={-1}
-              className={cn(
-                'mine-main flex min-h-0 flex-1 flex-col overflow-y-auto',
-                policy?.overflow === 'hidden' && 'overflow-hidden',
-                policy?.padding !== false && 'p-4',
-              )}
+          <VerveNavigationProvider>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2"
             >
-              <Outlet />
-            </main>
-          </SidebarInset>
-          <BackTop />
-          <ShellSlotOutlet slot="shell.overlays" pathname={location.pathname} />
+              {t('shell.skipContent')}
+            </a>
+            <ErrorBoundary label={t('导航')}>
+              <Navigation />
+            </ErrorBoundary>
+            <SidebarInset className="min-h-0 min-w-0 flex-1 overflow-hidden border border-border shadow-none md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-0">
+              <VerveHeader />
+              <div className="flex min-h-0 flex-1 overflow-hidden">
+                <VerveSectionNavigation />
+                <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />
+                <main
+                  id="main-content"
+                  tabIndex={-1}
+                  className={cn(
+                    'mine-main flex min-h-0 min-w-0 flex-1 flex-col',
+                    policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
+                    policy?.padding !== false && 'p-4',
+                  )}
+                >
+                  <VerveBreadcrumb />
+                  <Outlet />
+                </main>
+              </div>
+            </SidebarInset>
+            <VerveSectionToggle />
+            <BackTop />
+            <ShellSlotOutlet slot="shell.overlays" pathname={location.pathname} />
+          </VerveNavigationProvider>
         </HeaderActionsProvider>
       </TooltipProvider>
     </SidebarProvider>

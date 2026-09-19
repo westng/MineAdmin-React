@@ -409,7 +409,7 @@ function MenuTree({
           </SidebarMenuItem>
         )
       }
-      const isOpen = expanded.has(item.to) || isActive
+      const isOpen = expanded.has(item.to)
       const trigger = (
         <CollapsibleTrigger asChild>
           <SidebarMenuButton isActive={isActive} tooltip={item.label}>

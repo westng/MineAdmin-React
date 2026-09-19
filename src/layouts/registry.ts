@@ -3,6 +3,7 @@ import { createRegistry } from '@/services/registry'
 export type LayoutId = 'classic' | 'columns' | 'mixed' | (string & {})
 export interface LayoutDefinition {
   id: LayoutId
+  aliases?: string[]
   label: string
   navigation: ComponentType
   headerNavigation?: ComponentType
@@ -16,7 +17,8 @@ export function createLayoutRegistry(fallback: LayoutDefinition) {
   return {
     ...registry,
     resolve(id: string) {
-      return registry.getSnapshot().find(entry => entry.id === id && entry.enabled !== false) ?? fallback
+      const layouts = registry.getSnapshot().filter(entry => entry.enabled !== false)
+      return layouts.find(entry => entry.id === id) ?? layouts.find(entry => entry.aliases?.includes(id)) ?? fallback
     },
   }
 }

@@ -16,12 +16,18 @@
 | ---------- | -------------------------------------------------------------------------------- |
 | 认证与权限 | 会话恢复、Token 刷新、账号切换隔离，以及路由和组件访问控制                       |
 | 动态路由   | Route Registry 汇合静态路由、后端菜单和插件路由，Component Manifest 解析页面组件 |
-| 页面布局   | classic、columns、mixed 三种导航组合，共享 Header、Sidebar、标签页和页面内容区   |
+| 页面布局   | 经典布局、分栏导航、混合导航三种布局；当前开放经典布局和分栏导航                 |
 | 业务组件   | MaForm、MaSearch、MaTable、MaProTable、MaDialog、MaDrawer                        |
 | UI 与主题  | ReUI、shadcn/ui 风格原语、Tailwind CSS、明暗主题和主题色                         |
 | 数据访问   | Axios 请求层、TanStack Query 缓存，以及按会话隔离的请求生命周期                  |
 | 应用扩展   | 插件能力注册、Dashboard 区域、登录方式、工具栏和 Shell 插槽                      |
 | 国际化     | 语言包注册与回退，默认提供 zh_CN、zh_TW、en_US；覆盖范围以各模块语言包为准       |
+
+### 布局与二级菜单扩展
+
+布局注册表使用三个固定名称：`经典布局`（`classic`）、`分栏导航`（`columns`）和`混合导航`（`mixed`）。当前账号设置开放前两种布局；`mixed` 保留为未启用实现。历史配置中的 `verve` 会兼容解析为 `columns`。
+
+分栏导航由左侧一级菜单和按当前一级菜单显示的二级菜单组成。二级菜单下方预留 `shell.section.content` 插槽，扩展可以放置业务快捷入口、统计信息或其他自定义内容。插槽占据剩余高度、独立滚动，并在二级菜单折叠时同步隐藏；没有注册内容时保持空白。组件会收到 `sectionPath`、`sectionLabel` 和当前 `pathname`，详细注册方式见[扩展开发](docs/EXTENSIONS.md)。
 
 ### 技术栈
 

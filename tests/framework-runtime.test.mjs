@@ -348,16 +348,19 @@ test('Locale namespace conflicts reject atomically; missing translations fall ba
   assert.equal(locales.translate('en_US', 'demo', 'title', 'fallback'), 'fallback')
 })
 
-test('Layout selection safely falls back for missing or disabled IDs', () => {
+test('Layout selection resolves legacy aliases and safely falls back for missing or disabled IDs', () => {
   const fallback = { id: 'classic', label: 'Classic', navigation: () => null }
   const registry = core.createLayoutRegistry(fallback)
-  const remove = registry.register({ id: 'columns', label: 'Columns', navigation: () => null })
-  registry.register({ id: 'mixed', label: 'Mixed', navigation: () => null, enabled: false })
+  const remove = registry.register({ id: 'columns', aliases: ['verve'], label: 'Columns', navigation: () => null })
+  registry.register({ id: 'mixed', aliases: ['legacy-mixed'], label: 'Mixed', navigation: () => null, enabled: false })
   assert.equal(registry.resolve('columns').id, 'columns')
+  assert.equal(registry.resolve('verve').id, 'columns')
   assert.equal(registry.resolve('unknown').id, 'classic')
   assert.equal(registry.resolve('mixed').id, 'classic')
+  assert.equal(registry.resolve('legacy-mixed').id, 'classic')
   remove()
   assert.equal(registry.resolve('columns').id, 'classic')
+  assert.equal(registry.resolve('verve').id, 'classic')
 })
 
 test('Permission, role and user conditions intersect; malformed conditions reject even for wildcard principals', () => {

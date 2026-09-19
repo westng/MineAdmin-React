@@ -51,6 +51,7 @@ const result = await build({
   export { useTabStore } from './src/store/modules/useTabStore'
   export { useSettingStore } from './src/provider/settings'
   export { default as AppLayout } from './src/layouts'
+  export { layoutRegistry } from './src/layouts/builtins'
   export { shellSlots } from './src/layouts/slots'
   export * as sidebar from './src/components/reui/primitives/sidebar'
   export * as chart from './src/components/reui/primitives/chart'
@@ -207,7 +208,7 @@ test('Page cache freezes router locations, preserves local state, suspends effec
   assert.equal(container.querySelector('[data-page="/first"]'), null)
 })
 
-test('Layout switching keeps the page mounted and slot disposal removes extensions', async () => {
+test('Unsupported layouts fall back without remounting the page and slot disposal removes extensions', async () => {
   setTabs(['/dashboard'])
   function Page() {
     return React.createElement('input', { 'aria-label': '保留的页面输入', defaultValue: 'value' })
@@ -243,27 +244,60 @@ test('Layout switching keeps the page mounted and slot disposal removes extensio
     [...container.querySelectorAll('input')].find(input => input.getAttribute('aria-label') === '保留的页面输入')
   const input = findPageInput()
   assert.ok(input)
-  for (const layout of ['columns', 'mixed', 'classic', 'unknown']) {
+  for (const layout of ['mixed', 'classic', 'unknown']) {
     await act(async () => {
       const store = core.useSettingStore.getState()
       store.setSettings({ app: { ...store.settings.app, layout } })
     })
     assert.equal(findPageInput(), input)
-    assert.equal(container.querySelector('[data-layout]').dataset.layout, layout === 'unknown' ? 'classic' : layout)
+    assert.equal(container.querySelector('[data-layout]').dataset.layout, 'classic')
   }
   assert.match(container.textContent, /extension-content/)
   await act(async () => remove())
   assert.doesNotMatch(container.textContent, /extension-content/)
 })
 
-test('Verve layout mounts as an inset shell', async () => {
+test('Column navigation supports saved Verve settings, preserves the page and filters inaccessible menus', async () => {
+  assert.deepEqual(
+    core.layoutRegistry.getSnapshot().map(layout => layout.id),
+    ['classic', 'columns', 'mixed'],
+  )
+  assert.deepEqual(
+    core.layoutRegistry
+      .getSnapshot()
+      .filter(layout => layout.enabled !== false)
+      .map(layout => layout.id),
+    ['classic', 'columns'],
+  )
   const settings = core.useSettingStore.getState().settings
   core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout: 'verve' } } })
+  const app = runtime()
+  app.session.setState({ permissions: ['reports:read'] })
+  app.routes.setMenus([
+    {
+      name: 'Reports',
+      path: '/reports',
+      children: [
+        { name: 'Summary', path: '/reports/summary' },
+        { name: 'History alias', path: '/operations/history' },
+      ],
+    },
+    {
+      name: 'Operations',
+      path: '/operations',
+      children: [
+        { name: 'History', path: '/operations/history' },
+        { name: 'Hidden entry', path: '/operations/hidden', is_hidden: 1 },
+        { name: 'Button entry', path: '/operations/button', type: 'B' },
+        { name: 'Denied entry', path: '/operations/denied', meta: { permission: 'admin:write' } },
+      ],
+    },
+  ])
   setTabs(['/dashboard'])
   const container = await mount(
     React.createElement(
       core.RuntimeContext.Provider,
-      { value: runtime() },
+      { value: app },
       React.createElement(
         MemoryRouter,
         { initialEntries: ['/dashboard'] },
@@ -273,14 +307,107 @@ test('Verve layout mounts as an inset shell', async () => {
           React.createElement(
             Route,
             { path: '/', element: React.createElement(core.AppLayout) },
-            React.createElement(Route, { path: 'dashboard', element: React.createElement('div', null, 'verve-page') }),
+            React.createElement(Route, {
+              path: 'dashboard',
+              element: React.createElement('input', { 'aria-label': 'page-state', defaultValue: 'preserved' }),
+            }),
+            React.createElement(Route, {
+              path: 'settings/account',
+              element: React.createElement('div', null, 'account-page'),
+            }),
+            React.createElement(Route, {
+              path: 'operations/history',
+              element: React.createElement('div', null, 'history-page'),
+            }),
           ),
         ),
       ),
     ),
   )
-  assert.equal(container.querySelector('[data-layout]')?.getAttribute('data-layout'), 'verve')
-  assert.ok(container.querySelector('[data-slot="sidebar-inset"]'))
+  assert.equal(container.querySelector('[data-layout]')?.getAttribute('data-layout'), 'columns')
+  const inset = container.querySelector('[data-slot="sidebar-inset"]')
+  assert.equal(inset.querySelector('[data-verve-section]'), null, 'home must not show the first business section')
+  const page = container.querySelector('[aria-label="page-state"]')
+  let disposeSectionContent
+  await act(async () => {
+    disposeSectionContent = core.shellSlots.register({
+      id: 'test.section-content',
+      slot: 'shell.section.content',
+      component: ({ pathname, sectionPath, sectionLabel }) =>
+        React.createElement('div', { 'data-section-extension': sectionPath, 'data-pathname': pathname }, sectionLabel),
+    })
+  })
+  assert.equal(container.querySelector('[data-section-extension]'), null)
+  await act(async () => {
+    const store = core.useSettingStore.getState()
+    store.setSettings({ app: { ...store.settings.app, layout: 'columns' } })
+  })
+  assert.equal(container.querySelector('[aria-label="page-state"]'), page)
+  await act(async () => container.querySelector('[data-slot="sidebar-menu-button"][aria-label="Operations"]').click())
+  const extension = inset.querySelector('[data-slot="shell-section-content"] [data-section-extension]')
+  assert.equal(extension?.getAttribute('data-section-extension'), '/operations')
+  assert.equal(extension?.getAttribute('data-pathname'), '/dashboard')
+  assert.equal(extension?.textContent, 'Operations')
+  assert.equal(container.querySelector('[aria-label="page-state"]'), page)
+  assert.ok(
+    container.querySelector('[data-slot="sidebar-menu-button"][aria-label="Operations"]').hasAttribute('data-active'),
+  )
+  assert.equal(
+    container.querySelector('[data-slot="sidebar-menu-button"][href="/dashboard"]').hasAttribute('data-active'),
+    false,
+  )
+  await act(async () => container.querySelector('[data-slot="sidebar-header"] a').click())
+  assert.equal(inset.querySelector('[data-verve-section]'), null, 'home clears a section even when already on home')
+  assert.equal(container.querySelector('[data-section-extension]'), null)
+  await act(async () => container.querySelector('[data-slot="sidebar-menu-button"][aria-label="Reports"]').click())
+  assert.equal(inset.querySelector('[data-section-extension]').getAttribute('data-section-extension'), '/reports')
+  await act(async () => container.querySelector('[data-slot="sidebar-menu-button"][aria-label="Operations"]').click())
+  const section = inset.querySelector('[data-verve-section]')
+  assert.match(section.textContent, /History/)
+  assert.doesNotMatch(section.textContent, /Hidden entry|Button entry|Denied entry|个人资料|账号设置/)
+  await act(async () => container.querySelector('[aria-label="折叠二级菜单"]').click())
+  assert.equal(section.style.width, '0px')
+  assert.equal(section.hasAttribute('inert'), true)
+  assert.equal(container.querySelector('[aria-label="page-state"]'), page)
+  await act(async () => container.querySelector('[aria-label="展开二级菜单"]').click())
+  assert.equal(section.style.width, '200px')
+  await act(async () =>
+    section
+      .querySelector('[role="separator"]')
+      .dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })),
+  )
+  assert.equal(section.style.width, '210px')
+  await act(async () => section.querySelector('a[href="/operations/history"]').click())
+  assert.match(container.querySelector('#main-content').textContent, /history-page/)
+  assert.equal(
+    inset.querySelector('[data-verve-section] a[href="/operations/history"]').getAttribute('aria-current'),
+    'page',
+  )
+  assert.equal(inset.querySelector('[data-section-extension]').getAttribute('data-pathname'), '/operations/history')
+  await act(async () => disposeSectionContent())
+  assert.equal(container.querySelector('[data-section-extension]'), null)
+  await act(async () => container.querySelector('[aria-label="打开 alice 的个人菜单"]').click())
+  const profile = document.querySelector('[role="menu"]')
+  assert.match(profile.textContent, /个人资料/)
+  assert.match(profile.textContent, /账号设置/)
+  assert.match(profile.textContent, /通知/)
+  assert.match(profile.textContent, /退出登录/)
+  await act(async () => profile.querySelector('[role="radio"][aria-label="深色"]').click())
+  assert.equal(core.useSettingStore.getState().settings.app.colorMode, 'dark')
+  assert.equal(profile.querySelector('[role="radio"][aria-label="深色"]').getAttribute('aria-checked'), 'true')
+  await act(async () => profile.querySelector('a[href="/settings/account"]').click())
+  assert.equal(inset.querySelector('[data-verve-section]'), null)
+  assert.match(container.querySelector('#main-content').textContent, /account-page/)
+  await act(async () =>
+    window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true })),
+  )
+  const searchItems = [...document.querySelectorAll('[data-slot="command-item"]')]
+  assert.equal(searchItems.filter(item => item.getAttribute('data-value')?.endsWith('/operations/history')).length, 1)
+  assert.doesNotMatch(
+    document.querySelector('[data-slot="command-list"]').textContent,
+    /Hidden entry|Button entry|Denied entry/,
+  )
+
   await act(async () => {
     for (const root of roots.splice(0)) root.unmount()
   })

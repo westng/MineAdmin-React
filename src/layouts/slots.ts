@@ -4,6 +4,7 @@ export type ShellSlotName =
   | 'shell.overlays'
   | 'shell.toolbar'
   | 'shell.pane'
+  | 'shell.section.content'
   | 'auth.methods'
   | 'account.preferences'
   | 'account.bindings'
@@ -11,6 +12,8 @@ export type ShellSlotName =
   | 'notifications'
 export interface ShellSlotProps {
   pathname?: string
+  sectionPath?: string
+  sectionLabel?: string
   userId?: number
   disabled?: boolean
 }
