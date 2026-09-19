@@ -151,6 +151,7 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
               value={code}
               onChange={setCode}
               maxLength={4}
+              inputMode="text"
               autoComplete="one-time-code"
               aria-invalid={Boolean(state.fieldErrors.code)}
               disabled={isPending}
