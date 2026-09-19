@@ -15,9 +15,10 @@ import { ShellProvider } from './shell-provider'
 import { ShellSlotOutlet } from './slot-outlet'
 import { shellPagePolicies } from './slots'
 import type { LayoutDefinition } from './registry'
-import { VerveHeader, VerveBreadcrumb } from './verve'
+import { VerveHeader } from './verve'
 import { VerveSectionNavigation, VerveSectionToggle } from './verve/section-navigation'
 import { VerveNavigationProvider } from './verve/navigation-provider'
+import { NotificationsDrawer } from './components/notifications'
 
 const tx = createTextTranslator('shell.ui')
 
@@ -32,6 +33,7 @@ export default function AppLayout() {
   return (
     <ShellProvider>
       <DefaultLayout layout={layout} />
+      <NotificationsDrawer />
     </ShellProvider>
   )
 }
@@ -165,7 +167,6 @@ function renderInsetLayout({
                     policy?.padding !== false && 'p-4',
                   )}
                 >
-                  <VerveBreadcrumb />
                   <Outlet />
                 </main>
               </div>

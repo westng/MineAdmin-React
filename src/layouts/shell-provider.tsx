@@ -20,6 +20,7 @@ export function ShellProvider({ children }: PropsWithChildren) {
     return visit(sourceMenus)
   }, [sourceMenus, roles, permissions, userInfo])
   const [selection, setSelection] = useState({ path: '', pathname: '' })
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const setSection = useCallback((path: string) => setSelection({ path, pathname }), [pathname])
   const activeSection =
     menus.find(menu => selection.pathname === pathname && getMenuPath(menu) === selection.path) ??
@@ -31,8 +32,8 @@ export function ShellProvider({ children }: PropsWithChildren) {
     ) ??
     menus[0]
   const value = useMemo(
-    () => ({ menus, activeSection, setSection, pathname }),
-    [menus, activeSection, pathname, setSection],
+    () => ({ menus, activeSection, setSection, pathname, notificationsOpen, setNotificationsOpen }),
+    [menus, activeSection, pathname, setSection, notificationsOpen],
   )
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>
 }

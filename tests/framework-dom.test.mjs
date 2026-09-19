@@ -34,7 +34,16 @@ const React = require('react')
 const { act } = React
 const { createRoot } = require('react-dom/client')
 const { createStore } = require('zustand/vanilla')
-const { MemoryRouter, Routes, Route, Outlet, useNavigate, useLocation } = require('react-router-dom')
+const {
+  MemoryRouter,
+  createMemoryRouter,
+  RouterProvider,
+  Routes,
+  Route,
+  Outlet,
+  useNavigate,
+  useLocation,
+} = require('react-router-dom')
 const result = await build({
   stdin: {
     contents: `
@@ -42,6 +51,7 @@ const result = await build({
   export { AppRouter } from './src/router'
   export { PermissionGate } from './src/hooks/framework/use-permission'
   export { useSession } from './src/hooks/framework/use-session'
+  export { useShell } from './src/hooks/shell/use-shell'
   export { createRouteRegistry } from './src/router/registry'
   export { createComponentManifest } from './src/router/manifest'
   export { default as DynamicMenuPage } from './src/modules/base/dynamic-menu/views'
@@ -50,6 +60,10 @@ const result = await build({
   export { RuntimeContext } from './src/provider/runtime/context'
   export { useTabStore } from './src/store/modules/useTabStore'
   export { useSettingStore } from './src/provider/settings'
+  export { sessionManager } from './src/provider/session'
+  export { queryClient } from './src/provider/query/client'
+  export { default as http } from './src/provider/http'
+  export { default as AccountSettingsPage } from './src/modules/base/account-settings/views'
   export { default as AppLayout } from './src/layouts'
   export { layoutRegistry } from './src/layouts/builtins'
   export { shellSlots } from './src/layouts/slots'
@@ -105,6 +119,344 @@ async function mount(element) {
   roots.push(root)
   await act(async () => root.render(element))
   return container
+}
+
+function accountPreferencesFixture(t) {
+  const originalAdapter = core.http.defaults.adapter
+  const originalSession = core.sessionManager.getState()
+  const originalSettings = core.useSettingStore.getState().settings
+  const profile = {
+    id: 71,
+    username: 'preferences-test',
+    backend_setting: {
+      app: { colorMode: 'light', primaryColor: '#2563EB', layout: 'classic', customOption: 'keep' },
+      account: { multiDeviceLogin: false, customAccountOption: 'keep' },
+      customSection: { enabled: true },
+    },
+  }
+  const requests = []
+  const api = { failSave: false, profile, requests, beforeSave: undefined }
+  core.http.defaults.adapter = async config => {
+    requests.push(config.url)
+    let data
+    if (config.url === '/admin/permission/update') {
+      await api.beforeSave?.()
+      if (api.failSave) data = { code: 422, message: '保存失败' }
+      else {
+        profile.backend_setting = JSON.parse(config.data).backend_setting
+        data = { code: 200, data: null }
+      }
+    } else if (config.url === '/admin/passport/getInfo') {
+      data = { code: 200, data: structuredClone(profile) }
+    } else if (['/admin/permission/menus', '/admin/permission/roles'].includes(config.url)) {
+      data = { code: 200, data: [] }
+    } else throw new Error(`Unexpected test request: ${config.url}`)
+    return { data, config, status: 200, statusText: 'OK', headers: {} }
+  }
+  core.sessionManager.setState({
+    token: 'synthetic',
+    sessionVersion: originalSession.sessionVersion + 1,
+    userInfo: structuredClone(profile),
+    initialized: true,
+    loading: false,
+  })
+  core.useSettingStore.getState().setSettings({ app: { ...originalSettings.app, ...profile.backend_setting.app } })
+  t.after(async () => {
+    await act(async () => {
+      for (const root of roots.splice(0)) root.unmount()
+      core.sessionManager.setState(originalSession, true)
+      core.useSettingStore.getState().setSettings(originalSettings)
+      core.useSettingStore.getState().setColorMode(originalSettings.app.colorMode)
+    })
+    core.queryClient.clear()
+    core.http.defaults.adapter = originalAdapter
+  })
+  return api
+}
+
+async function mountAccountPreferences(t) {
+  const router = createMemoryRouter(
+    [
+      { path: '/preferences', element: React.createElement(core.AccountSettingsPage) },
+      { path: '/other', element: React.createElement('p', null, 'other-page') },
+    ],
+    { initialEntries: ['/other', '/preferences'], initialIndex: 1 },
+  )
+  t.after(() => router.dispose())
+  const container = await mount(
+    React.createElement(
+      core.RuntimeContext.Provider,
+      { value: { ...runtime(), session: core.sessionManager } },
+      React.createElement(RouterProvider, { router }),
+    ),
+  )
+  return { container, router }
+}
+
+function preferencesButton(label) {
+  return [...document.querySelectorAll('button')].find(item => item.textContent === label)
+}
+
+function unloadIsBlocked() {
+  return !window.dispatchEvent(new Event('beforeunload', { cancelable: true }))
+}
+
+test('Account preferences save appearance and account fields, then restore them from getInfo', async t => {
+  const api = accountPreferencesFixture(t)
+  const { container } = await mountAccountPreferences(t)
+  const button = label => [...container.querySelectorAll('button')].find(item => item.textContent === label)
+  await act(async () => button('深色').click())
+  await act(async () => container.querySelector('[role="radio"][aria-label="玫瑰粉"]').click())
+  await act(async () => container.querySelector('[role="radio"][aria-label="分栏导航"]').click())
+  await act(async () => container.querySelector('[role="switch"][aria-label="是否多设备登录"]').click())
+  await act(async () => button('保存设置').click())
+  assert.ok(api.requests.includes('/admin/permission/update'))
+  assert.equal(api.profile.backend_setting.app.colorMode, 'dark')
+  assert.equal(api.profile.backend_setting.app.primaryColor, '#DB2777')
+  assert.equal(api.profile.backend_setting.app.layout, 'columns')
+  assert.equal(api.profile.backend_setting.app.customOption, 'keep')
+  assert.deepEqual(api.profile.backend_setting.account, { multiDeviceLogin: true, customAccountOption: 'keep' })
+  assert.deepEqual(api.profile.backend_setting.customSection, { enabled: true })
+  assert.deepEqual(core.sessionManager.getState().userInfo.backend_setting, api.profile.backend_setting)
+  // Simulate stale local settings when a refresh loads the saved server profile.
+  await act(async () => {
+    const store = core.useSettingStore.getState()
+    store.setSettings({
+      app: { ...store.settings.app, colorMode: 'light', primaryColor: '#2563EB', layout: 'classic' },
+    })
+    assert.equal(await core.sessionManager.getState().hydrate(), true)
+  })
+  assert.ok(api.requests.includes('/admin/passport/getInfo'))
+  const restored = core.useSettingStore.getState().settings.app
+  assert.equal(restored.colorMode, 'dark')
+  assert.equal(restored.primaryColor, '#DB2777')
+  assert.equal(restored.layout, 'columns')
+  assert.equal(document.documentElement.style.getPropertyValue('--primary'), '#DB2777')
+  assert.equal(JSON.parse(localStorage.getItem('dom_settings')).value.app.primaryColor, '#DB2777')
+})
+
+test('Failed account preference saves preserve the saved profile and allow retry', async t => {
+  const api = accountPreferencesFixture(t)
+  const savedProfile = structuredClone(api.profile)
+  const { container } = await mountAccountPreferences(t)
+  const button = label => [...container.querySelectorAll('button')].find(item => item.textContent === label)
+  await act(async () => button('深色').click())
+  api.failSave = true
+  await act(async () => button('保存设置').click())
+  assert.deepEqual(core.sessionManager.getState().userInfo, savedProfile)
+  assert.deepEqual(api.profile, savedProfile)
+  assert.equal(button('保存设置').disabled, false)
+  api.failSave = false
+  await act(async () => button('保存设置').click())
+  assert.equal(api.profile.backend_setting.app.colorMode, 'dark')
+})
+
+test('Unsaved preferences warn on unload and allow continuing or discarding before navigation', async t => {
+  const api = accountPreferencesFixture(t)
+  const savedProfile = structuredClone(api.profile)
+  const { container, router } = await mountAccountPreferences(t)
+  assert.equal(unloadIsBlocked(), false)
+  await act(async () => preferencesButton('深色').click())
+  await act(async () => container.querySelector('[role="radio"][aria-label="玫瑰粉"]').click())
+  await act(async () => container.querySelector('[role="radio"][aria-label="分栏导航"]').click())
+  await act(async () => container.querySelector('[role="switch"][aria-label="是否多设备登录"]').click())
+  assert.equal(unloadIsBlocked(), true)
+  assert.deepEqual(api.profile, savedProfile)
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
+  await act(async () => router.navigate('/other'))
+  assert.equal(router.state.location.pathname, '/preferences')
+  assert.ok(preferencesButton('保存并离开'))
+  await act(async () => preferencesButton('继续编辑').click())
+  assert.equal(router.state.location.pathname, '/preferences')
+  assert.equal(core.useSettingStore.getState().settings.app.colorMode, 'dark')
+  assert.equal(unloadIsBlocked(), true)
+  // Back navigation must be guarded just like a menu or tab navigation.
+  await act(async () => router.navigate(-1))
+  await act(async () => preferencesButton('放弃修改').click())
+  assert.equal(router.state.location.pathname, '/other')
+  assert.match(container.textContent, /other-page/)
+  const app = core.useSettingStore.getState().settings.app
+  assert.equal(app.colorMode, 'light')
+  assert.equal(app.primaryColor, '#2563EB')
+  assert.equal(app.layout, 'classic')
+  assert.equal(document.documentElement.classList.contains('dark'), false)
+  assert.equal(JSON.parse(localStorage.getItem('dom_settings')).value.app.primaryColor, '#2563EB')
+  assert.deepEqual(api.profile, savedProfile)
+  assert.equal(api.requests.length, 0)
+  assert.equal(unloadIsBlocked(), false)
+})
+
+test('Save and leave waits for success and keeps the draft after failure', async t => {
+  const api = accountPreferencesFixture(t)
+  const { router } = await mountAccountPreferences(t)
+  await act(async () => preferencesButton('深色').click())
+  await act(async () => router.navigate('/other'))
+  api.failSave = true
+  await act(async () => preferencesButton('保存并离开').click())
+  assert.equal(router.state.location.pathname, '/preferences')
+  assert.equal(unloadIsBlocked(), true)
+  assert.equal(api.profile.backend_setting.app.colorMode, 'light')
+  assert.equal(core.useSettingStore.getState().settings.app.colorMode, 'dark')
+  let finishSave
+  api.failSave = false
+  api.beforeSave = () =>
+    new Promise(resolve => {
+      finishSave = resolve
+    })
+  await act(async () => preferencesButton('保存并离开').click())
+  assert.equal(router.state.location.pathname, '/preferences')
+  assert.equal(preferencesButton('继续编辑').disabled, true)
+  assert.equal(preferencesButton('放弃修改').disabled, true)
+  assert.equal(unloadIsBlocked(), true)
+  await act(async () => finishSave())
+  assert.equal(router.state.location.pathname, '/other')
+  assert.equal(api.profile.backend_setting.app.colorMode, 'dark')
+  assert.equal(unloadIsBlocked(), false)
+})
+
+test('Reverting, cancelling and saving preferences clear navigation and unload warnings', async t => {
+  accountPreferencesFixture(t)
+  const { container, router } = await mountAccountPreferences(t)
+  await act(async () => preferencesButton('深色').click())
+  await act(async () => preferencesButton('浅色').click())
+  assert.equal(unloadIsBlocked(), false)
+  await act(async () => container.querySelector('[role="radio"][aria-label="玫瑰粉"]').click())
+  assert.equal(unloadIsBlocked(), true)
+  await act(async () => preferencesButton('取消').click())
+  assert.equal(unloadIsBlocked(), false)
+  assert.equal(core.useSettingStore.getState().settings.app.primaryColor, '#2563EB')
+  await act(async () => preferencesButton('深色').click())
+  await act(async () => preferencesButton('保存设置').click())
+  assert.equal(unloadIsBlocked(), false)
+  await act(async () => router.navigate('/other'))
+  assert.equal(router.state.location.pathname, '/other')
+})
+
+test('Layout drafts survive in the application shell and save before leaving', async t => {
+  const api = accountPreferencesFixture(t)
+  const app = { ...runtime(), session: core.sessionManager }
+  let navigate
+  function Preferences() {
+    navigate = useNavigate()
+    return React.createElement(core.AccountSettingsPage)
+  }
+  app.routes.configure({
+    layout: {
+      name: 'root',
+      path: '/',
+      element: React.createElement(core.AppLayout),
+      children: [
+        { name: 'preferences', path: 'preferences', element: React.createElement(Preferences) },
+        { name: 'other', path: 'other', element: React.createElement('p', null, 'other-page') },
+      ],
+    },
+    guests: [],
+    publics: [],
+    renderMenu: () => null,
+  })
+  app.routes.setMenus([])
+  window.history.replaceState(null, '', '/#/preferences')
+  const container = await mount(
+    React.createElement(core.RuntimeContext.Provider, { value: app }, React.createElement(core.AppRouter)),
+  )
+  const layout = container.querySelector('[role="radio"][aria-label="分栏导航"]')
+  await act(async () => layout.click())
+  assert.equal(layout.getAttribute('aria-checked'), 'true')
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
+  assert.equal(unloadIsBlocked(), true)
+  await act(async () => navigate('/other'))
+  assert.equal(window.location.hash, '#/preferences')
+  await act(async () => preferencesButton('保存并离开').click())
+  assert.equal(window.location.hash, '#/other')
+  assert.match(container.textContent, /other-page/)
+  assert.equal(api.profile.backend_setting.app.layout, 'columns')
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
+  assert.equal(unloadIsBlocked(), false)
+})
+
+test('Legacy profiles without a server primary color retain their cached color', async t => {
+  const api = accountPreferencesFixture(t)
+  delete api.profile.backend_setting.app.primaryColor
+  core.useSettingStore.getState().setPrimaryColor('#7C3AED')
+  assert.equal(await core.sessionManager.getState().hydrate(), true)
+  assert.equal(core.useSettingStore.getState().settings.app.primaryColor, '#7C3AED')
+})
+
+for (const layout of ['classic', 'columns']) {
+  test(`${layout} profile menu shares account actions, theme and color controls`, async t => {
+    const originalSettings = core.useSettingStore.getState().settings
+    const app = runtime()
+    let shell
+    let logoutCalls = 0
+    app.session.setState({
+      userInfo: { username: 'alice', nickname: 'Alice', email: 'alice@example.test' },
+      logout: async () => {
+        logoutCalls += 1
+      },
+    })
+    core.useSettingStore.getState().setSettings({
+      app: { ...originalSettings.app, layout, colorMode: 'light', primaryColor: '#2563EB' },
+    })
+    t.after(async () => {
+      await act(async () => {
+        for (const root of roots.splice(0)) root.unmount()
+        core.useSettingStore.getState().setSettings(originalSettings)
+        core.useSettingStore.getState().setColorMode(originalSettings.app.colorMode)
+      })
+    })
+    function Page() {
+      shell = core.useShell()
+      return React.createElement('p', { 'data-profile-location': true }, useLocation().pathname)
+    }
+    const container = await mount(
+      React.createElement(
+        core.RuntimeContext.Provider,
+        { value: app },
+        React.createElement(
+          MemoryRouter,
+          { initialEntries: ['/dashboard'] },
+          React.createElement(
+            Routes,
+            null,
+            React.createElement(
+              Route,
+              { path: '/', element: React.createElement(core.AppLayout) },
+              React.createElement(Route, { path: '*', element: React.createElement(Page) }),
+            ),
+          ),
+        ),
+      ),
+    )
+    const trigger = () => container.querySelector('[aria-label="打开 Alice 的个人菜单"]')
+    const popup = () => document.querySelector('[data-slot="dropdown-menu-content"]')
+    await act(async () => trigger().click())
+    assert.match(popup().textContent, /Alice/)
+    assert.match(popup().textContent, /alice@example\.test/)
+    assert.match(popup().textContent, /个人资料.*账号设置.*通知.*主题.*配色.*退出登录/)
+    assert.equal(popup().querySelectorAll('[role="radio"]').length, 10)
+    await act(async () => popup().querySelector('[role="radio"][aria-label="深色"]').click())
+    assert.equal(core.useSettingStore.getState().settings.app.colorMode, 'dark')
+    assert.equal(trigger().getAttribute('aria-expanded'), 'true')
+    await act(async () => popup().querySelector('[role="radio"][aria-label="玫瑰粉"]').click())
+    assert.equal(core.useSettingStore.getState().settings.app.primaryColor, '#DB2777')
+    assert.equal(trigger().getAttribute('aria-expanded'), 'true')
+    await act(async () =>
+      popup()
+        .querySelector('[role="radio"][aria-label="深色"]')
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })),
+    )
+    assert.equal(core.useSettingStore.getState().settings.app.colorMode, 'autoMode')
+    const menuItem = text =>
+      [...popup().querySelectorAll('[role="menuitem"]')].find(item => item.textContent.startsWith(text))
+    await act(async () => menuItem('通知').click())
+    assert.equal(shell.notificationsOpen, true)
+    await act(async () => trigger().click())
+    await act(async () => popup().querySelector('a[href="/settings/account"]').click())
+    assert.equal(container.querySelector('[data-profile-location]').textContent, '/settings/account')
+    await act(async () => trigger().click())
+    await act(async () => menuItem('退出登录').click())
+    assert.equal(logoutCalls, 1)
+  })
 }
 
 test('Public Sidebar and Toast providers share state with consumers', async () => {
@@ -413,6 +765,71 @@ test('Column navigation supports saved Verve settings, preserves the page and fi
   })
   core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout: 'classic' } } })
 })
+
+for (const layout of ['classic', 'columns']) {
+  test(`${layout} notifications render injected content in the shared drawer and can be closed`, async t => {
+    const settings = core.useSettingStore.getState().settings
+    core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout } } })
+    const app = runtime()
+    app.session.setState({ userInfo: { id: 71, username: 'notifications-test' } })
+    setTabs(['/dashboard'])
+    let dispose
+    t.after(async () => {
+      await act(async () => {
+        for (const root of roots.splice(0)) root.unmount()
+        dispose?.()
+      })
+      core.useSettingStore.setState({ settings })
+    })
+    const container = await mount(
+      React.createElement(
+        core.RuntimeContext.Provider,
+        { value: app },
+        React.createElement(
+          MemoryRouter,
+          { initialEntries: ['/dashboard'] },
+          React.createElement(
+            Routes,
+            null,
+            React.createElement(
+              Route,
+              { path: '/', element: React.createElement(core.AppLayout) },
+              React.createElement(Route, {
+                path: 'dashboard',
+                element: React.createElement('div', null, 'notification-page'),
+              }),
+            ),
+          ),
+        ),
+      ),
+    )
+    const trigger = container.querySelector('[data-slot="notifications-trigger"]')
+    assert.ok(trigger)
+    await act(async () => trigger.click())
+    const drawer = document.querySelector('[role="dialog"]')
+    assert.ok(drawer)
+    assert.match(drawer.textContent, /暂无通知/)
+    assert.equal(drawer.querySelector('[data-slot="sheet-footer"]'), null)
+    await act(async () => {
+      dispose = core.shellSlots.register({
+        id: 'test.notifications',
+        slot: 'notifications',
+        match: pathname => pathname === '/dashboard',
+        component: ({ pathname, userId }) =>
+          React.createElement('p', { 'data-notification-extension': '' }, `${userId}:${pathname}`),
+      })
+    })
+    assert.equal(
+      drawer.querySelector('[data-slot="notifications-content"] [data-notification-extension]')?.textContent,
+      '71:/dashboard',
+    )
+    assert.doesNotMatch(drawer.textContent, /暂无通知/)
+    await act(async () => dispose())
+    assert.match(drawer.textContent, /暂无通知/)
+    await act(async () => drawer.querySelector('[data-slot="sheet-close"]').click())
+    assert.equal(trigger.getAttribute('aria-expanded'), 'false')
+  })
+}
 
 test('Router, permissions and Shell consume the same injected session and route registry', async () => {
   const app = runtime()

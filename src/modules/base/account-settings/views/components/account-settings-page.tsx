@@ -1,7 +1,8 @@
 import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 import { toast } from '@/components/reui/use-toast'
-import { useState, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useBlocker } from 'react-router-dom'
 import {
   KeyRound,
   LayoutDashboard,
@@ -27,12 +28,14 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/reui/primitives/dialog'
 import { updateCurrentUser } from '@/modules/base/account-settings/api/account'
 import { useSession } from '@/hooks/framework/use-session'
 import type { UserInfo } from '@/services/auth/session-manager'
+import type { AppSettings } from '@/types/global'
 import { PasswordForm } from '@/modules/base/user-center/views/components/password-form'
 import { ThemeColorPicker } from '@/components/reui/theme-color-picker'
 import { useSettingStore } from '@/provider/settings'
@@ -64,10 +67,15 @@ function readAccountSettings(userInfo: UserInfo | null | undefined): AccountSett
   }
 }
 
-function mergeAccountSettings(userInfo: UserInfo | null | undefined, account: AccountSettings) {
+function mergeAccountSettings(userInfo: UserInfo | null | undefined, account: AccountSettings, app: AppSettings) {
   const backendSetting = isRecord(userInfo?.backend_setting) ? userInfo.backend_setting : {}
+  const previousApp = isRecord(backendSetting.app) ? { ...backendSetting.app } : {}
   const previous = isRecord(backendSetting.account) ? { ...backendSetting.account } : {}
-  return { ...backendSetting, account: { ...previous, ...account } }
+  return { ...backendSetting, app: { ...previousApp, ...app }, account: { ...previous, ...account } }
+}
+
+function appearanceSettings(app: AppSettings) {
+  return { colorMode: app.colorMode, primaryColor: app.primaryColor, layout: app.layout }
 }
 
 function responseMessage(response: { data?: { code?: number; message?: string } }) {
@@ -218,25 +226,66 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   const setSystemSettings = useSettingStore(state => state.setSettings)
   const layouts = useSyncExternalStore(layoutRegistry.subscribe, layoutRegistry.getSnapshot, layoutRegistry.getSnapshot)
   const [settings, setSettings] = useState(() => readAccountSettings(activeUserInfo))
+  const [selectedLayout, setSelectedLayout] = useState(appSettings.layout)
+  const [savedSettings, setSavedSettings] = useState(() => ({
+    account: readAccountSettings(activeUserInfo),
+    app: appearanceSettings(appSettings),
+  }))
   const [saving, setSaving] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
+  const hasUnsavedChanges =
+    settings.multiDeviceLogin !== savedSettings.account.multiDeviceLogin ||
+    appSettings.colorMode !== savedSettings.app.colorMode ||
+    appSettings.primaryColor !== savedSettings.app.primaryColor ||
+    selectedLayout !== savedSettings.app.layout
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      (hasUnsavedChanges || saving) &&
+      (currentLocation.pathname !== nextLocation.pathname ||
+        currentLocation.search !== nextLocation.search ||
+        currentLocation.hash !== nextLocation.hash),
+  )
+
+  useEffect(() => {
+    if (!hasUnsavedChanges && !saving) return
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warnBeforeUnload)
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload)
+  }, [hasUnsavedChanges, saving])
+
+  function discardChanges() {
+    setSettings(savedSettings.account)
+    setSelectedLayout(savedSettings.app.layout)
+    setSystemSettings({ app: { ...useSettingStore.getState().settings.app, ...savedSettings.app } })
+    setColorMode(savedSettings.app.colorMode)
+  }
 
   function updateSetting<Key extends keyof AccountSettings>(key: Key, value: AccountSettings[Key]) {
     setSettings(current => ({ ...current, [key]: value }))
   }
 
-  async function saveSettings() {
+  async function saveSettings(leaveAfterSave = false) {
     setSaving(true)
     try {
-      const backendSetting = mergeAccountSettings(activeUserInfo, settings)
+      const nextAppSettings = { ...appSettings, layout: selectedLayout }
+      const backendSetting = mergeAccountSettings(activeUserInfo, settings, nextAppSettings)
       const response = await updateCurrentUser({ backend_setting: backendSetting })
       if (response.data.code !== 200) throw new Error(responseMessage(response))
       const nextUserInfo = { ...(activeUserInfo || {}), backend_setting: backendSetting }
       onUserInfoChange?.(nextUserInfo)
       if (!userInfo) setStoreUserInfo(nextUserInfo)
+      setSavedSettings({ account: settings, app: appearanceSettings(nextAppSettings) })
+      // Continue the blocked navigation before applying a layout that may remount this page.
+      if (leaveAfterSave && blocker.state === 'blocked') blocker.proceed()
+      setSystemSettings({ app: { ...useSettingStore.getState().settings.app, layout: selectedLayout } })
       toast.success(tx('账号设置已保存'))
+      return true
     } catch (error) {
       toast.error(errorMessage(error, tx('账号设置保存失败')))
+      return false
     } finally {
       setSaving(false)
     }
@@ -251,84 +300,86 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
         </CardHeader>
         <CardContent className="p-0">
           <ShellSlotOutlet slot="account.preferences" />
-          <div className="border-b px-4 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
-                <Palette className="size-4" aria-hidden="true" />
-              </IconTile>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{tx('主题')}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择浅色、深色或跟随系统。')}</p>
-              </div>
-              <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
-                {settingsModes.map(({ value, icon: Icon }) => (
+          <fieldset disabled={saving} className="min-w-0">
+            <div className="border-b px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
+                  <Palette className="size-4" aria-hidden="true" />
+                </IconTile>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{tx('主题')}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择浅色、深色或跟随系统。')}</p>
+                </div>
+                <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
+                  {settingsModes.map(({ value, icon: Icon }) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      size="sm"
+                      variant={appSettings.colorMode === value ? 'default' : 'outline'}
+                      onClick={() => setColorMode(value)}
+                    >
+                      <Icon aria-hidden="true" />
+                      {tx(value === 'light' ? '浅色' : '深色')}
+                    </Button>
+                  ))}
                   <Button
-                    key={value}
                     type="button"
                     size="sm"
-                    variant={appSettings.colorMode === value ? 'default' : 'outline'}
-                    onClick={() => setColorMode(value)}
+                    variant={appSettings.colorMode === 'autoMode' ? 'default' : 'outline'}
+                    onClick={() => setColorMode('autoMode')}
                   >
-                    <Icon aria-hidden="true" />
-                    {tx(value === 'light' ? '浅色' : '深色')}
+                    <Monitor aria-hidden="true" />
+                    {tx('跟随系统')}
                   </Button>
-                ))}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={appSettings.colorMode === 'autoMode' ? 'default' : 'outline'}
-                  onClick={() => setColorMode('autoMode')}
-                >
-                  <Monitor aria-hidden="true" />
-                  {tx('跟随系统')}
-                </Button>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="border-b px-4 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
-                <Palette className="size-4" aria-hidden="true" />
-              </IconTile>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{tx('配色')}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择界面的主题配色。')}</p>
+            <div className="border-b px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
+                  <Palette className="size-4" aria-hidden="true" />
+                </IconTile>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{tx('配色')}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择界面的主题配色。')}</p>
+                </div>
+                <ThemeColorPicker
+                  className="ml-auto shrink-0"
+                  colors={themeColors}
+                  value={appSettings.primaryColor}
+                  onChange={setPrimaryColor}
+                />
               </div>
-              <ThemeColorPicker
-                className="ml-auto shrink-0"
-                colors={themeColors}
-                value={appSettings.primaryColor}
-                onChange={setPrimaryColor}
-              />
             </div>
-          </div>
-          <div className="border-b px-4 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
-                <LayoutDashboard className="size-4" aria-hidden="true" />
-              </IconTile>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{tx('布局')}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择主导航布局。')}</p>
+            <div className="border-b px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
+                  <LayoutDashboard className="size-4" aria-hidden="true" />
+                </IconTile>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{tx('布局')}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择主导航布局。')}</p>
+                </div>
+                <LayoutPicker
+                  layouts={layouts.filter(layout => layout.enabled !== false)}
+                  value={layoutRegistry.resolve(selectedLayout).id}
+                  onChange={setSelectedLayout}
+                />
               </div>
-              <LayoutPicker
-                layouts={layouts.filter(layout => layout.enabled !== false)}
-                value={layoutRegistry.resolve(appSettings.layout).id}
-                onChange={layout => setSystemSettings({ app: { ...appSettings, layout } })}
-              />
             </div>
-          </div>
-          <PreferenceRow
-            icon={MonitorSmartphone}
-            label={tx('是否多设备登录')}
-            description={tx('允许账号同时在多个设备上保持登录。')}
-            checked={settings.multiDeviceLogin}
-            onCheckedChange={checked => updateSetting('multiDeviceLogin', checked)}
-          />
+            <PreferenceRow
+              icon={MonitorSmartphone}
+              label={tx('是否多设备登录')}
+              description={tx('允许账号同时在多个设备上保持登录。')}
+              checked={settings.multiDeviceLogin}
+              onCheckedChange={checked => updateSetting('multiDeviceLogin', checked)}
+            />
+          </fieldset>
           <ShellSlotOutlet slot="account.bindings" userId={activeUserInfo?.id} />
         </CardContent>
         <CardFooter className="justify-end gap-2">
-          <Button variant="outline" onClick={() => setSettings(readAccountSettings(activeUserInfo))} disabled={saving}>
+          <Button variant="outline" onClick={discardChanges} disabled={saving}>
             {tx('取消')}
           </Button>
           <Button onClick={() => void saveSettings()} disabled={saving}>
@@ -359,6 +410,39 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={blocker.state === 'blocked'}
+        onOpenChange={open => {
+          if (!open && !saving && blocker.state === 'blocked') blocker.reset()
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={!saving}>
+          <DialogHeader>
+            <DialogTitle>{tx('是否保存账号偏好？')}</DialogTitle>
+            <DialogDescription>{tx('您有尚未保存的修改，离开前是否保存？')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" disabled={saving} onClick={() => blocker.state === 'blocked' && blocker.reset()}>
+              {tx('继续编辑')}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={saving}
+              onClick={() => {
+                discardChanges()
+                if (blocker.state === 'blocked') blocker.proceed()
+              }}
+            >
+              {tx('放弃修改')}
+            </Button>
+            <Button disabled={saving} onClick={() => void saveSettings(true)}>
+              {saving && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+              {saving ? tx('保存中…') : tx('保存并离开')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
         <DialogContent className="sm:max-w-lg">

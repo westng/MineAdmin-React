@@ -5,5 +5,7 @@ export interface ShellContextValue {
   activeSection: MenuVo | undefined
   setSection: (path: string) => void
   pathname: string
+  notificationsOpen: boolean
+  setNotificationsOpen: (open: boolean) => void
 }
 export const ShellContext = createContext<ShellContextValue | null>(null)

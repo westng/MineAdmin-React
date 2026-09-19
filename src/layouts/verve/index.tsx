@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, ChevronDown, ChevronRight, ChevronsUpDown, CircleDot, LayoutDashboard, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleDot, LayoutDashboard, Search } from 'lucide-react'
 import { useTranslate } from '@/provider/i18n'
 import { useShell } from '@/hooks/shell/use-shell'
 import { MaIcon } from '@/components/ma-icon'
@@ -52,7 +52,7 @@ import HeaderActionSlot from '@/layouts/components/bars/toolbar'
 import { VerveSectionNavigation } from './section-navigation'
 import { VerveProfileMenu } from './profile-menu'
 import { useVerveNavigation } from './navigation-context'
-import { VerveNotifications } from './notifications'
+import { NotificationsButton } from '@/layouts/components/notifications'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 
 type RailItem = {
@@ -130,7 +130,7 @@ export default function VerveNavigation() {
                       <SidebarMenuButton
                         isActive={active}
                         aria-label={item.label}
-                        title={item.label}
+                        tooltip={{ children: item.label, hidden: isMobile }}
                         className="size-8! justify-center p-0!"
                         render={
                           isSection ? <button type="button" /> : <NavLink to={item.to} end={item.to === '/dashboard'} />
@@ -279,96 +279,31 @@ function SearchMenu({ menus }: { menus: MenuVo[] }) {
 export function VerveHeader() {
   const t = useTranslate()
   const { menus } = useShell()
-  const { selectSection, clearSection, setNotificationsOpen } = useVerveNavigation()
   const location = useLocation()
-  const navigate = useNavigate()
   return (
     <>
       <header
         data-verve-header=""
-        className="relative z-20 flex h-(--header-height) w-full shrink-0 items-center gap-2 border-b border-border bg-background pr-2 pl-2.5 md:pl-0"
+        className="relative z-20 flex h-(--header-height) w-full shrink-0 items-center gap-2 border-b border-border bg-background pr-2 pl-2.5"
       >
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 md:flex-none">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <SidebarTrigger className="size-7 shrink-0 md:hidden" aria-label={t('shell.openNavigation')} />
-          <div className="flex min-w-0 items-center gap-0.5 text-[12.8px]">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="sm" className="h-7 gap-1 px-2.5 text-[12.8px] text-foreground" />}
-              >
-                <span
-                  className="size-3 rounded-full bg-linear-to-br from-fuchsia-400 to-violet-700"
-                  aria-hidden="true"
-                />
-                <span>BioTech</span>
-                <ChevronsUpDown className="size-3.5 opacity-60" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem
-                  onClick={() => {
-                    clearSection()
-                    navigate('/dashboard')
-                  }}
-                >
-                  <span className="size-3 rounded-full bg-linear-to-br from-fuchsia-400 to-violet-700" />
-                  BioTech
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <span className="text-muted-foreground/50" aria-hidden="true">
-              /
-            </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="sm" className="h-7 gap-1 px-2.5 text-[12.8px] text-foreground" />}
-              >
-                CRM
-                <ChevronsUpDown className="size-3.5 opacity-60" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {menus.filter(isVisibleMenu).map(menu => {
-                  const path = getMenuPath(menu)
-                  return path ? (
-                    <DropdownMenuItem
-                      key={path}
-                      onClick={() => {
-                        if (menu.children?.some(isVisibleMenu)) selectSection(menu)
-                        else {
-                          clearSection()
-                          navigate(path)
-                        }
-                      }}
-                    >
-                      {getMenuLabel(menu)}
-                    </DropdownMenuItem>
-                  ) : null
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <VerveBreadcrumb />
         </div>
-        <div className="ml-auto flex items-center md:absolute md:left-1/2 md:-translate-x-1/2">
+        <div className="flex shrink-0 items-center">
           <SearchMenu menus={menus} />
         </div>
-        <div className="ml-auto flex items-center gap-1 [&>button]:h-7 [&>button]:text-[12.8px]">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1 [&>button]:h-7 [&>button]:text-[12.8px]">
           <ShellSlotOutlet slot="shell.toolbar" pathname={location.pathname} />
           <HeaderActionSlot />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="size-7 [&_svg]:opacity-60"
-            aria-label={t('通知')}
-            onClick={() => setNotificationsOpen(true)}
-          >
-            <Bell className="size-4" />
-          </Button>
+          <NotificationsButton className="size-7 [&_svg]:opacity-60" />
         </div>
       </header>
-      <VerveNotifications />
     </>
   )
 }
 
-export function VerveBreadcrumb() {
+function VerveBreadcrumb() {
   const t = useTranslate()
   const { menus } = useShell()
   const { pathname } = useLocation()
@@ -383,18 +318,12 @@ export function VerveBreadcrumb() {
           ? getMenuLabel(title)
           : t('首页')
   return (
-    <Breadcrumb className="mb-4 flex min-h-9 shrink-0 items-center" aria-label={t('页面')}>
-      <BreadcrumbList className="flex-nowrap gap-2 text-sm">
-        <BreadcrumbItem>
+    <Breadcrumb className="flex min-w-0 items-center overflow-hidden" aria-label={t('页面')}>
+      <BreadcrumbList className="min-w-0 flex-nowrap gap-2 text-[12.8px]">
+        <BreadcrumbItem className="shrink-0">
           <BreadcrumbLink asChild>
             <NavLink to="/dashboard">{t('首页')}</NavLink>
           </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator>
-          <ChevronRight className="size-3.5" />
-        </BreadcrumbSeparator>
-        <BreadcrumbItem>
-          <span>CRM</span>
         </BreadcrumbItem>
         {trail.length
           ? trail.map((item, index) => (

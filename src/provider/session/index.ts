@@ -40,7 +40,7 @@ export const sessionManager = createSessionManager({
       app: {
         ...currentSettings.app,
         ...backendSettings.app,
-        ...(persistedPrimaryColor ? { primaryColor: persistedPrimaryColor } : {}),
+        ...(persistedPrimaryColor && !backendSettings.app?.primaryColor ? { primaryColor: persistedPrimaryColor } : {}),
       },
     })
   },

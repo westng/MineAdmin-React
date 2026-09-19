@@ -3,23 +3,9 @@ import { useShell } from '@/hooks/shell/use-shell'
 import * as React from 'react'
 import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import {
-  ChevronRight,
-  CircleDot,
-  ChevronsUpDown,
-  LayoutDashboard,
-  LogOut,
-  Moon,
-  Palette,
-  Search,
-  Settings,
-  Sun,
-  Monitor,
-  UserRound,
-} from 'lucide-react'
+import { ChevronRight, CircleDot, LayoutDashboard, Search, Settings, UserRound } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { MaIcon } from '@/components/ma-icon'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/reui/primitives/avatar'
 import { Button } from '@/components/reui/primitives/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/reui/primitives/collapsible'
 import {
@@ -30,15 +16,6 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/reui/primitives/command'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/reui/primitives/dropdown-menu'
 import {
   Sidebar,
   SidebarContent,
@@ -56,13 +33,10 @@ import {
   SidebarRail,
   useSidebar,
 } from '@/components/reui/primitives/sidebar'
-import { useSession } from '@/hooks/framework/use-session'
-import { useSettingStore } from '@/provider/settings'
 import { getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/dynamic-menu'
 import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
 import { cn } from '@/utils/cn'
-import { ThemeColorPicker } from '@/components/reui/theme-color-picker'
-import { themeColors } from '@/provider/settings/colors'
+import { ProfileMenu } from '@/layouts/components/profile-menu'
 
 const tx = createTextTranslator('shell.ui')
 
@@ -109,20 +83,6 @@ function toMenuItem(menu: MenuVo): MenuItem | null {
     ...(children.length > 0 ? { children } : {}),
   }
 }
-function initials(name: string) {
-  return Array.from(name.trim())[0]?.toUpperCase() || 'M'
-}
-function ProfileAvatar({ name, avatar, size = 'sm' }: { name: string; avatar?: string; size?: 'sm' | 'default' }) {
-  return (
-    <Avatar size={size}>
-      {avatar && <AvatarImage src={avatar} alt={name} />}
-      <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
-        {initials(name)}
-      </AvatarFallback>
-    </Avatar>
-  )
-}
-
 function NavigationSearchMenu({ items }: { items: MenuItem[] }) {
   const localeRevision = useLocaleRevision()
   void localeRevision
@@ -195,174 +155,6 @@ function NavigationSearchMenu({ items }: { items: MenuItem[] }) {
         </Command>
       </CommandDialog>
     </>
-  )
-}
-
-const themeOptions = [
-  {
-    value: 'light' as const,
-    get label() {
-      return tx('浅色')
-    },
-    icon: Sun,
-  },
-  {
-    value: 'dark' as const,
-    get label() {
-      return tx('深色')
-    },
-    icon: Moon,
-  },
-  {
-    value: 'autoMode' as const,
-    get label() {
-      return tx('跟随系统')
-    },
-    icon: Monitor,
-  },
-]
-function ThemeSwitcher({
-  value,
-  onChange,
-}: {
-  value: 'light' | 'dark' | 'autoMode'
-  onChange: (value: 'light' | 'dark' | 'autoMode') => void
-}) {
-  const localeRevision = useLocaleRevision()
-  void localeRevision
-
-  return (
-    <div
-      role="radiogroup"
-      aria-label={tx('主题')}
-      className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 p-0.5"
-    >
-      {themeOptions.map(({ value: optionValue, label, icon: Icon }, index) => (
-        <Button
-          key={optionValue}
-          type="button"
-          role="radio"
-          aria-checked={value === optionValue}
-          tabIndex={value === optionValue ? 0 : -1}
-          onKeyDown={event => {
-            const delta = ['ArrowRight', 'ArrowDown'].includes(event.key)
-              ? 1
-              : ['ArrowLeft', 'ArrowUp'].includes(event.key)
-                ? -1
-                : 0
-            if (!delta) return
-            event.preventDefault()
-            const next = (index + delta + themeOptions.length) % themeOptions.length
-            onChange(themeOptions[next].value)
-            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus()
-          }}
-          aria-label={label}
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => onChange(optionValue)}
-          className={cn(
-            'rounded-full',
-            value === optionValue
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <Icon aria-hidden="true" />
-        </Button>
-      ))}
-    </div>
-  )
-}
-function ProfileMenu({
-  displayName,
-  email,
-  avatar,
-  colorMode,
-  primaryColor,
-  onChangeTheme,
-  onChangeColor,
-  onLogout,
-}: {
-  displayName: string
-  email: string
-  avatar?: string
-  colorMode: 'light' | 'dark' | 'autoMode'
-  primaryColor: string
-  onChangeTheme: (value: 'light' | 'dark' | 'autoMode') => void
-  onChangeColor: (value: string) => void
-  onLogout: () => void
-}) {
-  const localeRevision = useLocaleRevision()
-  void localeRevision
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            className="flex h-12 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left outline-hidden transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={tx('打开 {0} 的个人菜单', { '0': displayName })}
-          />
-        }
-      >
-        <ProfileAvatar name={displayName} avatar={avatar} />
-        <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-          <span className="block truncate text-sm font-medium">{displayName}</span>
-          <span className="block truncate text-xs text-muted-foreground">{email}</span>
-        </span>
-        <ChevronsUpDown
-          className="size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden"
-          aria-hidden="true"
-        />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-56">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="flex items-center gap-2.5 py-2">
-            <ProfileAvatar name={displayName} avatar={avatar} size="default" />
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold">{displayName}</span>
-              <span className="truncate text-xs font-normal text-muted-foreground">{email}</span>
-            </div>
-          </DropdownMenuLabel>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem render={<NavLink to="/settings" />}>
-          <UserRound aria-hidden="true" />
-          {tx('个人资料')}
-        </DropdownMenuItem>
-        <DropdownMenuItem render={<NavLink to="/settings/account" />}>
-          <Settings aria-hidden="true" />
-          {tx('账号设置')}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={event => event.preventDefault()} className="cursor-default focus:bg-transparent!">
-          <Palette aria-hidden="true" />
-          <span>{tx('主题')}</span>
-          <div className="ml-auto">
-            <ThemeSwitcher value={colorMode} onChange={onChangeTheme} />
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={event => event.preventDefault()} className="cursor-default focus:bg-transparent!">
-          <Palette aria-hidden="true" />
-          <span>{tx('配色')}</span>
-          <div className="ml-auto">
-            <ThemeColorPicker
-              colors={themeColors}
-              value={primaryColor}
-              onChange={onChangeColor}
-              compact
-              className="gap-1"
-            />
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onLogout}>
-          <LogOut aria-hidden="true" />
-          {tx('退出登录')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
 
@@ -462,9 +254,6 @@ export default function MainAside({
   const location = useLocation()
   const { menus: storedMenus } = useShell()
   const menus = menusOverride ?? storedMenus
-  const userInfo = useSession(state => state.userInfo)
-  const logout = useSession(state => state.logout)
-  const { settings, setColorMode, setPrimaryColor } = useSettingStore()
   const { state, isMobile } = useSidebar()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const menuItems = React.useMemo(() => {
@@ -477,8 +266,6 @@ export default function MainAside({
   )
   const systemItems = fallbackSystemItems
   const allItems = React.useMemo(() => [...workspaceItems, ...storeItems, ...systemItems], [storeItems, systemItems])
-  const displayName = userInfo?.nickname || userInfo?.username || tx('管理员')
-  const email = userInfo?.email || userInfo?.username || tx('未绑定邮箱')
   React.useEffect(() => {
     const active = allItems
       .filter(item =>
@@ -546,16 +333,7 @@ export default function MainAside({
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter className="mt-2 shrink-0 gap-2 px-4 py-2 group-data-[collapsible=icon]:px-1.5">
-          <ProfileMenu
-            displayName={displayName}
-            email={email}
-            avatar={userInfo?.avatar || undefined}
-            colorMode={settings.app.colorMode}
-            primaryColor={settings.app.primaryColor}
-            onChangeTheme={setColorMode}
-            onChangeColor={setPrimaryColor}
-            onLogout={() => void logout()}
-          />
+          <ProfileMenu />
         </SidebarFooter>
         {!isMobile && (
           <SidebarRail

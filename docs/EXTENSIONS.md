@@ -48,6 +48,24 @@ const dispose = registerShellSlot({
 // 应用或插件卸载时调用 dispose()。
 ```
 
+经典布局和分栏导航的顶部通知按钮及头像菜单入口共用一个 `MaDrawer`，正文通过 `notifications` 插槽注入。插槽组件接收当前 `pathname` 和 `userId`；未注册内容时显示“暂无通知”。通知数据与读取、标记已读等行为由注入组件负责。抽屉沿用 `MaDrawer` 的默认宽度、边距和关闭行为，不显示底部操作栏；注入组件只需提供正文。
+
+```tsx
+import { registerShellSlot } from '@/layouts/slots'
+import { MyNotifications } from './components/my-notifications'
+
+const dispose = registerShellSlot({
+  id: 'my-app.notifications',
+  slot: 'notifications',
+  component: ({ pathname, userId }) => <MyNotifications pathname={pathname} userId={userId} />,
+})
+// 应用卸载时调用 dispose()；插件可使用 ctx.registerSlot() 自动管理生命周期。
+```
+
+Shell 内的自定义入口可通过 `useShell()`（`@/hooks/shell/use-shell`）读取 `notificationsOpen` 或调用 `setNotificationsOpen(true)`，无需重复挂载通知抽屉。经典布局和分栏导航也复用 `ProfileMenu`（`@/layouts/components/profile-menu`）；分栏导航使用紧凑头像入口，进入个人资料或账号设置时清除当前二级菜单。
+
+账号设置将内置偏好合并保存到当前用户的 `backend_setting.app` 和 `backend_setting.account`，保留已有扩展字段。主题和配色即时预览，布局先保留为草稿、保存成功后应用；离开提醒只覆盖这些内置偏好，`account.preferences` 注入组件需自行管理业务字段的保存和离开保护。应用路由使用 React Router 的 Data Router 支持 `useBlocker`，扩展应使用现有路由上下文，不再嵌套独立 Router。
+
 品牌默认值通过 `modules/base/auth/data/website` 的 `registerLoginPageConfig` 配置并在卸载时撤销；在线展示配置仍由既有登录配置接口加载。业务实现和品牌默认值的源码是否导出由发布清单决定。
 
 三种布局都消费相同 ShellContext。注册新布局时提供 navigation，可选 headerNavigation，不创建第二个 Router/QueryClient/Session；`layoutRegistry.register()` 返回 disposer。页面保留在共享的内容 Outlet 中。

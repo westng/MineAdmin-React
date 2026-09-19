@@ -7,8 +7,6 @@ export const VerveNavigationContext = createContext<{
   selectSection: (menu: MenuVo) => void
   width: number
   setWidth: (width: number) => void
-  notificationsOpen: boolean
-  setNotificationsOpen: (open: boolean) => void
 } | null>(null)
 
 export function useVerveNavigation() {

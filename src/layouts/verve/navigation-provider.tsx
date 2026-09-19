@@ -7,7 +7,6 @@ export function VerveNavigationProvider({ children }: PropsWithChildren) {
   const { menus, pathname } = useShell()
   const [selection, setSelection] = useState<{ path: string | null; pathname: string }>()
   const [width, setWidth] = useState(200)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const visibleMenus = menus.filter(isVisibleMenu)
   const routeSection = findMenuTrail(visibleMenus, pathname)[0]?.menu
   const section =
@@ -25,8 +24,6 @@ export function VerveNavigationProvider({ children }: PropsWithChildren) {
         selectSection: menu => setSelection({ path: getMenuPath(menu), pathname }),
         width,
         setWidth: nextWidth => setWidth(Math.min(360, Math.max(160, nextWidth))),
-        notificationsOpen,
-        setNotificationsOpen,
       }}
     >
       <div

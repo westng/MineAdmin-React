@@ -13,6 +13,7 @@ import {
 import { findMenuByPath, findMenuTrail, getMenuLabel } from '@/router/dynamic-menu'
 import { useRoute } from '@/hooks/framework/use-route'
 import HeaderActionSlot from '@/layouts/components/bars/toolbar'
+import { NotificationsButton } from '@/layouts/components/notifications'
 
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 import { cn } from '@/utils/cn'
@@ -87,6 +88,7 @@ export default function Header({ className }: { className?: string }) {
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <ShellSlotOutlet slot="shell.toolbar" pathname={location.pathname} />
           <HeaderActionSlot />
+          <NotificationsButton />
         </div>
       </div>
     </header>

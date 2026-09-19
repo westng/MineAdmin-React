@@ -1,8 +1,9 @@
 import { useTranslate } from '@/provider/i18n'
 import { PageViewport } from './page-viewport'
 import {
-  BrowserRouter,
-  HashRouter,
+  createBrowserRouter,
+  createHashRouter,
+  RouterProvider,
   Navigate,
   Outlet,
   Route,
@@ -10,7 +11,7 @@ import {
   useLocation,
   type Location,
 } from 'react-router-dom'
-import { useEffect, useRef } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useSession } from '@/hooks/framework/use-session'
 import { useRuntime } from '@/hooks/framework/use-runtime'
 import type { AppRoute } from './types'
@@ -91,6 +92,7 @@ function renderRoutes(routes: AppRoute[]) {
 }
 
 type NavigationListener = (location: Location, previous: Location) => void
+const NavigationListenerContext = createContext<NavigationListener | undefined>(undefined)
 
 function NavigationLifecycle({ onNavigate }: { onNavigate?: NavigationListener }) {
   const location = useLocation()
@@ -104,11 +106,11 @@ function NavigationLifecycle({ onNavigate }: { onNavigate?: NavigationListener }
   return null
 }
 
-export function AppRouter({ onNavigate }: { onNavigate?: NavigationListener } = {}) {
+function AppRoutes() {
   const snapshot = useRoute()
-  const Router = import.meta.env.VITE_APP_ROUTE_MODE === 'history' ? BrowserRouter : HashRouter
+  const onNavigate = useContext(NavigationListenerContext)
   return (
-    <Router basename={import.meta.env.VITE_APP_ROOT_BASE}>
+    <>
       <NavigationLifecycle onNavigate={onNavigate} />
       <Routes>
         <Route element={<ProtectedRoute routes={snapshot.protectedRoutes} initialized={snapshot.initialized} />}>
@@ -121,6 +123,25 @@ export function AppRouter({ onNavigate }: { onNavigate?: NavigationListener } = 
         <Route element={<GuestRoute />}>{renderRoutes(snapshot.guestRoutes)}</Route>
         {renderRoutes(snapshot.publicRoutes)}
       </Routes>
-    </Router>
+    </>
+  )
+}
+
+export function AppRouter({ onNavigate }: { onNavigate?: NavigationListener } = {}) {
+  const [router, setRouter] = useState<ReturnType<typeof createBrowserRouter> | null>(null)
+  useEffect(() => {
+    const createRouter = import.meta.env.VITE_APP_ROUTE_MODE === 'history' ? createBrowserRouter : createHashRouter
+    const instance = createRouter([{ path: '*', element: <AppRoutes /> }], {
+      basename: import.meta.env.VITE_APP_ROOT_BASE,
+    })
+    // Browser history subscriptions must be created and disposed together, including StrictMode remounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRouter(instance)
+    return () => instance.dispose()
+  }, [])
+  return (
+    <NavigationListenerContext.Provider value={onNavigate}>
+      {router && <RouterProvider router={router} />}
+    </NavigationListenerContext.Provider>
   )
 }
