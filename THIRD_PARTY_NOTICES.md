@@ -2,6 +2,10 @@
 
 本文保留公共 UI 组件所涉及的上游版权和许可文本。ReUI 与基础 UI 包装层包含本项目的 API 透传、状态样式及行属性适配修改；这些修改不替代上游许可。npm 依赖的完整许可仍以各依赖包附带的许可证为准。
 
+## Inter
+
+来源：[Inter](https://github.com/rsms/inter)。分栏导航使用 `src/assets/fonts/inter/Inter-latin.woff2`，版权归 The Inter Project Authors 所有，采用 SIL Open Font License 1.1。完整许可随字体一并提供，见 [OFL.txt](src/assets/fonts/inter/OFL.txt)；公共源码导出包含字体与许可证。
+
 ## ReUI
 
 来源：[ReUI](https://github.com/keenthemes/reui)。涉及范围：src/components/reui/ 及从其组合而来的组件。

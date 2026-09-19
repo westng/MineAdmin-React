@@ -42,7 +42,8 @@ export function isPublicFile(file) {
       return (
         file.startsWith('src/assets/styles/') ||
         file.startsWith('src/assets/icons/') ||
-        file.startsWith('src/assets/images/')
+        file.startsWith('src/assets/images/') ||
+        /^src\/assets\/fonts\/inter\/(?:Inter-latin\.woff2|OFL\.txt)$/.test(file)
       )
     return /^src\/(?:hooks|layouts|provider|router|services|store|types|utils)\//.test(file)
   }

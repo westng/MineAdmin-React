@@ -34,6 +34,8 @@ test('public export excludes business files, unknown source roots, local configu
     'src/app/application.css',
     'src/modules/creator/components/nm-douyin-user-parser/index.ts',
     'src/unreviewed/domain.ts',
+    'src/assets/fonts/private-font.woff2',
+    'src/assets/fonts/inter/unreviewed.woff2',
     '.env.local',
     '../src/main.tsx',
   ]) {
@@ -42,10 +44,13 @@ test('public export excludes business files, unknown source roots, local configu
   const root = mkdtempSync(path.join(os.tmpdir(), 'public-manifest-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   mkdirSync(path.join(root, 'src/services'), { recursive: true })
+  const fontFiles = ['src/assets/fonts/inter/Inter-latin.woff2', 'src/assets/fonts/inter/OFL.txt']
+  mkdirSync(path.join(root, 'src/assets/fonts/inter'), { recursive: true })
+  for (const file of fontFiles) writeFileSync(path.join(root, file), 'public font fixture')
   writeFileSync(path.join(root, 'src/services/allowed.ts'), 'export const allowed = true')
   writeFileSync(path.join(root, '.env.local'), 'SYNTHETIC_SECRET=not-a-credential')
   symlinkSync(path.join(root, '.env.local'), path.join(root, 'src/services/link.ts'))
-  assert.deepEqual(listPublicFiles(root), ['src/services/allowed.ts'])
+  assert.deepEqual(listPublicFiles(root), [...fontFiles, 'src/services/allowed.ts'])
 })
 
 test('all public component dependencies stay inside the reviewed closure', () => {
