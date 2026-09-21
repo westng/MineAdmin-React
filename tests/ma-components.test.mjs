@@ -20,6 +20,7 @@ for (const key of [
   'HTMLFormElement',
   'Element',
   'Node',
+  'NodeFilter',
   'DocumentFragment',
   'MutationObserver',
   'ResizeObserver',
@@ -44,7 +45,7 @@ const { createRoot } = require('react-dom/client')
 const { Dialog: DialogPrimitive } = require('@base-ui/react/dialog')
 const result = await build({
   stdin: {
-    contents: ['ma-form', 'ma-search', 'ma-table', 'ma-pro-table', 'ma-dialog', 'ma-drawer']
+    contents: ['ma-form', 'ma-search', 'ma-table', 'ma-pro-table', 'ma-dialog', 'ma-drawer', 'ma-remote-select']
       .map(name => `export * from './src/components/${name}'`)
       .join('\n'),
     resolveDir: fileURLToPath(new URL('../', import.meta.url)),
@@ -57,7 +58,7 @@ const result = await build({
 })
 const compiled = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(compiled, compiled.exports, require)
-const { MaForm, MaSearch, MaTable, MaProTable, MaDialog, MaDrawer } = compiled.exports
+const { MaForm, MaSearch, MaTable, MaProTable, MaDialog, MaDrawer, MaRemoteSelect } = compiled.exports
 
 async function mount(t, component, props) {
   const container = document.createElement('div')
@@ -338,6 +339,31 @@ test('MaTable 隐藏分页器或未配置分页时展示全部本地数据，显
   assert.equal(view.container.querySelectorAll('tbody tr[data-row-id]').length, 10)
 })
 
+test('MaTable 将标签放在搜索区和工具栏之间', async t => {
+  const view = await mount(t, MaTable, {
+    columns: [{ prop: 'id', label: '编号' }],
+    data: [{ id: 1 }],
+    headerContent: createElement('div', { 'data-testid': 'search-content' }, '搜索区'),
+    tabs: {
+      value: 'shop',
+      items: [
+        { value: 'shop', label: '店铺' },
+        { value: 'jzt', label: '京准通' },
+      ],
+    },
+    toolbarLeft: createElement('button', { type: 'button' }, '新增授权'),
+    options: { showPagination: false },
+  })
+  const search = view.container.querySelector('[data-testid="search-content"]')
+  const tab = view.container.querySelector('[role="tab"]')
+  const toolbar = view.container.querySelector('[role="toolbar"]')
+  assert.ok(search)
+  assert.ok(tab)
+  assert.ok(toolbar)
+  assert.ok(search.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_FOLLOWING)
+  assert.ok(tab.compareDocumentPosition(toolbar) & Node.DOCUMENT_POSITION_FOLLOWING)
+})
+
 test('MaTable 分组、固定列和行级样式进入真实 DataGrid 渲染链', async t => {
   const view = await mount(t, MaTable, {
     columns: [
@@ -599,7 +625,12 @@ test('MaDialog 全屏时使用视口高度，退出后恢复配置且保留表�
   })
   const popup = () => document.querySelector('[role="dialog"]')
   await enterValue(popup().querySelector('input'), '尚未保存的内容')
-  await click(button(popup(), '全屏显示'))
+  const fullscreenButton = button(popup(), '全屏显示')
+  assert.match(fullscreenButton.className, /absolute/)
+  assert.match(fullscreenButton.className, /top-2/)
+  assert.match(fullscreenButton.className, /right-12/)
+  assert.match(popup().querySelector('[data-slot="dialog-header"]').className, /relative/)
+  await click(fullscreenButton)
   assert.equal(popupHeight, '100svh')
   assert.equal(popup().style.maxHeight, '100svh')
   assert.equal(popup().querySelector('input').value, '尚未保存的内容')
@@ -816,4 +847,251 @@ test('MaProTable 列表和导出共享默认筛选、已提交筛选及归一化
   assert.equal(ref.current.getRequestParams().status, 1)
   await click(button(view.container, '重置'))
   assert.deepEqual(ref.current.getRequestParams(), { tenant: '固定', status: 0 })
+})
+
+test('MaRemoteSelect 默认 URL 请求支持固定参数、分页和标准选项响应', async t => {
+  const calls = []
+  const view = await mount(t, MaRemoteSelect, {
+    url: '/admin/advertiser/options',
+    params: { platform: 'QC' },
+    request: async config => {
+      calls.push(config)
+      return { data: { code: 200, data: { items: [{ id: 7, name: '广告主 A' }], total: 1 } } }
+    },
+  })
+  await click(view.container.querySelector('button'))
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 10))
+  })
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url, '/admin/advertiser/options')
+  assert.deepEqual(calls[0].params, { platform: 'QC', page: 1, page_size: 20 })
+  assert.match(document.body.textContent, /广告主 A/)
+})
+
+test('MaRemoteSelect 初始值自动请求回显选项', async t => {
+  const calls = []
+  const view = await mount(t, MaRemoteSelect, {
+    url: '/admin/advertiser/options',
+    value: 7,
+    request: async config => {
+      calls.push(config)
+      return { data: { code: 200, data: { items: [{ id: 7, name: '已选广告主' }], total: 1 } } }
+    },
+  })
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 10))
+  })
+  assert.equal(calls[0].params.ids, 7)
+  assert.match(view.container.textContent, /已选广告主/)
+})
+
+test('MaRemoteSelect 可以作为 MaForm 自定义组件并回写表单值', async t => {
+  const ref = createRef()
+  const view = await mount(t, MaForm, {
+    ref,
+    defaultValue: { advertiser_id: null },
+    items: [
+      {
+        prop: 'advertiser_id',
+        label: '广告主',
+        component: MaRemoteSelect,
+        renderProps: {
+          url: '/admin/advertiser/options',
+          request: async () => ({ data: { code: 200, data: { items: [{ id: 7, name: '表单广告主' }] } } }),
+        },
+      },
+    ],
+  })
+  await click(view.container.querySelector('button'))
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 10))
+  })
+  await click([...document.querySelectorAll('[role="option"]')].find(node => node.textContent.includes('表单广告主')))
+  assert.equal(ref.current.getValues().advertiser_id, 7)
+})
+
+const { useMaFormDialog, useMaConfirm } = compiled.exports
+
+function deferred() {
+  let resolve
+  let reject
+  const promise = new Promise((yes, no) => {
+    resolve = yes
+    reject = no
+  })
+  return { promise, resolve, reject }
+}
+
+function formDialogFixture(options, receive) {
+  return function Fixture() {
+    const editor = useMaFormDialog(options)
+    receive(editor)
+    return createElement(
+      MaDialog,
+      { ...editor.dialogProps, title: '编辑记录', okText: '保存记录' },
+      createElement(MaForm, {
+        ...editor.formProps,
+        key: editor.formKey,
+        items: [{ prop: 'name', label: '名称', itemProps: { rules: { required: true, message: '请填写名称' } } }],
+      }),
+    )
+  }
+}
+
+test('表单弹窗统一校验、原生提交及按钮提交；失败保留输入并阻止重复保存和关闭', async t => {
+  let editor
+  let request
+  const writes = []
+  const errors = []
+  const completed = []
+  await mount(
+    t,
+    formDialogFixture(
+      {
+        defaultValues: () => ({ name: '' }),
+        onSubmit: values => {
+          writes.push(values.name)
+          request = deferred()
+          return request.promise
+        },
+        onSuccess: values => completed.push(values.name),
+        onError: error => errors.push(error.message),
+      },
+      value => {
+        editor = value
+      },
+    ),
+  )
+  await act(async () => editor.open(undefined))
+  await click(button(document, '保存记录'))
+  assert.equal(writes.length, 0)
+  assert.match(document.body.textContent, /请填写名称/)
+  await enterValue(document.querySelector('input'), '保留我的输入')
+  await act(async () => {
+    button(document, '保存记录').click()
+    button(document, '保存记录').click()
+  })
+  assert.deepEqual(writes, ['保留我的输入'])
+  assert.equal(button(document, '保存记录').disabled, true)
+  await act(async () => {
+    editor.close()
+    editor.open(undefined)
+    document.querySelector('form').dispatchEvent(new dom.Event('submit', { bubbles: true, cancelable: true }))
+  })
+  assert.equal(writes.length, 1)
+  assert.equal(editor.dialogProps.open, true)
+  await act(async () => request.reject(new Error('服务器拒绝保存')))
+  assert.deepEqual(errors, ['服务器拒绝保存'])
+  assert.equal(document.querySelector('input').value, '保留我的输入')
+  assert.equal(editor.dialogProps.open, true)
+  await act(async () => {
+    document.querySelector('form').dispatchEvent(new dom.Event('submit', { bubbles: true, cancelable: true }))
+  })
+  assert.equal(writes.length, 2)
+  await act(async () => request.resolve())
+  assert.equal(editor.dialogProps.open, false)
+  assert.deepEqual(completed, ['保留我的输入'])
+  await act(async () => editor.open(undefined))
+  assert.equal(document.querySelector('input').value, '')
+})
+
+test('表单弹窗隔离异步回填，加载时可取消，失败和无权限不能提交', async t => {
+  let editor
+  let allowed = true
+  const loads = new Map()
+  const errors = []
+  const writes = []
+  const view = await mount(
+    t,
+    formDialogFixture(
+      {
+        defaultValues: () => ({ name: '' }),
+        loadValues: (id, signal) => {
+          const pending = deferred()
+          loads.set(id, { ...pending, signal })
+          return pending.promise
+        },
+        canSubmit: () => allowed,
+        onSubmit: values => {
+          writes.push(values.name)
+        },
+        onError: error => errors.push(error.message),
+      },
+      value => {
+        editor = value
+      },
+    ),
+  )
+  await act(async () => editor.open('A'))
+  assert.equal(button(document, '保存记录').disabled, true)
+  assert.equal(button(document, '取消').disabled, false)
+  await click(button(document, '取消'))
+  assert.equal(loads.get('A').signal.aborted, true)
+  await act(async () => editor.open('B'))
+  await act(async () => loads.get('B').resolve({ name: 'B' }))
+  await act(async () => loads.get('A').resolve({ name: 'A' }))
+  assert.equal(document.querySelector('input').value, 'B')
+  await enterValue(document.querySelector('input'), '临时修改')
+  await act(async () => editor.formProps.ref.current.resetFields())
+  assert.equal(document.querySelector('input').value, 'B')
+  allowed = false
+  await view.render({})
+  assert.equal(button(document, '保存记录'), undefined)
+  await act(async () =>
+    document.querySelector('form').dispatchEvent(new dom.Event('submit', { bubbles: true, cancelable: true })),
+  )
+  assert.deepEqual(writes, [])
+  await click(button(document, '取消'))
+  allowed = true
+  await act(async () => editor.open('C'))
+  await act(async () => loads.get('C').reject(new Error('回填失败')))
+  assert.equal(button(document, '保存记录').disabled, true)
+  assert.equal(editor.ready, false)
+  assert.deepEqual(errors, ['回填失败'])
+  await click(button(document, '取消'))
+  await act(async () => editor.open('D'))
+  await click(button(document, '取消'))
+  await act(async () => loads.get('D').reject(new Error('过期失败')))
+  assert.deepEqual(errors, ['回填失败'])
+})
+
+test('确认 Hook 共用默认弹窗：重复提交被拦截，失败保留，成功关闭，取消不执行', async t => {
+  let confirm
+  let request
+  let writes = 0
+  const errors = []
+  function Fixture() {
+    confirm = useMaConfirm({ onError: error => errors.push(error.message) })
+    return createElement(MaDialog, { ...confirm.dialogProps })
+  }
+  await mount(t, Fixture)
+  const options = {
+    title: '删除记录',
+    description: '确认删除吗？',
+    okText: '执行删除',
+    onConfirm: () => {
+      writes++
+      request = deferred()
+      return request.promise
+    },
+  }
+  await act(async () => confirm.open(options))
+  await click(button(document, '取消'))
+  assert.equal(writes, 0)
+  await act(async () => confirm.open(options))
+  await act(async () => {
+    button(document, '执行删除').click()
+    button(document, '执行删除').click()
+  })
+  assert.equal(writes, 1)
+  assert.equal(button(document, '取消').disabled, true)
+  await act(async () => confirm.open({ ...options, title: '另一条记录' }))
+  assert.equal(confirm.dialogProps.title, '删除记录')
+  await act(async () => request.reject(new Error('删除失败')))
+  assert.equal(confirm.dialogProps.open, true)
+  assert.deepEqual(errors, ['删除失败'])
+  await click(button(document, '执行删除'))
+  await act(async () => request.resolve())
+  assert.equal(confirm.dialogProps.open, false)
 })

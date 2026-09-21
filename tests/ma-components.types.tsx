@@ -1,8 +1,8 @@
 import { createRef } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
-import { MaDialog, type MaDialogProps } from '../src/components/ma-dialog'
+import { MaDialog, useMaFormDialog, type MaDialogProps } from '../src/components/ma-dialog'
 import { MaDrawer } from '../src/components/ma-drawer'
-import type { MaFormItem } from '../src/components/ma-form'
+import { MaForm, type MaFormItem } from '../src/components/ma-form'
 import type { MaTableExpose, MaTableOptions } from '../src/components/ma-table'
 import { DialogTrigger } from '../src/components/reui/primitives/dialog'
 import { SheetTrigger } from '../src/components/reui/primitives/sheet'
@@ -93,4 +93,21 @@ export const invalidTable: MaTableOptions<Row> = {
       pagination: { pageIndex: 0, pageSize: 10 },
     },
   },
+}
+
+export function useFormDialogTypeExample() {
+  const editor = useMaFormDialog<{ name: string }, Row | null>({
+    defaultValues: () => ({ name: '' }),
+    toValues: row => ({ name: row?.name ?? '' }),
+    onSubmit: async (values, row) => {
+      void values.name
+      void row?.id
+    },
+    onError: (_error: unknown) => {},
+  })
+  return (
+    <MaDialog {...editor.dialogProps}>
+      <MaForm key={editor.formKey} {...editor.formProps} />
+    </MaDialog>
+  )
 }

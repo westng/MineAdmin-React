@@ -262,7 +262,7 @@ test('Unsaved preferences warn on unload and allow continuing or discarding befo
   await act(async () => container.querySelector('[role="switch"][aria-label="是否多设备登录"]').click())
   assert.equal(unloadIsBlocked(), true)
   assert.deepEqual(api.profile, savedProfile)
-  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
   await act(async () => router.navigate('/other'))
   assert.equal(router.state.location.pathname, '/preferences')
   assert.ok(preferencesButton('保存并离开'))
@@ -332,6 +332,18 @@ test('Reverting, cancelling and saving preferences clear navigation and unload w
   assert.equal(router.state.location.pathname, '/other')
 })
 
+test('Unsaved layout changes revert to the server setting after refresh', async t => {
+  const api = accountPreferencesFixture(t)
+  await mountAccountPreferences(t)
+  await act(async () => document.querySelector('[role="radio"][aria-label="分栏导航"]').click())
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
+  assert.equal(api.profile.backend_setting.app.layout, 'classic')
+  await act(async () => {
+    assert.equal(await core.sessionManager.getState().hydrate(), true)
+  })
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
+})
+
 test('Layout drafts survive in the application shell and save before leaving', async t => {
   const api = accountPreferencesFixture(t)
   const app = { ...runtime(), session: core.sessionManager }
@@ -361,8 +373,8 @@ test('Layout drafts survive in the application shell and save before leaving', a
   )
   const layout = container.querySelector('[role="radio"][aria-label="分栏导航"]')
   await act(async () => layout.click())
-  assert.equal(layout.getAttribute('aria-checked'), 'true')
-  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
+  assert.equal(container.querySelector('[role="radio"][aria-label="分栏导航"]').getAttribute('aria-checked'), 'true')
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
   assert.equal(unloadIsBlocked(), true)
   await act(async () => navigate('/other'))
   assert.equal(window.location.hash, '#/preferences')

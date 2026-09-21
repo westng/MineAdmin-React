@@ -24,6 +24,9 @@ function MaDialog<Payload = unknown>({
   footerAfter,
   okText = '确定',
   cancelText = '取消',
+  showOkButton = true,
+  okDisabled = false,
+  okVariant = 'default',
   onOk,
   onCancel,
   onActionError,
@@ -121,7 +124,9 @@ function MaDialog<Payload = unknown>({
     [actionLoading, close, onActionError],
   )
 
-  const handleOk = useCallback(() => runAction('ok', onOk), [onOk, runAction])
+  const handleOk = useCallback(() => {
+    if (showOkButton && !okDisabled) runAction('ok', onOk)
+  }, [okDisabled, onOk, runAction, showOkButton])
   const handleCancel = useCallback(() => runAction('cancel', onCancel), [onCancel, runAction])
   const popupOnKeyDown = popupProps?.onKeyDown
   const handleKeyDown = useCallback<NonNullable<NonNullable<MaDialogProps['popupProps']>['onKeyDown']>>(
@@ -140,9 +145,11 @@ function MaDialog<Payload = unknown>({
       <Button variant="outline" onClick={handleCancel} disabled={actionLoading}>
         {cancelText}
       </Button>
-      <Button onClick={handleOk} disabled={actionLoading}>
-        {okText}
-      </Button>
+      {showOkButton && (
+        <Button variant={okVariant} onClick={handleOk} disabled={actionLoading || okDisabled}>
+          {okText}
+        </Button>
+      )}
     </>
   )
 
@@ -181,24 +188,22 @@ function MaDialog<Payload = unknown>({
         ...(fullscreen ? { height: '100svh', maxHeight: '100svh' } : {}),
       })}
     >
-      <DialogHeader className={cn('shrink-0 p-4 pr-14', headerClassName)}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <DialogTitle className={cn(!title && 'sr-only')}>{title || '对话框'}</DialogTitle>
-            {description && <DialogDescription>{description}</DialogDescription>}
-          </div>
-          {showFullscreenButton && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="-mt-1 shrink-0"
-              aria-label={fullscreen ? '退出全屏' : '全屏显示'}
-              onClick={() => setFullscreen(!fullscreen)}
-            >
-              {fullscreen ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
-            </Button>
-          )}
+      <DialogHeader className={cn('relative shrink-0 p-4', showFullscreenButton ? 'pr-24' : 'pr-14', headerClassName)}>
+        <div className="min-w-0">
+          <DialogTitle className={cn(!title && 'sr-only')}>{title || '对话框'}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
         </div>
+        {showFullscreenButton && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="absolute top-2 right-12"
+            aria-label={fullscreen ? '退出全屏' : '全屏显示'}
+            onClick={() => setFullscreen(!fullscreen)}
+          >
+            {fullscreen ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
+          </Button>
+        )}
       </DialogHeader>
       <div
         className={cn('relative min-h-0 flex-1 overflow-y-auto px-4 pb-4', bodyClassName)}

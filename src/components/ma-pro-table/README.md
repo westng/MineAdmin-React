@@ -62,12 +62,12 @@ MaProTable
 └── Frame
     └── FramePanel
         └── MaTable   schema.tableColumns / options.tableOptions
-            ├── tabs: 标签配置或自定义内容
             ├── headerContent: MaSearch + Separator
-            └── table / toolbar / pagination
+            ├── tabs: 标签配置或自定义内容
+            └── toolbar / table / pagination
 ```
 
-搜索区由 `MaProTable` 组合为 `MaSearch + Separator`，通过 `MaTable.headerContent` 插槽放在表格工具栏上方；搜索区默认复用面板内边距，不额外创建卡片边框。工具栏区域由内部 `MaTable` 唯一渲染。`toolbarLeft`、`toolbarCenter`、`toolbarRight` 分别透传到表格左、中、右插槽；`toolbar` 是中间插槽的兼容别名。`beforeToolbar` 并入左侧，`afterToolbar` 并入右侧。
+搜索区由 `MaProTable` 组合为 `MaSearch + Separator`，通过 `MaTable.headerContent` 插槽放在标签和工具栏上方；搜索区默认复用面板内边距，不额外创建卡片边框。标签位于搜索区和工具栏之间。工具栏区域由内部 `MaTable` 唯一渲染。`toolbarLeft`、`toolbarCenter`、`toolbarRight` 分别透传到表格左、中、右插槽；`toolbar` 是中间插槽的兼容别名。`beforeToolbar` 并入左侧，`afterToolbar` 并入右侧。
 
 ## Props
 

@@ -6,6 +6,7 @@ export interface MessagePayload {
 }
 
 function emit(payload: MessagePayload) {
+  toast(payload.message, payload.level === 'error' ? 'destructive' : payload.level)
   window.dispatchEvent(new CustomEvent('mine:message', { detail: payload }))
 }
 
@@ -19,3 +20,4 @@ export function useMessage() {
 }
 
 export default useMessage
+import { toast } from '@/components/reui/toast-api'

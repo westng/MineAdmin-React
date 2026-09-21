@@ -47,9 +47,6 @@ export default function UserProTable({
     void localeRevision // Rebuild translated configuration when the active locale changes.
     return getTableColumns({ getUserTypeLabel, getStatusLabel, onEdit, onOpenRoles, onInitializePassword, onDelete })
   }, [getUserTypeLabel, getStatusLabel, onEdit, onOpenRoles, onInitializePassword, onDelete, localeRevision])
-  React.useEffect(() => {
-    proTableRef.current?.setTableColumns(tableColumns)
-  }, [proTableRef, tableColumns])
 
   return (
     <MaProTable<UserVo>
@@ -66,9 +63,7 @@ export default function UserProTable({
               ...params,
               status: params.status ? (Number(params.status) as 1 | 2) : undefined,
             } as Partial<UserVo>),
-          autoRequest: true,
-          requestPage: { pageName: 'page', sizeName: 'page_size', size: 20 },
-          response: { dataKey: 'list', totalKey: 'total' },
+          requestPage: { size: 20 },
         },
       }}
       toolbarLeft={

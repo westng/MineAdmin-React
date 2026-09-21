@@ -52,7 +52,7 @@ export function UserTable() {
 | `data` | 表格数据；优先于 `options.data` | `T[]` | `[]` |
 | `options` | 表格行为、分页和样式配置 | `MaTableOptions<T>` | `{}` |
 | `className` | 表格根容器 class | `string` | - |
-| `tabs` | 工具栏和搜索区上方的标签配置，兼容自定义 JSX | `MaTableTabsConfig \| ReactNode` | - |
+| `tabs` | 搜索区和工具栏之间的标签配置，兼容自定义 JSX | `MaTableTabsConfig \| ReactNode` | - |
 | `toolbarLeft` | 工具栏左侧插槽 | `ReactNode` | - |
 | `toolbarCenter` | 工具栏中间插槽 | `ReactNode` | - |
 | `toolbarRight` | 工具栏右侧插槽 | `ReactNode` | - |

@@ -434,8 +434,8 @@ function MaProTableInner<T extends MaModel>(
               <Button
                 key={action.name ?? `${String(action.text ?? 'operation')}-${index}`}
                 type="button"
-                variant={action.variant ?? 'ghost'}
-                size={action.size ?? 'sm'}
+                variant={action.variant ?? 'outline'}
+                size={action.size}
                 className={cn('whitespace-nowrap', action.className)}
                 disabled={action.disabled?.(context) ?? false}
                 onClick={event => action.onClick?.(context, operationExposeRef.current as MaProTableExpose<T>, event)}
@@ -448,7 +448,7 @@ function MaProTableInner<T extends MaModel>(
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label="更多操作">
+                    <Button type="button" variant="outline" size="icon-sm" aria-label="更多操作">
                       <MoreHorizontal aria-hidden="true" />
                     </Button>
                   }

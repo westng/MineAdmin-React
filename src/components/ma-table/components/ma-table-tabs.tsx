@@ -6,16 +6,31 @@ import type { MaTableTabsConfig, MaTableTabValue } from '../types'
 
 interface MaTableTabsProps {
   tabs?: MaTableTabsConfig | ReactNode
+  beforeTabs?: ReactNode
   children: ReactNode
 }
 
-function ConfiguredTableTabs({ config, children }: { config: MaTableTabsConfig; children: ReactNode }) {
+function ConfiguredTableTabs({
+  config,
+  beforeTabs,
+  children,
+}: {
+  config: MaTableTabsConfig
+  beforeTabs?: ReactNode
+  children: ReactNode
+}) {
   const [internalValue, setInternalValue] = useState<MaTableTabValue | undefined>(config.defaultValue)
   const enabledItems = config.items.filter(item => !item.disabled)
   const value =
     config.value ?? enabledItems.find(item => item.value === internalValue)?.value ?? enabledItems[0]?.value ?? null
 
-  if (config.items.length === 0) return <>{children}</>
+  if (config.items.length === 0)
+    return (
+      <>
+        {beforeTabs}
+        {children}
+      </>
+    )
 
   return (
     <Tabs
@@ -28,6 +43,7 @@ function ConfiguredTableTabs({ config, children }: { config: MaTableTabsConfig; 
         config.onValueChange?.(item.value, item)
       }}
     >
+      {beforeTabs}
       <div className="overflow-x-auto border-b px-4">
         <TabsList variant="line" aria-label={config.ariaLabel ?? '表格标签'} className="h-11 justify-start gap-6 p-0">
           {config.items.map(item => (
@@ -62,13 +78,18 @@ function ConfiguredTableTabs({ config, children }: { config: MaTableTabsConfig; 
   )
 }
 
-export function MaTableTabs({ tabs, children }: MaTableTabsProps) {
+export function MaTableTabs({ tabs, beforeTabs, children }: MaTableTabsProps) {
   if (typeof tabs === 'object' && tabs !== null && 'items' in tabs) {
-    return <ConfiguredTableTabs config={tabs}>{children}</ConfiguredTableTabs>
+    return (
+      <ConfiguredTableTabs config={tabs} beforeTabs={beforeTabs}>
+        {children}
+      </ConfiguredTableTabs>
+    )
   }
 
   return (
     <>
+      {beforeTabs}
       {tabs && (
         <>
           <div className="px-4 pt-3">{tabs}</div>

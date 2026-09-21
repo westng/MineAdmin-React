@@ -1,5 +1,6 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ComponentProps, CSSProperties, ReactNode } from 'react'
 import type { Dialog } from '@base-ui/react/dialog'
+import type { Button } from '@/components/reui/primitives/button'
 
 export type InteractionType = Parameters<
   Extract<NonNullable<Dialog.Popup.Props['initialFocus']>, (...args: never[]) => unknown>
@@ -29,6 +30,9 @@ export interface MaDialogProps<Payload = unknown> extends Dialog.Root.Props<Payl
   footerAfter?: ReactNode
   okText?: ReactNode
   cancelText?: ReactNode
+  showOkButton?: boolean
+  okDisabled?: boolean
+  okVariant?: ComponentProps<typeof Button>['variant']
   onOk?: MaDialogActionHandler
   onCancel?: MaDialogActionHandler
   onActionError?: MaDialogActionErrorHandler

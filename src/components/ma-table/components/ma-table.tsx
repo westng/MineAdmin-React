@@ -483,8 +483,7 @@ function MaTableInner<T extends MaModel>(
       }}
     >
       <div className={cn('w-full min-w-0', className)} style={{ height: options.containerHeight }}>
-        <MaTableTabs tabs={tabs}>
-          {headerContent}
+        <MaTableTabs tabs={tabs} beforeTabs={headerContent}>
           {hasToolbar && <MaTableToolbar left={toolbarLeft} center={resolvedToolbarCenter} right={toolbarRight} />}
           <div ref={tableContainerRef} className="relative min-w-0">
             {footerContent}
