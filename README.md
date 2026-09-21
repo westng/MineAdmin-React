@@ -224,4 +224,4 @@ pnpm run export:public -- /absolute/path/to/new-source-directory
 - [MineAdmin 官方文档](https://doc.mineadmin.com/)：产品介绍和后端开发参考。
 - [React](https://react.dev/)、[Vite](https://vite.dev/)、[ReUI](https://reui.io/)、[shadcn/ui](https://ui.shadcn.com/)：上游技术文档。
 
-本项目采用 [Apache-2.0](LICENSE)。第三方来源与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本项目自有代码采用 [MIT License](LICENSE)。上游及第三方来源仍受其各自许可证约束，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
