@@ -1,4 +1,27 @@
-# MineAdmin React
+<p align="center">
+  <img src="https://avatars.githubusercontent.com/u/277389313?s=200&v=4" width="128" height="128" alt="westng">
+</p>
+
+<h1 align="center">MineAdmin React</h1>
+
+<p align="center">
+  whalesky-labs 组织维护的 MineAdmin 3.2 React 前端
+</p>
+
+<p align="center">
+  基于 React 19、TypeScript 和 ReUI，提供认证权限、动态路由、布局扩展与业务组件能力
+</p>
+
+<p align="center">
+  <a href="https://github.com/westng/MineAdmin-React/actions/workflows/ma-components.yml"><img src="https://github.com/westng/MineAdmin-React/actions/workflows/ma-components.yml/badge.svg" alt="Public framework checks"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React 19"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/pnpm-11.7.0-F69220?logo=pnpm&logoColor=white" alt="pnpm 11.7.0"></a>
+</p>
+
+<p align="center">
+  中文默认
+</p>
 
 基于 React 19、TypeScript 和 ReUI 的后台管理前端，适配 MineAdmin 3.2 后端。提供认证与权限、动态菜单、可扩展布局、表单表格组件和插件接口，支持在统一框架中组织业务模块。
 
