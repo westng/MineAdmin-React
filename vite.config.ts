@@ -59,6 +59,9 @@ export default defineConfig(({ mode, command }) => {
           chunkFileNames: 'static/js/[name]-[hash].js',
           entryFileNames: 'static/js/[name]-[hash].js',
           assetFileNames: 'static/[ext]/[name]-[hash].[ext]',
+          manualChunks(id) {
+            if (/(?:^|\/)node_modules\/(?:react|react-dom|react-router-dom)(?:\/|$)/.test(id)) return 'react-vendor'
+          },
         },
       },
     },

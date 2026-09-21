@@ -9,13 +9,15 @@ import { useSettingStore } from '@/provider/settings'
 import { initializePlugins, usePluginStore, disposeLegacyPlugins } from '@/provider/plugins'
 import { useI18nStore } from '@/provider/i18n'
 import rootRoutes from '@/router/static-routes/rootRoute'
-import DynamicMenuPage from '@/modules/base/dynamic-menu/views'
+import { lazyView } from '@/router/lazy-view'
 import { runtime } from './runtime'
 import type { Disposer } from '@/services/registry'
 import type { RouteDescriptor } from '@/router/registry'
 import '@/router/component-registry'
 
 let pending: Promise<Disposer> | undefined
+const DynamicMenuPage = lazyView(() => import('@/modules/base/dynamic-menu/views'))
+
 export function bootstrap() {
   if (pending) return pending
   const task = (async () => {

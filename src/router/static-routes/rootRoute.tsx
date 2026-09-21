@@ -1,7 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import type { AppRoute } from '@/router/types'
 import ErrorPage from '@/router/pages/not-found'
-import DynamicMenuPage from '@/modules/base/dynamic-menu/views'
 import dashboardRoute from './dashboardRoute'
 import ucChildren from './ucChildren'
 
@@ -12,6 +11,7 @@ const ClinicSectionPage = lazyView(() => import('@/modules/base/clinic/views'))
 const LoginPage = lazyView(() => import('@/modules/base/auth/views'))
 const UserCenterPage = lazyView(() => import('@/modules/base/user-center/views'))
 const AccountSettingsPage = lazyView(() => import('@/modules/base/account-settings/views'))
+const DynamicMenuPage = lazyView(() => import('@/modules/base/dynamic-menu/views'))
 
 const rootRoutes: AppRoute[] = [
   {
