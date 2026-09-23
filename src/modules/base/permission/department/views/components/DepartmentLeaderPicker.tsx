@@ -12,9 +12,9 @@ import {
   DialogTitle,
 } from '@/components/reui/primitives/dialog'
 import { hasAuth } from '@/hooks/framework/use-permission'
-import { pageUsers, type UserVo } from '../../user/api/user'
-import { departmentErrorMessage } from '../utils/department-error'
-import { getLeaderPickerTableColumns } from './data/getTableColumns'
+import { pageUsers, type UserVo } from '../../../user/api/user'
+import { departmentErrorMessage } from '../data/department-error'
+import { getLeaderPickerTableColumns } from '../data/related-table-columns'
 
 const tx = createTextTranslator('base.permission.department.ui')
 

@@ -4,7 +4,7 @@ import { Checkbox } from '@/components/reui/primitives/checkbox'
 import { TableBody, TableCell, TableRow } from '@/components/reui/primitives/table'
 import { cn } from '@/utils/cn'
 import { getColumnValue, resolveRowClass, resolveRowStyle } from '../utils/table-utils'
-import { renderTableCell } from '../utils/render-cell'
+import { renderTableCellWithOverflowPopover } from '../utils/render-cell'
 import { useTableCellRenderers } from '../hooks/use-table-cell-renderers'
 import type { MaTableCellContext, MaTableColumn, MaTableModel, MaTableOptions } from '../types'
 
@@ -70,7 +70,7 @@ export function MaTableBody<T extends MaTableModel>({
           {expandedKeys.has(getRowKey(row, rowIndex)) ? '−' : '+'}
         </Button>
       )
-    return renderTableCell(context, cellRenderers)
+    return renderTableCellWithOverflowPopover(context, cellRenderers, options.showOverflowTooltip !== false)
   }
 
   return (

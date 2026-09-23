@@ -6,8 +6,8 @@ import { Button } from '@/components/reui/primitives/button'
 import { Input } from '@/components/reui/primitives/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/reui/primitives/input-group'
 import { useToast } from '@/components/reui/use-toast'
-import { attachmentError, attachmentSearch, storageOptions } from '../utils/attachment'
-import { attachmentFilterParams } from '../utils/library'
+import { attachmentError, attachmentSearch, storageOptions } from '../data/attachment'
+import { attachmentFilterParams } from '../data/library'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

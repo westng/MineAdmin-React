@@ -4,7 +4,7 @@ import type { MaProTableExpose, MaProTableModel } from '@/components/ma-pro-tabl
 import { useToast } from '@/components/reui/use-toast'
 import { hasAuth, usePermission } from '@/hooks/framework/use-permission'
 import type { ResponseStruct } from '@/types/api'
-import { logErrorMessage } from '../utils/log-search'
+import { logErrorMessage } from './log-search'
 
 const tx = createTextTranslator('base.permission.log.ui')
 

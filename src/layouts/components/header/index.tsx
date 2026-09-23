@@ -58,14 +58,14 @@ export default function Header({ className }: { className?: string }) {
                 const label = current
                   ? title
                   : typeof item.menu.meta?.i18n === 'string'
-                    ? t(item.menu.meta.i18n)
+                    ? t(item.menu.meta.i18n, getMenuLabel(item.menu))
                     : getMenuLabel(item.menu)
                 return (
                   <Fragment key={`${item.path}-${label}`}>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem className="min-w-0">
                       {current ? (
-                        <BreadcrumbPage className="truncate text-sm font-semibold sm:text-base">{label}</BreadcrumbPage>
+                        <BreadcrumbPage className="truncate text-sm">{label}</BreadcrumbPage>
                       ) : (
                         <BreadcrumbLink asChild className="truncate text-sm">
                           <Link to={item.path}>{label}</Link>
@@ -79,7 +79,7 @@ export default function Header({ className }: { className?: string }) {
               <>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem className="min-w-0">
-                  <BreadcrumbPage className="truncate text-sm font-semibold sm:text-base">{title}</BreadcrumbPage>
+                  <BreadcrumbPage className="truncate text-sm">{title}</BreadcrumbPage>
                 </BreadcrumbItem>
               </>
             )}

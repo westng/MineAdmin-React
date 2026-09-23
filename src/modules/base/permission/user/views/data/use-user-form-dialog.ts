@@ -6,9 +6,9 @@ import { page as pageDepartments, type DepartmentVo } from '@/modules/base/permi
 import { page as pagePositions } from '@/modules/base/permission/department/api/position'
 import { createTextTranslator } from '@/provider/i18n'
 import { extractList } from '@/utils/api-data'
-import { createUser, saveUser, type UserVo } from '../api/user'
-import { getFormItems, type DepartmentOption, type UserForm } from '../views/data'
-import { assertUserResponse, toUserForm, toUserPayload } from '../views/data/form-values'
+import { createUser, saveUser, type UserVo } from '../../api/user'
+import { getFormItems, type DepartmentOption, type UserForm } from './getFormItems'
+import { assertUserResponse, toUserForm, toUserPayload } from './form-values'
 
 const tx = createTextTranslator('base.permission.user.ui')
 

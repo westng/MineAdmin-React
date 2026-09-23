@@ -13,8 +13,8 @@ import type { MaSearchItem } from '@/components/ma-search'
 import { useToast } from '@/components/reui/use-toast'
 import { Button } from '@/components/reui/primitives/button'
 import { hasAuth } from '@/hooks/framework/use-permission'
-import { logErrorMessage } from '../utils/log-search'
-import type { LogTableColumnOptions } from '../views/data/getTableColumns'
+import { logErrorMessage } from '../data/log-search'
+import type { LogTableColumnOptions } from '../data/getTableColumns'
 
 const tx = createTextTranslator('base.permission.log.ui')
 

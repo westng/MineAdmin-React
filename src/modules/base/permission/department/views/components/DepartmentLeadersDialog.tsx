@@ -12,10 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/reui/primitives/dialog'
-import type { LeaderRecord } from '../api/leader'
-import { useDepartmentLeaders } from '../hooks/use-department-leaders'
+import type { LeaderRecord } from '../../api/leader'
+import { useDepartmentLeaders } from '../data/use-department-leaders'
 import { DepartmentLeaderPicker } from './DepartmentLeaderPicker'
-import { getLeaderTableColumns } from './data/getTableColumns'
+import { getLeaderTableColumns } from '../data/related-table-columns'
 
 const tx = createTextTranslator('base.permission.department.ui')
 

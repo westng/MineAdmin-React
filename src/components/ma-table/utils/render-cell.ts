@@ -1,4 +1,6 @@
+import * as React from 'react'
 import type { MaTableCellContext, MaTableCellRenderer, MaTableModel } from '../types'
+import { MaTableCellOverflowPopover } from '../components/ma-table-cell-overflow-popover'
 
 export function renderTableCell<T extends MaTableModel>(
   context: MaTableCellContext<T>,
@@ -16,4 +18,16 @@ export function renderTableCell<T extends MaTableModel>(
 
   if (column.formatter) return column.formatter(row, column, value, rowIndex)
   return value == null || value === '' ? '-' : String(value)
+}
+
+export function renderTableCellWithOverflowPopover<T extends MaTableModel>(
+  context: MaTableCellContext<T>,
+  renderers: ReadonlyMap<string, MaTableCellRenderer>,
+  enabled: boolean,
+) {
+  const content = renderTableCell(context, renderers)
+  if (!enabled || (typeof content !== 'string' && typeof content !== 'number')) return content
+
+  const text = String(content)
+  return React.createElement(MaTableCellOverflowPopover, { content: text, children: text })
 }

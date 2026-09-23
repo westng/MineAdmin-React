@@ -9,8 +9,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/reui/primitives/dropdown-menu'
 import type { AttachmentVo } from '@/modules/base/user-center/api/attachment'
-import { attachmentUrl } from '../utils/attachment'
-import { attachmentName } from '../utils/library'
+import { attachmentUrl } from '../data/attachment'
+import { attachmentName } from '../data/library'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

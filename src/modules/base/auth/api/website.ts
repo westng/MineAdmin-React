@@ -1,6 +1,6 @@
 import http from '@/provider/http'
 import type { ResponseStruct } from '@/types/api'
-import type { WebsiteLoginConfig } from '../data/website'
+import type { WebsiteLoginConfig } from '../views/data/website'
 import { createResourceQueries } from '@/provider/query/resource'
 
 const queries = createResourceQueries('auth', 'website')

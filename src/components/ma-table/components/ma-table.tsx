@@ -28,7 +28,7 @@ import { MaTableTabs } from './ma-table-tabs'
 import { useMaTableSelection } from '../hooks/use-ma-table-selection'
 import { useMaTableSort } from '../hooks/use-ma-table-sort'
 import { useTableCellRenderers } from '../hooks/use-table-cell-renderers'
-import { renderTableCell } from '../utils/render-cell'
+import { renderTableCellWithOverflowPopover } from '../utils/render-cell'
 import { usePropState } from '@/components/reui/utils/use-prop-state'
 import {
   flattenColumns,
@@ -310,7 +310,7 @@ function MaTableInner<T extends MaModel>(
             if (column.type === 'selection') return <DataGridTableRowSelect row={row} />
             if (column.type === 'index') return (currentPage - 1) * pageSize + rowIndex + 1
             if (column.type === 'expand') return <DataGridTableRowExpand row={row} />
-            return renderTableCell(context, cellRenderers)
+            return renderTableCellWithOverflowPopover(context, cellRenderers, options.showOverflowTooltip !== false)
           },
           size: resolveColumnSize(column.width),
           minSize: resolveColumnSize(column.minWidth),
@@ -348,6 +348,7 @@ function MaTableInner<T extends MaModel>(
     options.columnAlign,
     options.dataGridProps?.tableLayout?.columnsVisibility,
     options.headerAlign,
+    options.showOverflowTooltip,
     pageSize,
   ])
   const gridTable = useTable<DataGridFeatures, T>({

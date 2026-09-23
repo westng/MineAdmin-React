@@ -24,3 +24,11 @@ base/
 ```
 
 页面之间确需复用时，直接从拥有该接口或组件的子模块导入，不通过 `base` 根目录转发。全局无业务语义的工具放在 `src/utils`，例如 `api-data.ts`。`permission` 下的页面继续按用户、角色、菜单、部门等具体子模块维护自己的 `api/locales/views`。
+
+## 页面表格规范
+
+- `base` 下的列表、管理表格和弹窗内数据表统一使用 `MaProTable`，页面不得直接组装 `DataGrid`、`useTable` 或原生 `<table>`。
+- 列配置使用 `MaProTableColumns<T>`；普通内容通过 `prop`、`cellRender` 或 `formatter` 表达，操作通过 `operationConfigure.actions` 表达。
+- 表格请求、分页、搜索、选择和刷新交给 `MaProTable` 的 `options`，页面只负责传入业务数据、权限和回调。
+- 需要内联编辑时，在 `cellRender` 中使用现有表单控件；不要为单个页面重新实现表格状态、分页或操作列布局。
+- 卡片网格等非表格布局可以保留专用组件；一旦使用表格行列展示数据，必须回到 `MaProTable`。

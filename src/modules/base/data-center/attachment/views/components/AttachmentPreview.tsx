@@ -5,8 +5,8 @@ import { IconTile } from '@/components/reui/icon-tile'
 import { Skeleton } from '@/components/reui/primitives/skeleton'
 import { cn } from '@/utils/cn'
 import type { AttachmentVo } from '@/modules/base/user-center/api/attachment'
-import { attachmentUrl } from '../utils/attachment'
-import { attachmentKind, type AttachmentKind } from '../utils/library'
+import { attachmentUrl } from '../data/attachment'
+import { attachmentKind, type AttachmentKind } from '../data/library'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

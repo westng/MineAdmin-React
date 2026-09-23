@@ -6,11 +6,7 @@ import { MaIcon } from '@/components/ma-icon'
 import { CheckCircle2, CircleDot, FileCog, Plus, RefreshCw, Save, Trash2, X, XCircle } from 'lucide-react'
 import { hotkeysCoreFeature, syncDataLoaderFeature, type ItemInstance } from '@headless-tree/core'
 import { useTree } from '@headless-tree/react'
-import { useTable, type ColumnDef } from '@tanstack/react-table'
-import { DataGrid, dataGridFeatures, type DataGridFeatures } from '@/components/reui/data-grid/data-grid'
-import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header'
-import { DataGridScrollArea } from '@/components/reui/data-grid/data-grid-scroll-area'
-import { DataGridTable } from '@/components/reui/data-grid/data-grid-table'
+import { MaProTable, type MaProTableColumns } from '@/components/ma-pro-table'
 import { Badge } from '@/components/reui/primitives/badge'
 import { Button } from '@/components/reui/primitives/button'
 import { Card, CardContent } from '@/components/reui/primitives/card'
@@ -31,9 +27,8 @@ import type { MenuVo } from '@/modules/base/permission/menu/api/menu'
 import { Tree, TreeItem, TreeItemLabel } from '@/components/reui/tree'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
 import { getMenuLabel, getMenuType, isVisibleMenu } from '@/router/dynamic-menu'
-import { MenuCascader } from '@/modules/base/permission/menu/components/menu-cascader'
+import { MenuCascader } from '@/modules/base/permission/menu/views/components/menu-cascader'
 import { useRuntime } from '@/hooks/framework/use-runtime'
-import { Frame, FramePanel, FrameHeader, FrameTitle, FrameDescription } from '@/components/reui/frame'
 
 const tx = createTextTranslator('base.permission.menu.ui')
 
@@ -254,56 +249,52 @@ type ButtonPermissionRow = ButtonPermission & {
   onRemove: () => void
 }
 
-const buttonPermissionColumns: ColumnDef<DataGridFeatures, ButtonPermissionRow, unknown>[] = [
+const buttonPermissionColumns: MaProTableColumns<ButtonPermissionRow>[] = [
   {
-    accessorKey: 'title',
-    header: ({ column }) => <DataGridColumnHeader column={column} title={tx('按钮名称')} />,
-    cell: ({ row }) => (
+    prop: 'title',
+    label: tx('按钮名称'),
+    cellRender: ({ row }) => (
       <Input
-        value={row.original.title}
-        onChange={event => row.original.onUpdate('title', event.target.value)}
+        value={row.title}
+        onChange={event => row.onUpdate('title', event.target.value)}
         placeholder={tx('例如：菜单列表')}
-        aria-label={tx('第 {0} 项按钮名称', { '0': row.index + 1 })}
+        aria-label={tx('按钮名称')}
       />
     ),
-    size: 200,
-    meta: {
-      headerClassName: 'ps-(--frame-panel-px)',
-      cellClassName: 'overflow-visible ps-(--frame-panel-px)',
-    },
+    width: 200,
+    className: 'overflow-visible',
   },
   {
-    accessorKey: 'code',
-    header: ({ column }) => <DataGridColumnHeader column={column} title={tx('按钮编码')} />,
-    cell: ({ row }) => (
+    prop: 'code',
+    label: tx('按钮编码'),
+    cellRender: ({ row }) => (
       <Input
-        value={row.original.code}
-        onChange={event => row.original.onUpdate('code', event.target.value)}
+        value={row.code}
+        onChange={event => row.onUpdate('code', event.target.value)}
         placeholder={tx('例如：permission:menu:index')}
-        aria-label={tx('第 {0} 项按钮编码', { '0': row.index + 1 })}
+        aria-label={tx('按钮编码')}
       />
     ),
-    size: 300,
-    meta: { cellClassName: 'overflow-visible' },
+    width: 300,
+    className: 'overflow-visible',
   },
   {
-    id: 'actions',
-    header: () => <span className="sr-only">{tx('操作')}</span>,
-    cell: ({ row }) => (
-      <Button
-        type="button"
-        size="icon-sm"
-        variant="ghost"
-        onClick={row.original.onRemove}
-        aria-label={tx('删除{0}', { '0': row.original.title || `第 ${row.index + 1} 项按钮权限` })}
-      >
-        <Trash2 aria-hidden="true" />
-      </Button>
-    ),
-    size: 50,
-    meta: {
-      headerClassName: 'pe-(--frame-panel-header-px)',
-      cellClassName: 'overflow-visible pe-(--frame-panel-px)',
+    type: 'operation',
+    label: tx('操作'),
+    width: 50,
+    operationConfigure: {
+      type: 'tile',
+      actions: [
+        {
+          name: 'remove',
+          text: '',
+          ariaLabel: tx('删除按钮权限'),
+          icon: <Trash2 aria-hidden="true" />,
+          variant: 'ghost',
+          size: 'icon-sm',
+          onClick: ({ row }) => row.onRemove(),
+        },
+      ],
     },
   },
 ]
@@ -339,47 +330,31 @@ function ButtonPermissionTable({
     onUpdate: (field, fieldValue) => updateButton(index, field, fieldValue),
     onRemove: () => removeButton(index),
   }))
-  const table = useTable<DataGridFeatures, ButtonPermissionRow>({
-    features: dataGridFeatures,
-    data: rows,
-    columns: buttonPermissionColumns,
-    getRowId: (row, index) => (row.id === undefined ? `new-${index}` : String(row.id)),
-    manualPagination: true,
-    enableSorting: false,
-    enableRowSelection: false,
-    enableColumnResizing: false,
-  })
-
   return (
-    <Frame dense className="mt-5 w-full min-w-0">
-      <FrameHeader className="flex-row items-center justify-between gap-3">
+    <MaProTable<ButtonPermissionRow>
+      className="mt-5"
+      data={rows}
+      header={
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <FrameTitle>{tx('按钮权限')}</FrameTitle>
+            <h3 className="text-base font-semibold">{tx('按钮权限')}</h3>
             <Badge variant="secondary">
               {value.length} {tx('项')}
             </Badge>
           </div>
-          <FrameDescription>{tx('配置按钮名称和对应的权限编码。')}</FrameDescription>
+          <p className="text-sm text-muted-foreground">{tx('配置按钮名称和对应的权限编码。')}</p>
         </div>
+      }
+      toolbarRight={
         <Button type="button" size="sm" variant="outline" onClick={addButton}>
           <Plus data-icon="inline-start" aria-hidden="true" />
           {tx('新增按钮')}
         </Button>
-      </FrameHeader>
-      <FramePanel className="p-0 shadow-none">
-        <DataGrid
-          table={table}
-          recordCount={value.length}
-          tableLayout={{ dense: true, width: 'fixed' }}
-          emptyMessage={tx('暂无按钮权限，点击右上角“新增按钮”添加。')}
-        >
-          <DataGridScrollArea>
-            <DataGridTable />
-          </DataGridScrollArea>
-        </DataGrid>
-      </FramePanel>
-    </Frame>
+      }
+      schema={{ tableColumns: buttonPermissionColumns }}
+      options={{ tableOptions: { dense: true, showPagination: false } }}
+      empty={tx('暂无按钮权限，点击右上角“新增按钮”添加。')}
+    />
   )
 }
 

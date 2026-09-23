@@ -76,6 +76,7 @@ export function UserTable() {
 | `loading` | 显示加载遮罩 | `boolean` | `false` |
 | `columnAlign` | 单元格默认对齐 | `'left' | 'center' | 'right'` | `'left'` |
 | `headerAlign` | 表头默认对齐 | `'left' | 'center' | 'right'` | - |
+| `showOverflowTooltip` | 文本发生省略时点击查看完整内容 | `boolean` | `true` |
 | `pagination` | 分页配置和回调 | `MaTablePagination` | - |
 | `showPagination` | 是否显示分页器 | `boolean` | `true`（存在分页配置时） |
 | `height` | 表格高度 | `string | number` | - |

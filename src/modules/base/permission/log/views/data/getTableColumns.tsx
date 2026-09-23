@@ -2,7 +2,7 @@ import { createTextTranslator } from '@/provider/i18n'
 import { Eye, Trash2 } from 'lucide-react'
 import type { MaProTableColumns, MaProTableModel, MaProTableOperationAction } from '@/components/ma-pro-table'
 import type { UserLoginLogVo, UserOperationLogVo } from '../../api/log'
-import { LoginStatus, LogText } from '../../components/LogRecordFields'
+import { LoginStatus, LogText } from '../components/LogRecordFields'
 
 const tx = createTextTranslator('base.permission.log.ui')
 

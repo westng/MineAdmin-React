@@ -1,6 +1,6 @@
 import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { Badge } from '@/components/reui/primitives/badge'
-import type { UserLoginLogVo, UserOperationLogVo } from '../api/log'
+import type { UserLoginLogVo, UserOperationLogVo } from '../../api/log'
 
 const tx = createTextTranslator('base.permission.log.ui')
 

@@ -4,7 +4,7 @@ import { useToast } from '@/components/reui/use-toast'
 import { hasAuth } from '@/hooks/framework/use-permission'
 import { deleteById, type AttachmentVo } from '@/modules/base/user-center/api/attachment'
 import { copyText } from '@/utils/clipboard'
-import { attachmentError, attachmentUrl } from '../utils/attachment'
+import { attachmentError, attachmentUrl } from './attachment'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

@@ -435,7 +435,8 @@ function MaProTableInner<T extends MaModel>(
                 key={action.name ?? `${String(action.text ?? 'operation')}-${index}`}
                 type="button"
                 variant={action.variant ?? 'outline'}
-                size={action.size}
+                size={action.size ?? 'sm'}
+                aria-label={action.ariaLabel}
                 className={cn('whitespace-nowrap', action.className)}
                 disabled={action.disabled?.(context) ?? false}
                 onClick={event => action.onClick?.(context, operationExposeRef.current as MaProTableExpose<T>, event)}

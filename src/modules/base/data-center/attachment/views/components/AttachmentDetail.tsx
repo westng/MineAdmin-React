@@ -3,8 +3,8 @@ import { ChevronDown, Copy, ExternalLink } from 'lucide-react'
 import { MaDrawer } from '@/components/ma-drawer'
 import { Button } from '@/components/reui/primitives/button'
 import type { AttachmentVo } from '@/modules/base/user-center/api/attachment'
-import { attachmentUrl, formatFileSize, storageLabel } from '../utils/attachment'
-import { attachmentKind, attachmentName } from '../utils/library'
+import { attachmentUrl, formatFileSize, storageLabel } from '../data/attachment'
+import { attachmentKind, attachmentName } from '../data/library'
 import { AttachmentPreview } from './AttachmentPreview'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')

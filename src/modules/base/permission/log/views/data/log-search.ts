@@ -1,5 +1,5 @@
 import { createTextTranslator } from '@/provider/i18n'
-import type { LoginLogParams, OperationLogParams } from '../api/log'
+import type { LoginLogParams, OperationLogParams } from '../../api/log'
 
 const tx = createTextTranslator('base.permission.log.ui')
 

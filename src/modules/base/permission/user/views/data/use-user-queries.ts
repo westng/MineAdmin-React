@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useRuntime } from '@/hooks/framework/use-runtime'
 import { queryKeys } from '@/provider/query/client'
-import { pageUsers, type UserVo } from '../api/user'
+import { pageUsers, type UserVo } from '../../api/user'
 export function useUserQueries() {
   const runtime = useRuntime()
   const request = useCallback((params: Partial<UserVo>) => pageUsers(params), [])

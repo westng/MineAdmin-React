@@ -2,7 +2,7 @@ import { createTextTranslator } from '@/provider/i18n'
 import { useCallback, useEffect, useState } from 'react'
 import { pageList, type AttachmentVo } from '@/modules/base/user-center/api/attachment'
 import type { FilterQuery } from '@/components/reui/filters/filters-types'
-import { attachmentError } from '../utils/attachment'
+import { attachmentError } from './attachment'
 import {
   attachmentFilterParams,
   categories,
@@ -10,7 +10,7 @@ import {
   sortOptions,
   type AttachmentCategory,
   type AttachmentSort,
-} from '../utils/library'
+} from './library'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

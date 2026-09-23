@@ -147,6 +147,15 @@
     cursor: pointer;
   }
 
+  button,
+  input,
+  select,
+  optgroup,
+  textarea,
+  ::file-selector-button {
+    font: initial;
+  }
+
   input[type='radio'] {
     accent-color: var(--primary);
   }
@@ -157,6 +166,7 @@
       transform: scale(1);
       opacity: 1;
     }
+
     50% {
       transform: scale(1.1);
       opacity: 0.5;

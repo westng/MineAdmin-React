@@ -5,8 +5,8 @@ import { useMessage } from '@/hooks/framework/use-message'
 import { page as pageRoles, type RoleVo } from '@/modules/base/permission/role/api/role'
 import { createTextTranslator } from '@/provider/i18n'
 import { extractList } from '@/utils/api-data'
-import { getUserRole, setUserRole, type UserVo } from '../api/user'
-import { assertUserResponse } from '../views/data/form-values'
+import { getUserRole, setUserRole, type UserVo } from '../../api/user'
+import { assertUserResponse } from './form-values'
 
 const tx = createTextTranslator('base.permission.user.ui')
 type RoleForm = { roleCodes: string[]; roles: RoleVo[] }

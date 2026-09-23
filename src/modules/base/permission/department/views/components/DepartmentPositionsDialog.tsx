@@ -15,9 +15,9 @@ import {
 } from '@/components/reui/primitives/dialog'
 import { Field, FieldLabel } from '@/components/reui/primitives/field'
 import { Input } from '@/components/reui/primitives/input'
-import type { PositionVo } from '../api/position'
-import { useDepartmentPositions } from '../hooks/use-department-positions'
-import { getPositionTableColumns } from './data/getTableColumns'
+import type { PositionVo } from '../../api/position'
+import { useDepartmentPositions } from '../data/use-department-positions'
+import { getPositionTableColumns } from '../data/related-table-columns'
 
 const tx = createTextTranslator('base.permission.department.ui')
 

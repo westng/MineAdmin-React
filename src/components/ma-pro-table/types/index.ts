@@ -25,9 +25,10 @@ export interface MaProTableColumns<T extends MaProTableModel = MaProTableModel> 
 export interface MaProTableOperationAction<T extends MaProTableModel = MaProTableModel> {
   name?: string
   text?: string | ((context: MaTableCellContext<T>) => string)
+  ariaLabel?: string
   icon?: React.ReactNode
   variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link'
-  size?: 'default' | 'sm' | 'xs'
+  size?: 'default' | 'sm' | 'xs' | 'icon' | 'icon-xs' | 'icon-sm' | 'icon-lg'
   className?: string
   order?: number
   disabled?: (context: MaTableCellContext<T>) => boolean

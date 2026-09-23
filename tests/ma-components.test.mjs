@@ -500,6 +500,31 @@ test('MaProTable 保留分页回调，动态页码与列配置可从 props 更�
   assert.match(view.container.textContent, /新列名/)
 })
 
+test('MaProTable 操作列默认按钮与更多按钮保持相同高度', async t => {
+  const view = await mount(t, MaProTable, {
+    schema: {
+      tableColumns: [
+        {
+          type: 'operation',
+          label: '操作',
+          operationConfigure: {
+            actions: [
+              { name: 'children', text: '子部门' },
+              { name: 'leader', text: '设置负责人' },
+              { name: 'delete', text: '删除', variant: 'destructive' },
+            ],
+          },
+        },
+      ],
+    },
+    data: [{ id: 1 }],
+  })
+  const operationButtons = [...view.container.querySelectorAll('tbody button')]
+  assert.equal(operationButtons.length, 3)
+  assert.ok(operationButtons.slice(0, 2).every(button => button.className.includes('h-7')))
+  assert.ok(operationButtons[2].className.includes('size-7'))
+})
+
 test('MaProTable 新的请求配置优先，过期响应不能覆盖最新数据', async t => {
   const ref = createRef()
   let resolveOld

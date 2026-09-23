@@ -5,7 +5,7 @@ import { useSession } from '@/hooks/framework/use-session'
 import { useTranslate } from '@/provider/i18n'
 import { cn } from '@/utils/cn'
 import { getWebsiteLoginConfig } from '../api/website'
-import { getLoginPageConfig, normalizeWebsiteLoginConfig, type WebsiteLoginConfig } from '../data/website'
+import { getLoginPageConfig, normalizeWebsiteLoginConfig, type WebsiteLoginConfig } from './data/website'
 import { LoginForm, type LoginFormValues } from './components/login-form'
 
 function BrandMark({ siteName }: { siteName: string }) {

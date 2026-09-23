@@ -3,9 +3,9 @@ import { useCallback, useRef, useState } from 'react'
 import type { MaProTableExpose } from '@/components/ma-pro-table'
 import { useToast } from '@/components/reui/use-toast'
 import { hasAuth, usePermission } from '@/hooks/framework/use-permission'
-import * as leaderApi from '../api/leader'
-import type { LeaderRecord } from '../api/leader'
-import { departmentErrorMessage } from '../utils/department-error'
+import * as leaderApi from '../../api/leader'
+import type { LeaderRecord } from '../../api/leader'
+import { departmentErrorMessage } from './department-error'
 
 const tx = createTextTranslator('base.permission.department.ui')
 

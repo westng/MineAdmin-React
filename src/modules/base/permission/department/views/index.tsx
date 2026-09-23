@@ -23,8 +23,8 @@ import { flattenDepartments, paginateDepartments } from './data/department-tree'
 import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-actions'
 import { useToast } from '@/components/reui/use-toast'
 import { ConfirmDialog } from '@/components/reui/confirm-dialog'
-import { DepartmentLeadersDialog } from '../components/DepartmentLeadersDialog'
-import { DepartmentPositionsDialog } from '../components/DepartmentPositionsDialog'
+import { DepartmentLeadersDialog } from './components/DepartmentLeadersDialog'
+import { DepartmentPositionsDialog } from './components/DepartmentPositionsDialog'
 
 const tx = createTextTranslator('base.permission.department.ui')
 
