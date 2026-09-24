@@ -31,7 +31,7 @@ export function checkSourceStructure(root = projectRoot) {
     }
   }
   inspect('src', (name, directory) => directory && sourceDirectories.has(name))
-  inspect('src/components', (name, directory) => directory && /^(ma-.+|reui)$/.test(name))
+  inspect('src/components', (name, directory) => directory && /^(ma-.+|reui|nm-douyin-user-parser)$/.test(name))
   inspect('src/hooks', (name, directory) => directory && ['framework', 'shell'].includes(name))
   for (const retired of [
     'src/app/private',

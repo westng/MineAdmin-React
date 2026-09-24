@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/reui/primitives/dialog'
 import type { LeaderRecord } from '../../api/leader'
-import { useDepartmentLeaders } from '../data/use-department-leaders'
+import { useDepartmentLeaders } from '../../hooks/use-department-leaders'
 import { DepartmentLeaderPicker } from './DepartmentLeaderPicker'
 import { getLeaderTableColumns } from '../data/related-table-columns'
 

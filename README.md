@@ -149,6 +149,8 @@ src/
 
 通用 UI 原语位于 `src/components/reui/primitives/`，[components.json](components.json) 中的 shadcn 配置也指向这个目录。业务页面优先复用已有 Ma 组件。
 
+应用私有的全局组件（例如 `src/components/nm-douyin-user-parser`）不属于公共组件 API，由 `.gitignore` 和公共导出清单排除。
+
 ## 开发检查
 
 | 命令                                      | 作用                                               |

@@ -4,7 +4,7 @@ import { File, FileArchive, FileImage, FileText, Film, ImageOff, Music2 } from '
 import { IconTile } from '@/components/reui/icon-tile'
 import { Skeleton } from '@/components/reui/primitives/skeleton'
 import { cn } from '@/utils/cn'
-import type { AttachmentVo } from '@/modules/base/user-center/api/attachment'
+import type { AttachmentVo } from '../../api'
 import { attachmentUrl } from '../data/attachment'
 import { attachmentKind, type AttachmentKind } from '../data/library'
 

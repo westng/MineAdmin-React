@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url)
 const result = await build({
   stdin: {
     contents:
-      "export * from './src/modules/base/dashboard/dashboard-slot'; export { DashboardSlotOutlet } from './src/modules/base/dashboard/dashboard-slot-outlet'",
+      "export * from './src/modules/base/dashboard/register-dashboard-slot'; export { DashboardSlotOutlet } from './src/modules/base/dashboard/views/components/DashboardSlotOutlet'",
     resolveDir: process.cwd(),
     sourcefile: 'dashboard-slot-entry.ts',
   },

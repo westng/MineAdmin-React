@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/reui/primitives/dropdown-menu'
-import type { AttachmentVo } from '@/modules/base/user-center/api/attachment'
+import type { AttachmentVo } from '../../api'
 import { attachmentUrl } from '../data/attachment'
 import { attachmentName } from '../data/library'
 

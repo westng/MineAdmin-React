@@ -1,4 +1,4 @@
-import { DashboardSlotOutlet } from '../dashboard-slot-outlet'
+import { DashboardSlotOutlet } from './components/DashboardSlotOutlet'
 
 export default function DashboardPageView() {
   // 保留框架首页入口，业务内容由应用通过 Dashboard Slot 按需接入。

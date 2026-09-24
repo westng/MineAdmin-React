@@ -32,7 +32,7 @@ test('public export excludes business files, unknown source roots, local configu
     'src/app/branding.ts',
     'src/app/menu-policy.ts',
     'src/app/application.css',
-    'src/modules/creator/components/nm-douyin-user-parser/index.ts',
+    'src/components/nm-douyin-user-parser/index.ts',
     'src/unreviewed/domain.ts',
     'src/assets/fonts/private-font.woff2',
     'src/assets/fonts/inter/unreviewed.woff2',

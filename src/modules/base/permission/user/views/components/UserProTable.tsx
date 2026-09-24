@@ -1,6 +1,6 @@
 import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { PermissionGate, usePermission } from '@/hooks/framework/use-permission'
-import { useUserQueries } from '../data/use-user-queries'
+import { useUserQueries } from '../../hooks/use-user-queries'
 import * as React from 'react'
 import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'

@@ -2,6 +2,7 @@
 @import 'tw-animate-css';
 @import '@application-styles';
 @import '../../layouts/verve/style.css';
+@source '../../modules/creator';
 
 @custom-variant dark (&:is(.dark *));
 

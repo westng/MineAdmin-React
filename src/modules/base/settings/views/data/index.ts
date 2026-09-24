@@ -1,9 +1,8 @@
 import { createTextTranslator } from '@/provider/i18n'
 import { Moon, Sun, type LucideIcon } from 'lucide-react'
+import type { SettingsColorMode } from '../../api/settings'
 
 const tx = createTextTranslator('base.settings.ui')
-
-export type SettingsColorMode = 'light' | 'dark'
 
 export const settingsModes: Array<{ value: SettingsColorMode; label: string; icon: LucideIcon }> = [
   {

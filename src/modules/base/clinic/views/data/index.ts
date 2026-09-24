@@ -1,6 +1,6 @@
 import { CalendarDays, CreditCard, Settings, Stethoscope, UserRound, Users, type LucideIcon } from 'lucide-react'
-
-export type ClinicSection = 'calendar' | 'appointments' | 'customers' | 'staff' | 'payments' | 'settings'
+import type { ClinicSection } from '../../api/clinic'
+export type { ClinicSection } from '../../api/clinic'
 
 export interface ClinicSectionConfig {
   title: string

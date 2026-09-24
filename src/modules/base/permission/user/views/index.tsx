@@ -10,9 +10,9 @@ import { useHeaderActions } from '@/layouts/components/bars/toolbar/use-header-a
 import { useDictStore } from '@/provider/dictionary'
 import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { deleteUsers, resetPassword, type UserVo } from '../api/user'
-import { useUserQueries } from './data/use-user-queries'
-import { useUserFormDialog } from './data/use-user-form-dialog'
-import { useUserRoleDialog } from './data/use-user-role-dialog'
+import { useUserQueries } from '../hooks/use-user-queries'
+import { useUserFormDialog } from '../hooks/use-user-form-dialog'
+import { useUserRoleDialog } from '../hooks/use-user-role-dialog'
 import UserProTable from './components/UserProTable'
 import { assertUserResponse } from './data/form-values'
 

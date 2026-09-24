@@ -1,7 +1,7 @@
 import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { MaDialog } from '@/components/ma-dialog'
 import { Button } from '@/components/reui/primitives/button'
-import type { AttachmentVo } from '@/modules/base/user-center/api/attachment'
+import type { AttachmentVo } from '../../api'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

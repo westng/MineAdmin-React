@@ -1,8 +1,8 @@
-export { DashboardSlotOutlet, type DashboardSlotOutletProps } from './dashboard-slot-outlet'
+export { DashboardSlotOutlet, type DashboardSlotOutletProps } from './views/components/DashboardSlotOutlet'
 export {
   getDashboardSlotsSnapshot,
   registerDashboardSlot,
   subscribeDashboardSlots,
   type DashboardSlotName,
   type DashboardSlotRegistration,
-} from './dashboard-slot'
+} from './register-dashboard-slot'

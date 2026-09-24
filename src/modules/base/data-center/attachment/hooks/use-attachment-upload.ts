@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useToast } from '@/components/reui/use-toast'
 import { useFileUpload } from '@/hooks/framework/use-file-upload'
 import { hasAuth } from '@/hooks/framework/use-permission'
-import { upload } from '@/modules/base/user-center/api/attachment'
-import { attachmentError } from './attachment'
+import { upload } from '../api'
+import { attachmentError } from '../views/data/attachment'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

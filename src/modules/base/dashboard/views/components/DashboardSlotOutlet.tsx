@@ -1,9 +1,13 @@
 import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
 import { ErrorBoundary } from '@/components/reui/error-boundary'
-import type { DashboardSlotRegistration } from './dashboard-slot'
+import type { DashboardSlotRegistration } from '../../register-dashboard-slot'
 import { useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
-import { getDashboardSlotsSnapshot, subscribeDashboardSlots, type DashboardSlotName } from './dashboard-slot'
+import {
+  getDashboardSlotsSnapshot,
+  subscribeDashboardSlots,
+  type DashboardSlotName,
+} from '../../register-dashboard-slot'
 
 const tx = createTextTranslator('base.dashboard.ui')
 

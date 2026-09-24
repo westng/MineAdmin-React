@@ -1,5 +1,5 @@
 import { createTextTranslator } from '@/provider/i18n'
-import type { AttachmentSearchParams } from '@/modules/base/user-center/api/attachment'
+import type { AttachmentSearchParams } from '../../api'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

@@ -9,16 +9,19 @@ dist*
 .env
 .env.*
 !.env.example
-# Application integrations and all local plugins are private.
+# 真实项目集成和本地插件不得进入开源框架。
 src/app/application.tsx
 src/app/branding.ts
 src/app/menu-policy.ts
 src/app/application.css
 src/plugins/**
-# Private compatibility components are not public API.
+# 仅收录开源框架组件，其他组件属于真实项目代码。
 src/components/*
 !src/components/ma-*/
+!src/components/ma-*/**
 !src/components/reui/
+!src/components/reui/**
+# 仅收录开源框架基础模块，其他模块属于真实项目代码。
 src/modules/*
 !src/modules/base/
 !src/modules/base/**

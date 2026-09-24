@@ -1,8 +1,8 @@
 import { createTextTranslator } from '@/provider/i18n'
 import { useCallback, useEffect, useState } from 'react'
-import { pageList, type AttachmentVo } from '@/modules/base/user-center/api/attachment'
+import { pageList, type AttachmentVo } from '../api'
 import type { FilterQuery } from '@/components/reui/filters/filters-types'
-import { attachmentError } from './attachment'
+import { attachmentError } from '../views/data/attachment'
 import {
   attachmentFilterParams,
   categories,
@@ -10,7 +10,7 @@ import {
   sortOptions,
   type AttachmentCategory,
   type AttachmentSort,
-} from './library'
+} from '../views/data/library'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

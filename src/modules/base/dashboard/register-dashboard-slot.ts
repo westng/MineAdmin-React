@@ -1,21 +1,5 @@
-import type { ReactNode } from 'react'
-
-/**
- * Dashboard 可扩展区域。Core 只保证这些区域的生命周期和注册顺序，
- * 不对业务内容、请求或指标结构做任何假设。
- */
-export type DashboardSlotName = 'main' | 'header' | 'footer'
-
-export interface DashboardSlotRegistration {
-  /** 应用内稳定且唯一的注册 ID。重复 ID 会替换旧注册。 */
-  id: string
-  /** 未指定时注册到 main 区域。 */
-  slot?: DashboardSlotName
-  /** 同一插槽内按升序渲染，默认为 0。 */
-  order?: number
-  /** 由应用负责渲染业务内容；Core 不接收业务 API 或数据模型。 */
-  render: () => ReactNode
-}
+import type { DashboardSlotName, DashboardSlotRegistration } from './api/dashboard'
+export type { DashboardSlotName, DashboardSlotRegistration } from './api/dashboard'
 
 type DashboardSlotListener = () => void
 

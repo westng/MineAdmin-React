@@ -35,8 +35,8 @@ Router、Shell、页面权限和个人资料组件通过框架 Hook 读取注入
 `src` 只保留 `app`、`assets`、`components`、`hooks`、`layouts`、`modules`、`plugins`、`provider`、`router`、`services`、`store`、`types`、`utils`。其中应用自己的 `plugins` 可以缺席，公共模板不携带私有插件。
 
 - React 入口只在 `app/main.tsx`，HTML 直接引用，不再有 src 根级转发文件。
-- `components` 只包含 `ma-*` 与 `reui`；通用 UI 只使用 `reui/primitives`，共享辅助在 `reui/utils`。
-- 专用组件随所属业务模块，例如创作者解析组件位于 `modules/creator/components`；共享 Logo 和等级图标位于 `assets/images`，保持原文件命名。
+- `components` 包含 `ma-*`、`reui` 与明确登记的全局私有组件；通用 UI 只使用 `reui/primitives`，共享辅助在 `reui/utils`。
+- 跨业务复用的私有组件放在 `components`，例如创作者解析组件位于 `components/nm-douyin-user-parser`；共享 Logo 和等级图标位于 `assets/images`，保持原文件命名。
 - `app` 只负责启动、应用配置与装配；`application.css` 显式补充被 Git 忽略的业务目录的 Tailwind 扫描范围。发布边界由 `scripts/public-files.mjs` 的白名单决定。
 - 语言注册与 React 消费集中到 `provider/i18n`，图标索引在 `assets/icons/catalog.json`，图标加载 Hook 跟随 `components/ma-icon`。
 - 跨模块 Hook 放在 `hooks/framework` 或 `hooks/shell`；特性与组件专用 Hook 随所属目录，缓存工具在 `services/storage`。

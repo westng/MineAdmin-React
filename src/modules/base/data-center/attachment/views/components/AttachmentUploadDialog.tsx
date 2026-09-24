@@ -5,7 +5,7 @@ import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/fr
 import { IconTile } from '@/components/reui/icon-tile'
 import { Button } from '@/components/reui/primitives/button'
 import { cn } from '@/utils/cn'
-import { useAttachmentUpload } from '../data/use-attachment-upload'
+import { useAttachmentUpload } from '../../hooks/use-attachment-upload'
 import { formatFileSize } from '../data/attachment'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')

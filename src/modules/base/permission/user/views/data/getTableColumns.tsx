@@ -1,6 +1,7 @@
 import { createTextTranslator } from '@/provider/i18n'
 import { hasAuth } from '@/hooks/framework/use-permission'
 import { ShieldCheck } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/reui/primitives/avatar'
 import { Badge } from '@/components/reui/primitives/badge'
 import type { MaProTableColumns, MaProTableOperationAction } from '@/components/ma-pro-table'
 import type { UserVo } from '../../api/user'
@@ -57,10 +58,26 @@ export function getTableColumns({
     { type: 'selection', width: 44, label: '' },
     {
       prop: 'username',
-      label: tx('用户名'),
-      cellRender: ({ row }) => <span className="font-medium">{row.username || '-'}</span>,
+      label: tx('用户信息'),
+      width: 220,
+      cellRender: ({ row }) => {
+        const displayName = row.nickname || row.username || tx('用户')
+        const initial = Array.from(displayName.trim())[0]?.toUpperCase() || '?'
+
+        return (
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar size="default">
+              {row.avatar && <AvatarImage src={row.avatar} alt={displayName} />}
+              <AvatarFallback className="bg-primary text-primary-foreground">{initial}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">{row.nickname || '-'}</p>
+              <p className="truncate text-xs text-muted-foreground">{row.username || '-'}</p>
+            </div>
+          </div>
+        )
+      },
     },
-    { prop: 'nickname', label: tx('昵称'), cellRender: ({ row }) => row.nickname || '-' },
     {
       prop: 'user_type',
       label: tx('用户类型'),
@@ -72,7 +89,9 @@ export function getTableColumns({
       prop: 'status',
       label: tx('状态'),
       cellRender: ({ row }) => (
-        <Badge variant={row.status === 1 ? 'default' : 'secondary'}>{getStatusLabel(row.status)}</Badge>
+        <Badge variant={row.status === 1 ? 'success-light' : row.status === 2 ? 'destructive-light' : 'secondary'}>
+          {getStatusLabel(row.status)}
+        </Badge>
       ),
     },
     { type: 'operation', label: tx('操作'), align: 'right', width: 240, operationConfigure: { type: 'auto', actions } },

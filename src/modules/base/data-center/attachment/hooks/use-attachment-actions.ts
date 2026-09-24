@@ -2,9 +2,9 @@ import { createTextTranslator } from '@/provider/i18n'
 import { useCallback, useRef, useState } from 'react'
 import { useToast } from '@/components/reui/use-toast'
 import { hasAuth } from '@/hooks/framework/use-permission'
-import { deleteById, type AttachmentVo } from '@/modules/base/user-center/api/attachment'
+import { deleteById, type AttachmentVo } from '../api'
 import { copyText } from '@/utils/clipboard'
-import { attachmentError, attachmentUrl } from './attachment'
+import { attachmentError, attachmentUrl } from '../views/data/attachment'
 
 const tx = createTextTranslator('base.data-center.attachment.ui')
 

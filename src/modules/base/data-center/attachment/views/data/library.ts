@@ -1,5 +1,5 @@
 import { createTextTranslator } from '@/provider/i18n'
-import type { AttachmentSearchParams, AttachmentVo } from '@/modules/base/user-center/api/attachment'
+import type { AttachmentSearchParams, AttachmentVo } from '../../api'
 import type { FilterQuery } from '@/components/reui/filters/filters-types'
 import { attachmentSearch } from './attachment'
 
