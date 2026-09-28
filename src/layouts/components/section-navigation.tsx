@@ -1,7 +1,7 @@
-import { useTranslate } from '@/provider/i18n'
+import { useTranslate } from '@/hooks/i18n/use-translator'
 import { NavLink } from 'react-router-dom'
-import { useShell } from '@/hooks/shell/use-shell'
-import { getMenuPath, getMenuLabel, isVisibleMenu } from '@/router/dynamic-menu'
+import { useShell } from '@/layouts/hooks/use-shell'
+import { getMenuPath, getMenuLabel, isVisibleMenu } from '@/router/navigation/menu'
 import { cn } from '@/utils/cn'
 export default function SectionNavigation({ vertical = false }: { vertical?: boolean }) {
   const t = useTranslate()

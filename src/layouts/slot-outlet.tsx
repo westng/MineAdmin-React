@@ -1,11 +1,11 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
-import { useContext, useSyncExternalStore, type ReactNode } from 'react'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
+import { Suspense, useSyncExternalStore, type ReactNode } from 'react'
 import { ErrorBoundary } from '@/components/reui/error-boundary'
-import { RuntimeContext } from '@/provider/runtime/context'
+import { useRuntime } from '@/hooks/runtime/use-runtime'
 import { reportError, silentTelemetry } from '@/services/telemetry'
-import { shellSlots, type ShellSlotName, type ShellSlotProps, type ShellSlotRegistration } from './slots'
+import { type ShellSlotName, type ShellSlotProps, type ShellSlotRegistration } from './slots'
 
-const tx = createTextTranslator('shell.ui')
 function SlotContent({ entry, props }: { entry: ShellSlotRegistration; props: ShellSlotProps }) {
   if (entry.match && !entry.match(props.pathname ?? '')) return null
   const Component = entry.component
@@ -16,11 +16,14 @@ export function ShellSlotOutlet({
   fallback = null,
   ...props
 }: ShellSlotProps & { slot: ShellSlotName; fallback?: ReactNode }) {
+  const tx = useTextTranslator('shell.ui')
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 
-  const runtime = useContext(RuntimeContext)
-  const entries = useSyncExternalStore(shellSlots.subscribe, shellSlots.getSnapshot, shellSlots.getSnapshot)
+  const runtime = useRuntime()
+  const registry = runtime.slots
+  const entries = useSyncExternalStore(registry.subscribe, registry.getSnapshot, registry.getSnapshot)
   const matching = entries.filter(entry => entry.slot === slot)
   if (!matching.length) return fallback
   return matching.map(entry => (
@@ -29,7 +32,9 @@ export function ShellSlotOutlet({
       label={tx('扩展')}
       onError={error => reportError(runtime?.telemetry ?? silentTelemetry, error, `slot:${entry.id}`)}
     >
-      <SlotContent entry={entry} props={props} />
+      <Suspense fallback={fallback}>
+        <SlotContent entry={entry} props={props} />
+      </Suspense>
     </ErrorBoundary>
   ))
 }

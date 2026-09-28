@@ -10,19 +10,23 @@ import type {
   MaTableTabsConfig,
 } from '../../ma-table/types'
 import type { MaModel } from '@/components/reui/utils/types'
+import type { TableResourceQuery } from '../utils/request-store'
 
 export type MaProTableModel = MaModel
 
-export interface MaProTableColumns<T extends MaProTableModel = MaProTableModel> extends MaTableColumn<T> {
+export interface MaProTableColumns<
+  T extends MaProTableModel = MaProTableModel,
+  S extends MaProTableModel = T,
+> extends MaTableColumn<T> {
   toolHide?: boolean
   operationConfigure?: {
     type?: 'auto' | 'dropdown' | 'tile'
     fold?: number
-    actions?: MaProTableOperationAction<T>[]
+    actions?: MaProTableOperationAction<T, S>[]
   }
 }
 
-export interface MaProTableOperationAction<T extends MaProTableModel = MaProTableModel> {
+export interface MaProTableOperationAction<T extends MaProTableModel = MaProTableModel, S extends MaProTableModel = T> {
   name?: string
   text?: string | ((context: MaTableCellContext<T>) => string)
   ariaLabel?: string
@@ -33,29 +37,36 @@ export interface MaProTableOperationAction<T extends MaProTableModel = MaProTabl
   order?: number
   disabled?: (context: MaTableCellContext<T>) => boolean
   show?: (context: MaTableCellContext<T>) => boolean
-  onClick?: (context: MaTableCellContext<T>, table: MaProTableExpose<T>, event?: React.MouseEvent) => void
+  onClick?: (context: MaTableCellContext<T>, table: MaProTableExpose<T, S>, event?: React.MouseEvent) => void
 }
 
-export interface MaProTableSchema<T extends MaProTableModel = MaProTableModel> {
-  searchItems?: MaSearchItem<T>[]
-  tableColumns?: MaProTableColumns<T>[]
+export interface MaProTableSchema<T extends MaProTableModel = MaProTableModel, S extends MaProTableModel = T> {
+  searchItems?: MaSearchItem<S>[]
+  tableColumns?: MaProTableColumns<T, S>[]
 }
 
-export type MaProTableApi = (params: Record<string, unknown>) => unknown | Promise<unknown>
+export type MaProTableApi = ((params: Record<string, unknown>, signal?: AbortSignal) => unknown | Promise<unknown>) & {
+  /** Reuse the API's resource key and loader when an application supplies a query adapter. */
+  queryOptions?: (params: Record<string, unknown>) => TableResourceQuery
+}
 
-export interface MaProTableToolbarContext<T extends MaProTableModel = MaProTableModel> {
-  options: MaProTableOptions<T>
-  tableRef: React.RefObject<MaProTableExpose<T> | null>
+export interface MaProTableToolbarContext<T extends MaProTableModel = MaProTableModel, S extends MaProTableModel = T> {
+  options: MaProTableOptions<T, S>
+  tableRef: React.RefObject<MaProTableExpose<T, S> | null>
 }
 
 export interface MaProTableToolbar {
   name: string
   order?: number
-  show?: <T extends MaProTableModel>(context: Pick<MaProTableToolbarContext<T>, 'options'>) => boolean
-  render: <T extends MaProTableModel>(context: MaProTableToolbarContext<T>) => React.ReactNode
+  show?: <T extends MaProTableModel, S extends MaProTableModel>(
+    context: Pick<MaProTableToolbarContext<T, S>, 'options'>,
+  ) => boolean
+  render: <T extends MaProTableModel, S extends MaProTableModel>(
+    context: MaProTableToolbarContext<T, S>,
+  ) => React.ReactNode
 }
 
-export interface MaProTableOptions<T extends MaProTableModel = MaProTableModel> {
+export interface MaProTableOptions<T extends MaProTableModel = MaProTableModel, S extends MaProTableModel = T> {
   id?: string
   adaptionOffsetBottom?: number
   actionBtnPosition?: 'auto' | 'header' | 'table'
@@ -85,19 +96,22 @@ export interface MaProTableOptions<T extends MaProTableModel = MaProTableModel> 
     requestParams?: Record<string, unknown>
     responseDataHandler?: (response: Record<string, unknown>) => T[]
   }
-  onSearchSubmit?: (form: T) => Record<string, unknown> | void
-  onSearchReset?: (form: T) => Record<string, unknown> | void
+  onSearchSubmit?: (form: S) => Record<string, unknown> | void
+  onSearchReset?: (form: S) => Record<string, unknown> | void
   tableOptions?: MaTableOptions<T>
   searchOptions?: MaSearchOptions
   searchFormOptions?: MaFormOptions
   className?: string
 }
 
-export interface MaProTableProps<T extends MaProTableModel = MaProTableModel> {
+export interface MaProTableProps<T extends MaProTableModel = MaProTableModel, S extends MaProTableModel = T> {
   data?: T[]
+  total?: number
   loading?: boolean
-  schema?: MaProTableSchema<T>
-  options?: MaProTableOptions<T>
+  /** Error from an external server-state owner. */
+  error?: string
+  schema?: MaProTableSchema<T, S>
+  options?: MaProTableOptions<T, S>
   variant?: 'default' | 'card'
   className?: string
   header?: React.ReactNode
@@ -112,8 +126,8 @@ export interface MaProTableProps<T extends MaProTableModel = MaProTableModel> {
   onSelectionChange?: (rows: T[]) => void
 }
 
-export interface MaProTableExpose<T extends MaProTableModel = MaProTableModel> {
-  getSearchRef: () => MaSearchExpose<T> | null
+export interface MaProTableExpose<T extends MaProTableModel = MaProTableModel, S extends MaProTableModel = T> {
+  getSearchRef: () => MaSearchExpose<S> | null
   getTableRef: () => MaTableExpose<T> | null
   getElTableStates: () => { data: T[]; loading: boolean; selectedRows: T[] }
   getRequestParams: () => Record<string, unknown>
@@ -121,13 +135,13 @@ export interface MaProTableExpose<T extends MaProTableModel = MaProTableModel> {
   requestData: () => Promise<void>
   changeApi: (api: MaProTableApi, requestNow?: boolean) => void
   setRequestParams: (params: Record<string, unknown>, requestNow?: boolean) => void
-  setTableColumns: (columns: MaProTableColumns<T>[]) => void
-  getTableColumns: () => MaProTableColumns<T>[]
-  setSearchForm: (form: Partial<T> | null) => void
-  getSearchForm: () => T
+  setTableColumns: (columns: MaProTableColumns<T, S>[]) => void
+  getTableColumns: () => MaProTableColumns<T, S>[]
+  setSearchForm: (form: Partial<S> | null) => void
+  getSearchForm: () => S
   search: (params?: Record<string, unknown>) => void
-  setProTableOptions: (options: Partial<MaProTableOptions<T>>) => void
-  getProTableOptions: () => MaProTableOptions<T>
+  setProTableOptions: (options: Partial<MaProTableOptions<T, S>>) => void
+  getProTableOptions: () => MaProTableOptions<T, S>
   resizeHeight: () => Promise<void>
   getCurrentId: () => string
 }

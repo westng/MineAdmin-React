@@ -53,7 +53,7 @@ export interface MaFormItemBase<T extends MaFormModel = MaFormModel> {
   prop?: string | ((model: T) => string)
   hide?: boolean | ((item: MaFormItem<T>, model: T) => boolean)
   show?: boolean | ((item: MaFormItem<T>, model: T) => boolean)
-  cols?: { span?: number; offset?: number; xs?: number; sm?: number; md?: number; lg?: number; xl?: number }
+  cols?: { span?: number; offset?: number }
   itemProps?: MaFormItemProps
   itemSlots?: {
     label?: (context: MaFormRenderContext<T>) => React.ReactNode
@@ -112,7 +112,19 @@ export interface MaFormValidationResult {
   errors: Record<string, string[]>
 }
 
+export interface MaFormState {
+  dirty: boolean
+  dirtyFields: string[]
+  touchedFields: string[]
+  validating: boolean
+  submitting: boolean
+  errors: Record<string, string[]>
+  submitError: string
+}
+
 export interface MaFormExpose<T extends MaFormModel = MaFormModel> {
+  getState: () => MaFormState
+  reset: (values?: T) => void
   validate: () => Promise<MaFormValidationResult>
   validateField: (prop: string) => Promise<boolean>
   resetFields: (props?: string[]) => T
@@ -141,4 +153,6 @@ export interface MaFormProps<T extends MaFormModel = MaFormModel> {
   onModelValueChange?: (value: T) => void
   onChange?: (value: T) => void
   onSubmit?: (value: T) => void | Promise<void>
+  onStateChange?: (state: MaFormState) => void
+  onSubmitError?: (error: unknown) => void
 }

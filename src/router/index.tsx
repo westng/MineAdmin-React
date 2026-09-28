@@ -1,5 +1,5 @@
-import { useTranslate } from '@/provider/i18n'
-import { PageViewport } from './page-viewport'
+import { useTranslate } from '@/hooks/i18n/use-translator'
+import { useSettingStore } from '@/store/settings/use-settings'
 import {
   createBrowserRouter,
   createHashRouter,
@@ -9,139 +9,145 @@ import {
   Route,
   Routes,
   useLocation,
-  type Location,
+  useNavigate,
 } from 'react-router-dom'
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { useSession } from '@/hooks/framework/use-session'
-import { useRuntime } from '@/hooks/framework/use-runtime'
-import type { AppRoute } from './types'
-import { useRoute } from '@/hooks/framework/use-route'
-import { hasMatchedRouteAccess } from './access'
-import AccessDeniedPage from '@/router/pages/access-denied'
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useSession } from '@/hooks/auth/use-session'
+import { useRuntime } from '@/hooks/runtime/use-runtime'
+import { useRoute } from '@/hooks/use-route'
+import { reportError } from '@/services/telemetry'
+import { AsyncView } from './async-view'
+import { PageViewport, RoutePage } from './page-viewport'
+import { safeInternalTarget } from '@/router/navigation/menu'
 
-function ProtectedRoute({ routes, initialized }: { routes: AppRoute[]; initialized: boolean }) {
+const AppLayout = lazy(() => import('@/layouts'))
+const LoginPage = lazy(() => import('@/modules/base/login/views'))
+
+/** 登录检查：没有 token 去登录页；有 token 但还没加载用户信息时，先加载用户信息、菜单和角色。 */
+function AuthGuard() {
   const t = useTranslate()
   const token = useSession(state => state.token)
-  const userInitialized = useSession(state => state.initialized)
-  const userLoading = useSession(state => state.loading)
-  const userError = useSession(state => state.error)
-  const userInfo = useSession(state => state.userInfo)
-  const roles = useSession(state => state.roles)
-  const permissions = useSession(state => state.permissions)
-  const location = useLocation()
+  const initialized = useSession(state => state.initialized)
+  const sessionVersion = useSession(state => state.sessionVersion)
   const hydrate = useSession(state => state.hydrate)
-  const { clearMenus } = useRuntime().routes
+  const error = useSession(state => state.error)
+  const location = useLocation()
   useEffect(() => {
-    if (!token) {
-      clearMenus()
-      return
-    }
-    if ((!userInitialized || !initialized) && !userLoading && !userError) {
-      void hydrate()
-    }
-  }, [clearMenus, hydrate, initialized, token, userInitialized, userLoading, userError])
+    if (token && !initialized && !error) void hydrate()
+  }, [error, hydrate, initialized, sessionVersion, token])
 
   if (!token) {
-    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />
+    const redirect = encodeURIComponent(location.pathname + location.search + location.hash)
+    return <Navigate to={`/login?redirect=${redirect}`} replace />
   }
-  if (userLoading || !userInitialized || !initialized) {
-    if (userError) {
+  if (!initialized) {
+    if (error)
       return (
-        <div className="flex min-h-svh flex-col items-center justify-center gap-3 text-sm">
-          <p className="text-destructive">{userError}</p>
-          <button type="button" className="rounded-md border px-3 py-1.5 hover:bg-muted" onClick={() => void hydrate()}>
-            {t('common.retry')}
+        <div role="alert" className="flex min-h-svh flex-col items-center justify-center gap-3 text-sm">
+          <p>{error}</p>
+          <button type="button" className="rounded border px-3 py-1.5" onClick={() => void hydrate()}>
+            重试
           </button>
         </div>
       )
-    }
     return (
       <div className="flex min-h-svh items-center justify-center text-sm text-muted-foreground">
         {t('router.initializing')}
       </div>
     )
   }
-  if (userError) {
-    return (
-      <div className="flex min-h-svh flex-col items-center justify-center gap-3 text-sm">
-        <p className="text-destructive">{userError}</p>
-        <button type="button" className="rounded-md border px-3 py-1.5 hover:bg-muted" onClick={() => void hydrate()}>
-          {t('common.retry')}
-        </button>
-      </div>
-    )
-  }
-  return hasMatchedRouteAccess(routes, location.pathname, { roles, permissions, userInfo }) ? (
-    <Outlet />
-  ) : (
-    <AccessDeniedPage />
-  )
+  return <Outlet />
 }
 
+/** 已登录时访问登录页，跳回 `redirect` 或首页。 */
 function GuestRoute() {
   const token = useSession(state => state.token)
-  return token ? <Navigate to="/dashboard" replace /> : <Outlet />
+  const dashboardPath = useSettingStore(state => state.settings.dashboardPage.path)
+  const { search } = useLocation()
+  if (!token) return <Outlet />
+  const redirect = new URLSearchParams(search).get('redirect')
+  const target = redirect && safeInternalTarget(redirect)
+  return <Navigate to={target && !/^\/login(?:[/?#]|$)/i.test(target) ? target : dashboardPath} replace />
 }
 
-function renderRoutes(routes: AppRoute[]) {
-  return routes.map(route => (
-    <Route key={route.name} path={route.path} element={route.element ?? <Outlet />}>
-      {route.children ? renderRoutes(route.children) : null}
-    </Route>
-  ))
-}
-
-type NavigationListener = (location: Location, previous: Location) => void
-const NavigationListenerContext = createContext<NavigationListener | undefined>(undefined)
-
-function NavigationLifecycle({ onNavigate }: { onNavigate?: NavigationListener }) {
-  const location = useLocation()
-  const previousLocation = useRef<typeof location | null>(null)
-
+/** 默认布局；布局挂载时调用插件的 `setup` 钩子。 */
+function Layout() {
+  const { plugins, telemetry } = useRuntime()
   useEffect(() => {
-    if (previousLocation.current) onNavigate?.(location, previousLocation.current)
-    previousLocation.current = location
-  }, [location, onNavigate])
+    plugins.callHooks('setup').catch(error => reportError(telemetry, error, 'plugin:setup'))
+  }, [plugins, telemetry])
+  return <AppLayout />
+}
 
+/** 路由切换时调用插件的 `routerRedirect` 钩子。 */
+function NavigationLifecycle() {
+  const { plugins, telemetry } = useRuntime()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const previous = useRef<string | null>(null)
+  useEffect(() => {
+    const newRoute = `${location.pathname}${location.search}${location.hash}`
+    const oldRoute = previous.current
+    previous.current = newRoute
+    if (oldRoute === null || oldRoute === newRoute) return
+    plugins
+      .callHooks('routerRedirect', { oldRoute, newRoute }, navigate)
+      .catch(error => reportError(telemetry, error, 'plugin:routerRedirect'))
+  }, [location, navigate, plugins, telemetry])
   return null
 }
 
 function AppRoutes() {
-  const snapshot = useRoute()
-  const onNavigate = useContext(NavigationListenerContext)
+  const { routes } = useRoute()
+  const { publicRoutes: registry } = useRuntime()
+  const publicRoutes = useSyncExternalStore(registry.subscribe, registry.getSnapshot, registry.getSnapshot)
+  const standalone = routes.filter(route => route.meta?.useDefaultLayout === false)
+  const inLayout = routes.filter(route => route.meta?.useDefaultLayout !== false)
   return (
     <>
-      <NavigationLifecycle onNavigate={onNavigate} />
+      <NavigationLifecycle />
       <Routes>
-        <Route element={<ProtectedRoute routes={snapshot.protectedRoutes} initialized={snapshot.initialized} />}>
-          {snapshot.protectedRoutes.map(layout => (
-            <Route key={layout.name} path={layout.path} element={layout.element}>
-              <Route path="*" element={<PageViewport routes={layout.children || []} />} />
-            </Route>
-          ))}
+        {publicRoutes.map(route => (
+          <Route
+            key={route.id}
+            path={route.path}
+            element={route.element ?? (route.component ? <AsyncView loader={route.component} /> : null)}
+          />
+        ))}
+        <Route element={<GuestRoute />}>
+          <Route path="/login" element={<LoginPage />} />
         </Route>
-        <Route element={<GuestRoute />}>{renderRoutes(snapshot.guestRoutes)}</Route>
-        {renderRoutes(snapshot.publicRoutes)}
+        <Route element={<AuthGuard />}>
+          {standalone.map(route => (
+            <Route key={route.path} path={route.path} element={<RoutePage route={route} routes={routes} />} />
+          ))}
+          <Route path="/" element={<Layout />}>
+            <Route path="*" element={<PageViewport routes={inLayout} />} />
+          </Route>
+        </Route>
       </Routes>
     </>
   )
 }
 
-export function AppRouter({ onNavigate }: { onNavigate?: NavigationListener } = {}) {
+export function AppRouter() {
   const [router, setRouter] = useState<ReturnType<typeof createBrowserRouter> | null>(null)
   useEffect(() => {
+    // Preserve the data-router context required by useBlocker. Menu updates only change AppRoutes.
     const createRouter = import.meta.env.VITE_APP_ROUTE_MODE === 'history' ? createBrowserRouter : createHashRouter
     const instance = createRouter([{ path: '*', element: <AppRoutes /> }], {
       basename: import.meta.env.VITE_APP_ROOT_BASE,
     })
-    // Browser history subscriptions must be created and disposed together, including StrictMode remounts.
+    // Pair history subscriptions with disposal, including React StrictMode remounts.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRouter(instance)
     return () => instance.dispose()
   }, [])
   return (
-    <NavigationListenerContext.Provider value={onNavigate}>
-      {router && <RouterProvider router={router} />}
-    </NavigationListenerContext.Provider>
+    router && (
+      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">正在加载页面…</p>}>
+        <RouterProvider router={router} />
+      </Suspense>
+    )
   )
 }

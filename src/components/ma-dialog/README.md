@@ -2,7 +2,7 @@
 
 `MaDialog` 是项目级对话框封装，基于 `components/reui/primitives/dialog` 组合，不修改官方 ReUI 或 Base UI 源码。
 
-默认对话框沿用目标站的 ReUI 壳层：响应式 `sm` 宽度、圆角面板、轻量边框光环和官方底部操作区；需要更宽的业务内容时，通过 `contentClassName` 覆盖，而不是修改全局基础组件。
+默认对话框使用项目的 ReUI 壳层：默认 `size="md"` 的响应式宽度（`sm:max-w-md md:max-w-lg lg:max-w-xl`）、圆角面板、轻量边框光环和底部操作区；需要更宽的业务内容时，优先设置 `size`（`xs/sm/md/lg/xl/full`）或通过 `contentClassName` 覆盖。
 
 ## 基础用法
 
@@ -133,9 +133,9 @@ function remove(row: User) {
   })
 }
 
-<MaDialog {...confirmation.dialogProps} />
+;<MaDialog {...confirmation.dialogProps} />
 ```
 
 确认操作运行期间不能重复提交或关闭；失败保持弹窗，成功关闭。多个删除、重置等入口可以共用这个 Hook，无需分别维护确认弹窗状态。
 
-用户管理页及其 `use-user-form-dialog.ts`、`use-user-role-dialog.ts` 是业务接入示例；它们保留数据转换与权限契约，公共 Hook 只负责交互流程。
+业务接入示例见 [UserFormDialog](../../modules/base/user/views/components/UserFormDialog.tsx) 和 [UserRoleDialog](../../modules/base/user/views/components/UserRoleDialog.tsx)。它们保留数据转换与权限契约，公共 Hook 只负责交互流程。

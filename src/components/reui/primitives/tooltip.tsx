@@ -1,4 +1,4 @@
-'use client'
+import { usePortalContainer } from '@/components/reui/primitives/portal-container'
 
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip'
 
@@ -26,8 +26,10 @@ function TooltipContent({
   ...props
 }: TooltipPrimitive.Popup.Props &
   Pick<TooltipPrimitive.Positioner.Props, 'align' | 'alignOffset' | 'side' | 'sideOffset'>) {
+  const portalContainer = usePortalContainer()
+
   return (
-    <TooltipPrimitive.Portal>
+    <TooltipPrimitive.Portal container={portalContainer}>
       <TooltipPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}

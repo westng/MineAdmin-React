@@ -1,3 +1,4 @@
+import { usePortalContainer } from '@/components/reui/primitives/portal-container'
 import * as React from "react"
 import type { CSSProperties, ReactElement, ReactNode } from "react"
 import {
@@ -161,6 +162,8 @@ function Sortable<T>({
   children,
   ...props
 }: SortableRootProps<T>) {
+const portalContainer = usePortalContainer()
+
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
   const mounted = useSyncExternalStore(
     subscribeToNothing,
@@ -302,7 +305,7 @@ function Sortable<T>({
                 {overlayContent}
               </IsOverlayContext.Provider>
             </DragOverlay>,
-            document.body
+            portalContainer ?? document.body
           )}
       </DndContext>
     </SortableInternalContext.Provider>
@@ -425,6 +428,8 @@ function SortableOverlay({
   className,
   ...props
 }: SortableOverlayProps) {
+const portalContainer = usePortalContainer()
+
   const { activeId, modifiers } = useContext(SortableInternalContext)
   const mounted = useSyncExternalStore(
     subscribeToNothing,
@@ -452,7 +457,7 @@ function SortableOverlay({
         {content}
       </IsOverlayContext.Provider>
     </DragOverlay>,
-    document.body
+    portalContainer ?? document.body
   )
 }
 

@@ -24,7 +24,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## shadcn/ui
 
-来源：[shadcn/ui](https://github.com/shadcn-ui/ui)。涉及范围：src/components/ui/ 的基础样式与组件约定。
+来源：[shadcn/ui](https://github.com/shadcn-ui/ui)。涉及范围：src/components/reui/primitives/ 中的基础样式、组件约定和包装层。
 
 ```text
 MIT License
@@ -77,3 +77,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## 源码追踪
+
+[THIRD_PARTY_SOURCE.json](THIRD_PARTY_SOURCE.json) 记录当前 ReUI 本地文件哈希，CI 使用 `check:vendor` 检查未登记变更。历史上游 commit 暂未核实，清单明确保留为 `null`；它是本地维护基线，不表示已建立上游版本对照。修改流程见 [贡献指南](CONTRIBUTING.md)。

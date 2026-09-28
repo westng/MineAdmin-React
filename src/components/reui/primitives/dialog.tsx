@@ -1,3 +1,4 @@
+import { usePortalContainer } from '@/components/reui/primitives/portal-container'
 import * as React from 'react'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 
@@ -14,7 +15,9 @@ function DialogTrigger<Payload = unknown>({ ...props }: DialogPrimitive.Trigger.
 }
 
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+  const portalContainer = usePortalContainer()
+
+  return <DialogPrimitive.Portal container={portalContainer} data-slot="dialog-portal" {...props} />
 }
 
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {

@@ -1,15 +1,16 @@
-import { mkdtempSync, mkdirSync, copyFileSync, symlinkSync, readFileSync, rmSync, readdirSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, readFileSync, rmSync, readdirSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
-import { listPublicFiles, projectRoot } from './public-files.mjs'
+import { publicSource, projectRoot } from './public-files.mjs'
 // The source tree is freshly materialized from an allowlist; local adapters and env files never enter it.
+const source = publicSource({ workingTree: process.argv.includes('--working-tree') })
 const destination = mkdtempSync(path.join(os.tmpdir(), 'mineadmin-public-'))
 try {
-  for (const file of listPublicFiles()) {
+  for (const file of source.files) {
     const target = path.join(destination, file)
     mkdirSync(path.dirname(target), { recursive: true })
-    copyFileSync(path.join(projectRoot, file), target)
+    writeFileSync(target, source.read(file), { mode: source.mode(file) })
   }
   // Reuse installed dependencies, but resolve every source import from the clean source tree.
   symlinkSync(path.join(projectRoot, 'node_modules'), path.join(destination, 'node_modules'), 'dir')
@@ -43,7 +44,7 @@ try {
   if (oversized.length) throw new Error(`Public chunk budget exceeded: ${oversized.map(item => item.file).join(', ')}`)
   console.log(`Public chunk budget passed: max ${Math.max(...sizes.map(item => item.size))} bytes (limit 600000)`)
   console.log(
-    `Public-only source smoke passed (${listPublicFiles().length} files; no private modules or local environment files)`,
+    `Public-only source smoke passed (${source.files.length} files; no private modules or local environment files)`,
   )
 } finally {
   rmSync(destination, { recursive: true, force: true })

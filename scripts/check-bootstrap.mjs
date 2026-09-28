@@ -26,15 +26,16 @@ try {
     appType: 'custom',
     logLevel: 'error',
   })
-  const { bootstrap } = await server.ssrLoadModule('/src/app/bootstrap.tsx')
-  const { runtime } = await server.ssrLoadModule('/src/app/runtime.ts')
+  const { bootstrap } = await server.ssrLoadModule('/src/app/bootstrap.ts')
+  const { runtime } = await server.ssrLoadModule('/src/app/runtime/instance.ts')
   const dispose = await bootstrap()
-  if (!runtime.routes.getSnapshot().protectedRoutes.length) throw new Error('Bootstrap did not configure routes')
+  if (!runtime.views.has('base/user/views/index', 'modules/')) throw new Error('Bootstrap cannot resolve base views')
+  const pluginCount = runtime.plugins.list().length
   if (requests.length) throw new Error(`Unexpected bootstrap network activity (${requests.length} requests)`)
   dispose()
   dispose()
   const secondDispose = await bootstrap()
-  if (!runtime.routes.getSnapshot().protectedRoutes.length) throw new Error('Second bootstrap failed')
+  if (runtime.plugins.list().length !== pluginCount) throw new Error('Second bootstrap changed the discovered plugins')
   secondDispose()
   runtime.query.clear()
   console.log('Application bootstrap and disposal passed with empty synthetic storage and blocked network')

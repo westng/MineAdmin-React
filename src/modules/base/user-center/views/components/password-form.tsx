@@ -1,16 +1,12 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
+import { createApi as createProfileApi } from '@/modules/base/user-center/api/profile'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { useState, type FormEvent } from 'react'
 import { Check, KeyRound, LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/reui/primitives/field'
 import { Input } from '@/components/reui/primitives/input'
-import { updateCurrentUser } from '@/modules/base/account-settings/api/account'
-
-const tx = createTextTranslator('base.user-center.ui')
-
-function responseMessage(response: { data?: { code?: number; message?: string } }) {
-  return response.data?.message || tx('操作失败')
-}
 
 interface PasswordFormProps {
   onSuccess?: () => void
@@ -18,6 +14,13 @@ interface PasswordFormProps {
 }
 
 export function PasswordForm({ onSuccess, onCancel }: PasswordFormProps) {
+  const tx = useTextTranslator('base.user-center.ui')
+  function responseMessage(response: { data?: { code?: number; message?: string } }) {
+    return response.data?.message || tx('操作失败')
+  }
+
+  const { updateCurrentUser } = useRuntimeFactory(createProfileApi)
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 

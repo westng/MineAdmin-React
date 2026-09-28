@@ -1,6 +1,6 @@
-import { useTranslate } from '@/provider/i18n'
+import { useTranslate } from '@/hooks/i18n/use-translator'
 import { Fragment } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, matchRoutes, useLocation } from 'react-router-dom'
 import { SidebarTrigger } from '@/components/reui/primitives/sidebar'
 import {
   Breadcrumb,
@@ -10,8 +10,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/reui/primitives/breadcrumb'
-import { findMenuByPath, findMenuTrail, getMenuLabel } from '@/router/dynamic-menu'
-import { useRoute } from '@/hooks/framework/use-route'
+import type { RouteBreadcrumb } from '@/router/types'
+import { useRoute } from '@/hooks/use-route'
 import HeaderActionSlot from '@/layouts/components/bars/toolbar'
 import { NotificationsButton } from '@/layouts/components/notifications'
 
@@ -22,24 +22,14 @@ const logo = import.meta.url
   ? new URL('../../../assets/images/logo.svg', import.meta.url).href
   : '/src/assets/images/logo.svg'
 
-const titles: Record<string, string> = {
-  '/dashboard': 'shell.dashboard',
-  '/settings': 'shell.settings',
-  '/uc/index': 'shell.profile',
-  '/uc/settings': 'shell.settings',
-}
-
 export default function Header({ className }: { className?: string }) {
   const t = useTranslate()
   const location = useLocation()
-  const { menus } = useRoute()
-  const dynamicMenu = findMenuByPath(menus, location.pathname)
-  const menuTrail = findMenuTrail(menus, location.pathname)
-  const title = titles[location.pathname]
-    ? t(titles[location.pathname])
-    : dynamicMenu
-      ? getMenuLabel(dynamicMenu)
-      : t('shell.dashboard')
+  const { routes } = useRoute()
+  // 面包屑来自当前路由的 meta.breadcrumb，由菜单拍平时生成。
+  const route = matchRoutes(routes, location.pathname)?.at(-1)?.route
+  const breadcrumb = route?.meta?.breadcrumb ?? []
+  const labelOf = (item: RouteBreadcrumb) => (item.i18n ? t(item.i18n, item.title) : (item.title ?? ''))
 
   return (
     <header
@@ -52,37 +42,24 @@ export default function Header({ className }: { className?: string }) {
             <BreadcrumbItem className="hidden shrink-0 items-center pl-0.5 md:inline-flex">
               <img src={logo} alt="博策云工作台" className="h-5 w-auto max-w-40 object-contain" />
             </BreadcrumbItem>
-            {menuTrail.length > 0 ? (
-              menuTrail.map((item, index) => {
-                const current = index === menuTrail.length - 1
-                const label = current
-                  ? title
-                  : typeof item.menu.meta?.i18n === 'string'
-                    ? t(item.menu.meta.i18n, getMenuLabel(item.menu))
-                    : getMenuLabel(item.menu)
-                return (
-                  <Fragment key={`${item.path}-${label}`}>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem className="min-w-0">
-                      {current ? (
-                        <BreadcrumbPage className="truncate text-sm">{label}</BreadcrumbPage>
-                      ) : (
-                        <BreadcrumbLink asChild className="truncate text-sm">
-                          <Link to={item.path}>{label}</Link>
-                        </BreadcrumbLink>
-                      )}
-                    </BreadcrumbItem>
-                  </Fragment>
-                )
-              })
-            ) : (
-              <>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem className="min-w-0">
-                  <BreadcrumbPage className="truncate text-sm">{title}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </>
-            )}
+            {breadcrumb.map((item, index) => {
+              const current = index === breadcrumb.length - 1
+              const label = labelOf(item)
+              return (
+                <Fragment key={`${item.path}-${index}`}>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem className="min-w-0">
+                    {current || !item.path ? (
+                      <BreadcrumbPage className="truncate text-sm">{label}</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink asChild className="truncate text-sm">
+                        <Link to={item.path}>{label}</Link>
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                </Fragment>
+              )
+            })}
           </BreadcrumbList>
         </Breadcrumb>
         <div className="ml-auto flex shrink-0 items-center gap-1">

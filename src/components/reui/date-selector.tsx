@@ -19,7 +19,7 @@ import {
 } from "date-fns"
 import type { DateRange, DayButton } from "react-day-picker"
 
-import { useIsMobile } from "@/hooks/framework/use-mobile"
+import { useIsMobile } from "@/hooks/ui/use-mobile"
 import { cn } from "@/utils/cn"
 import { Button } from "@/components/reui/primitives/button"
 import { Calendar, CalendarDayButton } from "@/components/reui/primitives/calendar"

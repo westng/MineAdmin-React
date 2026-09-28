@@ -4,7 +4,7 @@ import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { Window } from 'happy-dom'
-import { act, createElement, createRef, useState } from 'react'
+import { Activity, act, createElement, createRef, useState } from 'react'
 
 const dom = new Window({
   url: 'http://localhost',
@@ -45,9 +45,19 @@ const { createRoot } = require('react-dom/client')
 const { Dialog: DialogPrimitive } = require('@base-ui/react/dialog')
 const result = await build({
   stdin: {
-    contents: ['ma-form', 'ma-search', 'ma-table', 'ma-pro-table', 'ma-dialog', 'ma-drawer', 'ma-remote-select']
-      .map(name => `export * from './src/components/${name}'`)
-      .join('\n'),
+    contents: [
+      ...[
+        'ma-form',
+        'ma-search',
+        'ma-table',
+        'ma-pro-table',
+        'ma-dialog',
+        'ma-drawer',
+        'ma-remote-select',
+        'ma-dict-select',
+      ].map(name => `export * from './src/components/${name}'`),
+      "import { createAppRuntime } from './src/app/runtime/create-runtime'; export { RuntimeContext } from './src/provider/runtime/context'; export const testRuntime = createAppRuntime({ storage: window.localStorage }); export const useDictStore = testRuntime.dictionaries.store;",
+    ].join('\n'),
     resolveDir: fileURLToPath(new URL('../', import.meta.url)),
   },
   bundle: true,
@@ -58,14 +68,35 @@ const result = await build({
 })
 const compiled = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(compiled, compiled.exports, require)
-const { MaForm, MaSearch, MaTable, MaProTable, MaDialog, MaDrawer, MaRemoteSelect } = compiled.exports
+const { MaForm, MaSearch, MaTable, MaProTable, MaDialog, MaDrawer, MaRemoteSelect, MaDictSelect, useDictStore } =
+  compiled.exports
 
 async function mount(t, component, props) {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
   const render = async nextProps => {
-    await act(async () => root.render(createElement(component, nextProps)))
+    await act(async () =>
+      root.render(
+        createElement(
+          compiled.exports.RuntimeContext.Provider,
+          { value: compiled.exports.testRuntime },
+          createElement(
+            compiled.exports.MaDictionaryContext.Provider,
+            {
+              value: {
+                subscribe: useDictStore.subscribe,
+                getSnapshot: () => useDictStore.getState().dictionaries,
+                subscribeLocale: compiled.exports.testRuntime.i18n.store.subscribe,
+                getLocaleSnapshot: () => String(compiled.exports.testRuntime.i18n.store.getState().revision),
+                translate: (key, fallback) => compiled.exports.testRuntime.i18n.store.getState().t(key, fallback),
+              },
+            },
+            createElement(component, nextProps),
+          ),
+        ),
+      ),
+    )
   }
   t.after(async () => {
     await act(async () => root.unmount())
@@ -99,18 +130,22 @@ after(async () => {
   dom.close()
 })
 
-test('MaForm 接收新的字段和禁用配置，旧的命令式配置不会在 props 切回后复活', async t => {
+test('MaForm 渲染字段 Label，并保留控件无障碍名称和配置同步', async t => {
   const ref = createRef()
   const originalItems = [{ label: '原字段', prop: 'first' }]
   const view = await mount(t, MaForm, { ref, items: originalItems })
+  assert.equal(view.container.querySelector('[data-slot="field-label"]').textContent, '原字段')
+  assert.equal(view.container.querySelector('input').getAttribute('aria-label'), '原字段')
   await act(async () => ref.current.setItems([{ label: '命令式字段', prop: 'local' }]))
-  assert.match(view.container.textContent, /命令式字段/)
+  assert.equal(view.container.querySelector('[data-slot="field-label"]').textContent, '命令式字段')
+  assert.equal(view.container.querySelector('input').getAttribute('aria-label'), '命令式字段')
   await view.render({ ref, items: [{ label: '新字段', prop: 'second' }], options: { disabled: true } })
-  assert.match(view.container.textContent, /新字段/)
+  assert.equal(view.container.querySelector('[data-slot="field-label"]').textContent, '新字段')
+  assert.equal(view.container.querySelector('input').getAttribute('aria-label'), '新字段')
   assert.equal(view.container.querySelector('input').disabled, true)
   await view.render({ ref, items: originalItems })
-  assert.match(view.container.textContent, /原字段/)
-  assert.doesNotMatch(view.container.textContent, /命令式字段/)
+  assert.equal(view.container.querySelector('[data-slot="field-label"]').textContent, '原字段')
+  assert.equal(view.container.querySelector('input').getAttribute('aria-label'), '原字段')
 })
 
 test('MaForm 未传配置时 ref 修改可跨内部渲染保留', async t => {
@@ -119,6 +154,91 @@ test('MaForm 未传配置时 ref 修改可跨内部渲染保留', async t => {
   await act(async () => ref.current.setItems([{ label: '添加字段', prop: 'name' }]))
   await act(async () => ref.current.setValues({ name: '新值' }))
   assert.equal(view.container.querySelector('input').value, '新值')
+})
+
+test('MaForm 更新数组成员保留数组及未修改成员', async t => {
+  const ref = createRef()
+  const view = await mount(t, MaForm, {
+    ref,
+    defaultValue: { lines: [{ name: 'before' }, { name: 'keep' }] },
+    items: [{ prop: 'lines.0.name', render: 'Input' }],
+  })
+  await enterValue(view.container.querySelector('input'), 'after')
+  assert.deepEqual(ref.current.getValues().lines, [{ name: 'after' }, { name: 'keep' }])
+})
+
+test('MaForm 丢弃旧值的异步校验结果', async t => {
+  const ref = createRef()
+  let release, previous
+  const view = await mount(t, MaForm, {
+    ref,
+    defaultValue: { name: 'old' },
+    items: [
+      {
+        prop: 'name',
+        itemProps: {
+          rules: {
+            validator: value =>
+              value === 'old'
+                ? new Promise(resolve => {
+                    release = resolve
+                  })
+                : undefined,
+          },
+        },
+      },
+    ],
+  })
+  await act(async () => {
+    previous = ref.current.validateField('name')
+  })
+  await act(async () => ref.current.setValues({ name: 'new' }))
+  await act(async () => assert.equal(await ref.current.validateField('name'), true))
+  await act(async () => {
+    release('旧值错误')
+    await previous
+  })
+  assert.equal(view.container.textContent.includes('旧值错误'), false)
+})
+
+test('MaForm 在校验和提交阶段均阻止重复提交，失败后允许重试', async t => {
+  let submitted = 0,
+    release
+  const gate = new Promise(resolve => {
+    release = resolve
+  })
+  const view = await mount(t, MaForm, {
+    items: [{ prop: 'name' }],
+    onSubmit: async () => {
+      submitted++
+      await gate
+    },
+  })
+  const submit = () =>
+    view.container.querySelector('form').dispatchEvent(new dom.Event('submit', { bubbles: true, cancelable: true }))
+  await act(async () => {
+    submit()
+    submit()
+  })
+  assert.equal(submitted, 1)
+  assert.equal(view.container.querySelector('form').getAttribute('aria-busy'), 'true')
+  await act(async () => release())
+  await view.render({
+    items: [],
+    onSubmit: async () => {
+      throw new Error('保存失败')
+    },
+  })
+  await act(async () => submit())
+  assert.match(view.container.querySelector('[role="alert"]').textContent, /保存失败/)
+  await view.render({
+    items: [],
+    onSubmit: () => {
+      submitted++
+    },
+  })
+  await act(async () => submit())
+  assert.equal(submitted, 2)
 })
 
 test('MaForm 新的 loading 配置不被之前的命令式 false 锁死', async t => {
@@ -232,6 +352,7 @@ test('MaForm InputNumber 使用 NumberField，步进、范围、事件和清空�
           min: 0,
           max: 4,
           step: 2,
+          controls: true,
           onValueChange: (value, details) => events.push([value, details.reason]),
         },
       },
@@ -245,6 +366,76 @@ test('MaForm InputNumber 使用 NumberField，步进、范围、事件和清空�
   await enterValue(view.container.querySelector('[data-slot="number-field-input"]'), '')
   assert.equal(ref.current.getValues().count, undefined)
   assert.ok(events.some(event => event[1] === 'increment-press'))
+})
+
+test('MaForm 内置控件默认支持清除', async t => {
+  const ref = createRef()
+  const view = await mount(t, MaForm, {
+    ref,
+    defaultValue: {
+      name: '名称',
+      description: '描述',
+      count: 2,
+      status: 'ready',
+      active: true,
+      enabled: true,
+      mode: 'a',
+      date: '2026-09-13',
+      time: '09:30',
+    },
+    items: [
+      { prop: 'name', render: 'Input' },
+      { prop: 'description', render: 'Textarea' },
+      { prop: 'count', render: 'InputNumber' },
+      { prop: 'status', render: 'Select', renderProps: { options: [{ label: '就绪', value: 'ready' }] } },
+      { prop: 'active', render: 'Checkbox' },
+      { prop: 'enabled', render: 'Switch' },
+      { prop: 'mode', render: 'Radio', renderProps: { options: [{ label: 'A', value: 'a' }] } },
+      { prop: 'date', render: 'DatePicker' },
+      { prop: 'time', render: 'TimePicker' },
+    ],
+  })
+  const clearButtons = [...view.container.querySelectorAll('[aria-label="清除"]')]
+  assert.equal(clearButtons.length, 9)
+  for (const clearButton of clearButtons) await click(clearButton)
+  assert.deepEqual(ref.current.getValues(), {
+    name: '',
+    description: '',
+    count: undefined,
+    status: null,
+    active: false,
+    enabled: false,
+    mode: undefined,
+    date: undefined,
+    time: undefined,
+  })
+})
+
+test('MaForm 日期清除遵守只读和禁用状态，并使用触发器外的普通按钮', async t => {
+  const ref = createRef()
+  const defaultValue = { date: '2026-09-27' }
+  const props = renderProps => ({ ref, defaultValue, items: [{ prop: 'date', render: 'DatePicker', renderProps }] })
+  const view = await mount(t, MaForm, props({ readOnly: true }))
+  for (const state of [
+    { renderProps: { readOnly: true } },
+    { renderProps: { disabled: true } },
+    { renderProps: { triggerProps: { disabled: true } } },
+    { renderProps: { clearable: false } },
+    { renderProps: {}, options: { disabled: true } },
+  ]) {
+    await view.render({ ...props(state.renderProps), options: state.options ?? {} })
+    assert.equal(view.container.querySelector('[aria-label="清除"]'), null)
+    assert.deepEqual(ref.current.getValues(), defaultValue)
+  }
+  const changes = []
+  await view.render(props({ onValueChange: value => changes.push(value) }))
+  const clear = view.container.querySelector('[aria-label="清除"]')
+  assert.equal(clear.tagName, 'BUTTON')
+  assert.equal(clear.type, 'button')
+  assert.equal(clear.parentElement.closest('button'), null)
+  await click(clear)
+  assert.equal(ref.current.getValues().date, undefined)
+  assert.deepEqual(changes, [undefined])
 })
 
 test('MaForm DatePicker 使用 Calendar，TimePicker 使用分段 Select，值仍可序列化', async t => {
@@ -326,6 +517,25 @@ test('MaSearch 展开时字段可见，动态字段与表单配置同步到底�
   })
   assert.equal(view.container.querySelectorAll('input').length, 1)
   assert.equal(view.container.querySelector('input').disabled, true)
+})
+
+test('MaSearch 将字段标签作为默认 placeholder，不渲染输入框前缀', async t => {
+  const view = await mount(t, MaSearch, {
+    items: [{ label: '昵称', prop: 'nickname', render: 'Input' }],
+    options: { labelPlacement: 'inside' },
+  })
+  const input = view.container.querySelector('input')
+  assert.equal(input.getAttribute('placeholder'), '昵称')
+  assert.equal(input.getAttribute('aria-label'), '昵称')
+  assert.equal(view.container.querySelector('[data-slot="input-group-addon"]'), null)
+  assert.doesNotMatch(view.container.textContent, /昵称/)
+})
+
+test('MaSearch 保留业务显式 placeholder', async t => {
+  const view = await mount(t, MaSearch, {
+    items: [{ label: '昵称', prop: 'nickname', render: 'Input', renderProps: { placeholder: '搜索昵称' } }],
+  })
+  assert.equal(view.container.querySelector('input').getAttribute('placeholder'), '搜索昵称')
 })
 
 test('MaTable 隐藏分页器或未配置分页时展示全部本地数据，显式分页按页切分', async t => {
@@ -911,6 +1121,205 @@ test('MaRemoteSelect 初始值自动请求回显选项', async t => {
   assert.match(view.container.textContent, /已选广告主/)
 })
 
+async function settleRemoteSelect() {
+  for (let step = 0; step < 3; step++) {
+    await act(async () => new Promise(resolve => setTimeout(resolve, 10)))
+  }
+}
+
+test('MaRemoteSelect 空或部分回显不会循环请求，选择变化后可重新回显', async t => {
+  for (const example of [
+    { value: 404, multiple: false, items: [] },
+    { value: [7, 404], multiple: true, items: [{ id: 7, name: '有效选项' }] },
+  ]) {
+    await t.test(example.multiple ? '部分命中' : '不存在的选项', async t => {
+      const calls = []
+      const props = {
+        url: '/fixture/options',
+        value: example.value,
+        multiple: example.multiple,
+        request: async config => {
+          calls.push(config)
+          return { data: { code: 200, data: example.items } }
+        },
+      }
+      const view = await mount(t, MaRemoteSelect, props)
+      await settleRemoteSelect()
+      await view.render({ ...props })
+      await settleRemoteSelect()
+      assert.equal(calls.length, 1)
+      await view.render({ ...props, value: example.multiple ? [] : null })
+      await settleRemoteSelect()
+      await view.render(props)
+      await settleRemoteSelect()
+      assert.equal(calls.length, 2)
+    })
+  }
+})
+
+test('MaRemoteSelect 回显失败只在明确重试时再次请求原回显参数', async t => {
+  let echoes = 0
+  const calls = []
+  const view = await mount(t, MaRemoteSelect, {
+    url: '/fixture/options',
+    value: 7,
+    request: async config => {
+      calls.push(config)
+      if (config.params.ids !== undefined) {
+        echoes++
+        if (echoes === 1) throw new Error('回显暂时失败')
+        return { data: { code: 200, data: [{ id: 7, name: '已恢复' }] } }
+      }
+      return { data: { code: 200, data: [] } }
+    },
+  })
+  await settleRemoteSelect()
+  assert.equal(echoes, 1)
+  await click(view.container.querySelector('button'))
+  await settleRemoteSelect()
+  assert.match(document.body.textContent, /回显暂时失败/)
+  await click(button(document.body, '重试'))
+  await settleRemoteSelect()
+  assert.equal(echoes, 2)
+  assert.equal(calls.at(-1).params.ids, 7)
+  assert.equal(calls.at(-1).params.page, undefined)
+  assert.match(view.container.textContent, /已恢复/)
+})
+
+test('MaRemoteSelect 来源、参数、请求体、客户端和解析方式变化时重新回显', async t => {
+  const calls = []
+  const response = name => ({ data: { code: 200, data: [{ id: 7, name, alternate: '另一字段' }] } })
+  const request = async config => {
+    calls.push(config)
+    return response(`${config.url}:${config.params.scope}:${config.data.scope}:${config.method}`)
+  }
+  let props = { url: '/a', value: 7, params: { scope: 'A' }, data: { scope: 'A' }, request }
+  const view = await mount(t, MaRemoteSelect, props)
+  await settleRemoteSelect()
+  let previous = '/a:A:A:get'
+  assert.ok(view.container.textContent.includes(previous))
+  for (const [changes, expected] of [
+    [{ url: '/b' }, '/b:A:A:get'],
+    [{ params: { scope: 'B' } }, '/b:B:A:get'],
+    [{ data: { scope: 'B' } }, '/b:B:B:get'],
+    [{ method: 'post' }, '/b:B:B:post'],
+    [
+      {
+        request: async config => {
+          calls.push(config)
+          return response('新客户端')
+        },
+      },
+      '新客户端',
+    ],
+    [{ responseMap: () => ({ items: [{ id: 7, name: '新映射', alternate: '另一字段' }] }) }, '新映射'],
+    [{ fieldNames: { value: 'id', label: 'alternate' } }, '另一字段'],
+  ]) {
+    const count = calls.length
+    props = { ...props, ...changes }
+    await view.render(props)
+    assert.equal(view.container.textContent.includes(previous), false)
+    await settleRemoteSelect()
+    assert.ok(view.container.textContent.includes(expected))
+    assert.equal(calls.length, count + 1)
+    previous = expected
+  }
+  const count = calls.length
+  await view.render({ ...props, params: { ...props.params }, data: { ...props.data } })
+  await settleRemoteSelect()
+  assert.equal(calls.length, count)
+  await view.render({ ...props, echo: { url: '/echo', valueParam: 'selected' } })
+  await settleRemoteSelect()
+  assert.equal(calls.at(-1).url, '/echo')
+  assert.equal(calls.at(-1).params.selected, 7)
+})
+
+test('MaRemoteSelect 来源或已选值变化会取消旧回显并忽略晚到响应', async t => {
+  for (const next of [
+    { url: '/b', value: 7 },
+    { url: '/a', value: 8 },
+  ]) {
+    await t.test(next.url === '/b' ? '来源切换' : '选中值切换', async t => {
+      const calls = []
+      const props = {
+        url: '/a',
+        value: 7,
+        request: config => new Promise(resolve => calls.push({ config, resolve })),
+      }
+      const view = await mount(t, MaRemoteSelect, props)
+      await settleRemoteSelect()
+      const old = calls[0]
+      await view.render({ ...props, ...next })
+      await settleRemoteSelect()
+      assert.equal(old.config.signal.aborted, true)
+      assert.equal(calls.length, 2)
+      await act(async () => calls[1].resolve({ data: { code: 200, data: [{ id: next.value, name: '新选项' }] } }))
+      await settleRemoteSelect()
+      await act(async () => old.resolve({ data: { code: 200, data: [{ id: 7, name: '旧选项' }] } }))
+      await settleRemoteSelect()
+      assert.match(view.container.textContent, /新选项/)
+      assert.equal(view.container.textContent.includes('旧选项'), false)
+    })
+  }
+})
+
+test('MaRemoteSelect 列表与回显独立加载，保留已选标签及列表分页', async t => {
+  const calls = []
+  const view = await mount(t, MaRemoteSelect, {
+    url: '/fixture/options',
+    value: 7,
+    request: config => new Promise(resolve => calls.push({ config, resolve })),
+  })
+  await settleRemoteSelect()
+  const echo = calls[0]
+  await click(view.container.querySelector('button'))
+  await settleRemoteSelect()
+  const list = calls.find(call => call.config.params.page === 1)
+  assert.ok(list)
+  assert.equal(echo.config.signal.aborted, false)
+  await act(async () => echo.resolve({ data: { code: 200, data: [{ id: 7, name: '保留标签' }] } }))
+  await act(async () =>
+    list.resolve({ data: { code: 200, data: { items: [{ id: 8, name: '列表项' }], hasMore: true } } }),
+  )
+  await settleRemoteSelect()
+  assert.match(view.container.textContent, /保留标签/)
+  const listbox = document.querySelector('[role="listbox"]')
+  assert.ok(listbox)
+  await act(async () => listbox.dispatchEvent(new Event('scroll', { bubbles: true })))
+  await settleRemoteSelect()
+  const next = calls.find(call => call.config.params.page === 2)
+  assert.ok(next, '回显不能覆盖列表的下一页状态')
+  await act(async () => next.resolve({ data: { code: 200, data: { items: [], hasMore: false } } }))
+})
+
+test('MaRemoteSelect 关闭下拉后的列表响应保留最新选中值的标签', async t => {
+  const calls = []
+  const props = {
+    url: '/fixture/options',
+    value: 7,
+    request: config => new Promise(resolve => calls.push({ config, resolve })),
+  }
+  const view = await mount(t, MaRemoteSelect, props)
+  await settleRemoteSelect()
+  await click(view.container.querySelector('button'))
+  await settleRemoteSelect()
+  const list = calls.find(call => call.config.params.page === 1)
+  assert.ok(list)
+  await act(async () => calls[0].resolve({ data: { code: 200, data: [{ id: 7, name: '初始标签' }] } }))
+  await settleRemoteSelect()
+  await click(view.container.querySelector('button'))
+  assert.equal(view.container.querySelector('button').getAttribute('aria-expanded'), 'false')
+  await view.render({ ...props, value: 8 })
+  await settleRemoteSelect()
+  const next = calls.find(call => call.config.params.ids === 8)
+  assert.ok(next)
+  await act(async () => next.resolve({ data: { code: 200, data: [{ id: 8, name: '最新标签' }] } }))
+  await settleRemoteSelect()
+  await act(async () => list.resolve({ data: { code: 200, data: { items: [], hasMore: false } } }))
+  await settleRemoteSelect()
+  assert.match(view.container.textContent, /最新标签/)
+})
+
 test('MaRemoteSelect 可以作为 MaForm 自定义组件并回写表单值', async t => {
   const ref = createRef()
   const view = await mount(t, MaForm, {
@@ -934,6 +1343,40 @@ test('MaRemoteSelect 可以作为 MaForm 自定义组件并回写表单值', asy
   })
   await click([...document.querySelectorAll('[role="option"]')].find(node => node.textContent.includes('表单广告主')))
   assert.equal(ref.current.getValues().advertiser_id, 7)
+  await click(view.container.querySelector('[aria-label="清除"]'))
+  assert.equal(ref.current.getValues().advertiser_id, null)
+})
+
+test('MaDictSelect 从字典读取原始值并默认支持清除', async t => {
+  const dictName = 'test-ma-dict-select'
+  useDictStore.getState().push(
+    dictName,
+    [
+      { label: '启用', value: 1 },
+      { label: '禁用', value: 2 },
+    ],
+    true,
+  )
+  const changes = []
+  function DictionaryFixture() {
+    const [value, setValue] = useState(null)
+    return createElement(MaDictSelect, {
+      dictName,
+      value,
+      onChange: nextValue => {
+        changes.push(nextValue)
+        setValue(nextValue)
+      },
+    })
+  }
+  const view = await mount(t, DictionaryFixture, {})
+  await click(view.container.querySelector('[data-slot="select-trigger"]'))
+  await click([...document.querySelectorAll('[role="option"]')].find(node => node.textContent.includes('启用')))
+  assert.deepEqual(changes, [1])
+  assert.match(view.container.textContent, /启用/)
+  await click(view.container.querySelector('[aria-label="清除"]'))
+  assert.deepEqual(changes, [1, null])
+  await act(async () => useDictStore.getState().remove(dictName))
 })
 
 const { useMaFormDialog, useMaConfirm } = compiled.exports
@@ -1119,4 +1562,48 @@ test('确认 Hook 共用默认弹窗：重复提交被拦截，失败保留，�
   await click(button(document, '执行删除'))
   await act(async () => request.resolve())
   assert.equal(confirm.dialogProps.open, false)
+})
+
+test('MaProTable cancels hidden Activity work and resumes without accepting late data', async t => {
+  const ref = createRef()
+  const pending = []
+  const options = {
+    requestOptions: { api: (params, signal) => new Promise(resolve => pending.push({ params, signal, resolve })) },
+  }
+  const Wrapper = ({ mode }) =>
+    createElement(
+      Activity,
+      { mode },
+      createElement(MaProTable, {
+        ref,
+        options,
+        schema: { tableColumns: [{ prop: 'id', label: 'ID' }] },
+      }),
+    )
+  const view = await mount(t, Wrapper, { mode: 'visible' })
+  const tick = () =>
+    act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 15))
+    })
+  await tick()
+  assert.equal(pending.length, 1)
+  await view.render({ mode: 'hidden' })
+  assert.equal(pending[0].signal.aborted, true)
+  await act(async () => pending[0].resolve({ list: [{ id: 'stale-hidden' }], total: 1 }))
+  await view.render({ mode: 'visible' })
+  await tick()
+  assert.equal(pending.length, 2)
+  await act(async () => pending[1].resolve({ list: [{ id: 'resumed' }], total: 1 }))
+  assert.equal(ref.current.getElTableStates().loading, false)
+  assert.match(view.container.textContent, /resumed/)
+  assert.doesNotMatch(view.container.textContent, /stale-hidden/)
+  await act(async () => {
+    void ref.current.refresh()
+  })
+  assert.equal(pending.length, 3)
+  await act(async () => {
+    void ref.current.refresh()
+  })
+  assert.equal(pending[2].signal.aborted, true)
+  await act(async () => pending[3].resolve({ list: [], total: 0 }))
 })

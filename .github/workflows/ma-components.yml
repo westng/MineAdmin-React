@@ -32,6 +32,8 @@ jobs:
         run: pnpm run check:bootstrap
       - name: Public source build smoke
         run: pnpm run build:public-smoke
+      - name: Vendored source inventory
+        run: pnpm run check:vendor
       - name: Public repository content gate
         run: pnpm run check:public-index
       - name: Production dependency audit

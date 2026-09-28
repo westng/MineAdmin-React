@@ -25,14 +25,21 @@ test('source layout rejects retired entry points and misplaced private component
 
 test('public export excludes business files, unknown source roots, local configuration and symlinks', t => {
   for (const file of [
+    'src/app/runtime/create-runtime.ts',
+    'src/app/runtime/instance.ts',
+    'src/app/bootstrap.ts',
+    'src/app/styles/default.css',
+  ])
+    assert.equal(isPublicFile(file), true, file)
+  for (const file of [
     'src/plugins/demo/index.ts',
     'src/modules/account/index.ts',
     'src/components/ui/button.tsx',
     'src/app/application.tsx',
-    'src/app/branding.ts',
-    'src/app/menu-policy.ts',
-    'src/app/application.css',
-    'src/components/nm-douyin-user-parser/index.ts',
+    'src/app/config/branding.ts',
+    'src/app/config/menu-policy.ts',
+    'src/app/styles/application.css',
+    'src/components/business/douyin-user-parser/index.ts',
     'src/unreviewed/domain.ts',
     'src/assets/fonts/private-font.woff2',
     'src/assets/fonts/inter/unreviewed.woff2',

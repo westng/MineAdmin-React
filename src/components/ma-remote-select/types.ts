@@ -40,6 +40,8 @@ export type MaRemoteSelectProps<T = Record<string, unknown>> = {
   onChange?: (value: MaRemoteSelectValue | MaRemoteSelectValue[] | null) => void
   onSelectOption?: (option: T | T[] | null) => void
   fieldNames?: MaRemoteSelectFieldNames
+  renderOption?: (option: T) => React.ReactNode
+  renderValue?: (option: T) => React.ReactNode
   responseMap?: MaRemoteSelectResponseMap<T>
   request?: MaRemoteSelectRequest
   echo?: boolean | MaRemoteSelectEcho
@@ -48,6 +50,7 @@ export type MaRemoteSelectProps<T = Record<string, unknown>> = {
   searchParam?: string
   pagination?: boolean
   pageSize?: number
+  clearable?: boolean
   disabled?: boolean
   readOnly?: boolean
   required?: boolean

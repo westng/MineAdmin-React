@@ -1,12 +1,12 @@
 import { useRef } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, matchPath } from 'react-router-dom'
 import { MaIcon } from '@/components/ma-icon'
 import { useSidebar } from '@/components/reui/primitives/sidebar'
-import { useShell } from '@/hooks/shell/use-shell'
-import { useTranslate } from '@/provider/i18n'
-import { getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/dynamic-menu'
-import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
+import { useShell } from '@/layouts/hooks/use-shell'
+import { useTranslate } from '@/hooks/i18n/use-translator'
+import { getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/navigation/menu'
+import type { MenuVo } from '@/services/navigation/types'
 import { cn } from '@/utils/cn'
 import { ShellSlotOutlet } from '../slot-outlet'
 import { useVerveNavigation } from './navigation-context'
@@ -64,7 +64,7 @@ function MenuBranch({ menu, pathname, onNavigate }: { menu: MenuVo; pathname: st
 function containsPath(menu: MenuVo, pathname: string): boolean {
   const path = getMenuPath(menu)
   return (
-    Boolean(path && (pathname === path || pathname.startsWith(`${path}/`))) ||
+    Boolean(path && matchPath({ path, end: false }, pathname)) ||
     (menu.children ?? []).filter(isVisibleMenu).some(child => containsPath(child, pathname))
   )
 }
@@ -72,6 +72,7 @@ function containsPath(menu: MenuVo, pathname: string): boolean {
 export function VerveSectionNavigation({ mobile = false }: { mobile?: boolean }) {
   const t = useTranslate()
   const { pathname } = useShell()
+  const routePathname = pathname
   const { section, width, setWidth } = useVerveNavigation()
   const { open, setOpenMobile } = useSidebar()
   const drag = useRef<{ x: number; width: number } | null>(null)
@@ -111,7 +112,7 @@ export function VerveSectionNavigation({ mobile = false }: { mobile?: boolean })
                   <MenuBranch
                     key={getMenuPath(menu) || getMenuLabel(menu)}
                     menu={menu}
-                    pathname={pathname}
+                    pathname={routePathname}
                     onNavigate={onNavigate}
                   />
                 ))}

@@ -7,7 +7,10 @@ const require = createRequire(import.meta.url)
 const flush = () => new Promise(resolve => setImmediate(resolve))
 const result = await build({
   stdin: {
-    contents: `export { queryClient } from './src/provider/query/client'; export { default as http } from './src/provider/http/index'; export { useSessionStore as user } from './src/provider/session/index'; export { useNavigationStore as menus } from './src/provider/navigation/index'; export { routeRegistry as routes } from './src/router/registry'`,
+    contents: `import { createAppRuntime } from './src/app/runtime/create-runtime';
+const runtime = createAppRuntime({ storage: localStorage, prefix: 'test_' });
+export { runtime };
+export const { query: queryClient, http, session: user, navigation: menus } = runtime;`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -16,22 +19,6 @@ const result = await build({
   format: 'cjs',
   packages: 'external',
   define: { 'import.meta.hot': 'undefined', 'import.meta.env': '{"VITE_APP_STORAGE_PREFIX":"test_"}' },
-  plugins: [
-    {
-      name: 'session-dependencies',
-      setup(builder) {
-        builder.onResolve({ filter: /^@\/provider\/(plugins|settings)$/ }, args => ({
-          path: args.path,
-          namespace: 'double',
-        }))
-        builder.onLoad({ filter: /.*/, namespace: 'double' }, args => ({
-          contents: args.path.endsWith('plugins')
-            ? `export const usePluginStore = { getState: () => ({ callHooks: async () => {} }) }`
-            : `export const getPersistedPrimaryColor = () => null; export const useSettingStore = { getState: () => ({ settings: { app: {} }, setSettings() {} }) }`,
-        }))
-      },
-    },
-  ],
 })
 const clients = new Set()
 afterEach(() => {
@@ -73,6 +60,19 @@ function harness() {
   return h
 }
 const tokens = name => ({ data: { access_token: name, refresh_token: `refresh-${name}`, expire_at: 100 } })
+
+test('运行时销毁将取消信号传到真实认证客户端，晚到登录不能落盘', async () => {
+  const h = harness()
+  const login = h.user.getState().login({ username: 'fixture', password: 'fixture' })
+  const rejected = assert.rejects(login, error => error.name === 'AbortError' || error.code === 'ERR_CANCELED')
+  await flush()
+  const request = h.take('/passport/login')
+  h.runtime.dispose()
+  assert.equal(request.config.signal.aborted, true)
+  request.ok(tokens('late'))
+  await rejected
+  assert.equal(localStorage.getItem('test_token'), null)
+})
 
 test('并发业务/HTTP 401 共享刷新，迟到 401 复用新令牌且最多重试一次', async () => {
   const h = harness()
@@ -204,7 +204,7 @@ test('初始化中账号切换：旧 getInfo、菜单响应均不能回填', asy
     assert.equal(h.user.getState().userInfo.username, 'B')
     assert.equal(h.user.getState().loading, false)
     assert.deepEqual(h.menus.getState().menus, [])
-    assert.deepEqual(h.routes.getSnapshot().menuRoutes, [])
+    assert.deepEqual(h.menus.getState().routes, [])
   }
 })
 
@@ -228,6 +228,7 @@ test('菜单失败保留失败状态并支持显式重试，角色失败也不�
   h.requests.shift().ok({ data: [] })
   assert.equal(await retry, true)
   assert.equal(h.user.getState().initialized, true)
+  h.user.setState({ initialized: false })
   const roleFail = h.user.getState().hydrate()
   await flush()
   h.take('/getInfo').ok({ data: { username: 'A' } })

@@ -66,11 +66,6 @@ function resolveLabelText<T extends MaModel>(label: MaSearchItem<T>['label']): s
   return typeof resolved === 'string' || typeof resolved === 'number' ? String(resolved) : undefined
 }
 
-function supportsLabelPrefix<T extends MaModel>(item: MaSearchItem<T>): boolean {
-  const component = item.component ?? item.render
-  return typeof component !== 'string' || !['Select', 'Checkbox', 'Switch', 'Radio'].includes(component)
-}
-
 function MaSearchInner<T extends MaModel>(
   {
     options: initialOptions = emptyOptions,
@@ -137,20 +132,18 @@ function MaSearchInner<T extends MaModel>(
 
   const visibleItems = React.useMemo(() => {
     const foldRows = options.foldRows ?? 2
-    const labelInside = (options.labelPlacement ?? 'inside') === 'inside'
     return currentItems.map((item, index) => {
       const originalHide = item.hide
-      const labelText = labelInside ? resolveLabelText(item.label) : undefined
+      const labelText = resolveLabelText(item.label)
       const renderProps = { ...(item.renderProps ?? {}) }
       if (labelText) {
-        if (supportsLabelPrefix(item) && renderProps.prefix === undefined) renderProps.prefix = labelText
-        if (!supportsLabelPrefix(item) && renderProps.placeholder === undefined) renderProps.placeholder = labelText
+        if (renderProps.placeholder === undefined) renderProps.placeholder = labelText
         if (renderProps['aria-label'] === undefined) renderProps['aria-label'] = labelText
       }
       return {
         ...item,
-        showLabel: labelInside ? false : item.showLabel,
-        renderProps: labelInside && labelText ? renderProps : item.renderProps,
+        showLabel: false,
+        renderProps: labelText ? renderProps : item.renderProps,
         hide: (itemContext: MaSearchItem<T>, model: T) => {
           const hiddenByItem =
             typeof originalHide === 'function' ? originalHide(itemContext, model) : originalHide === true
@@ -159,7 +152,7 @@ function MaSearchInner<T extends MaModel>(
         cols: item.cols ?? { span: item.span ? (item.span * 24) / viewportColumns : 24 / viewportColumns },
       } as MaSearchItem<T>
     })
-  }, [currentItems, folded, options.foldRows, options.labelPlacement, viewportColumns])
+  }, [currentItems, folded, options.foldRows, viewportColumns])
 
   const foldButtonVisible = React.useMemo(() => {
     const foldRows = options.foldRows ?? 2

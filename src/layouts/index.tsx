@@ -1,26 +1,26 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
-import { useTranslate } from '@/provider/i18n'
+import type { ShellPagePolicy } from './slots'
+import { useRuntime } from '@/hooks/runtime/use-runtime'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
+import { useTranslate } from '@/hooks/i18n/use-translator'
 import Tabbar from './components/bars/tabbar'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { SidebarInset, SidebarProvider } from '@/components/reui/primitives/sidebar'
 import { TooltipProvider } from '@/components/reui/primitives/tooltip'
 import { ErrorBoundary } from '@/components/reui/error-boundary'
-import { useLayout } from '@/hooks/shell/use-layout'
+import { useLayout } from '@/layouts/hooks/use-layout'
 import BackTop from './components/back-top'
 import Header from './components/header'
 import { HeaderActionsProvider } from './components/bars/toolbar'
 import { cn } from '@/utils/cn'
 import { ShellProvider } from './shell-provider'
 import { ShellSlotOutlet } from './slot-outlet'
-import { shellPagePolicies } from './slots'
 import type { LayoutDefinition } from './registry'
 import { VerveHeader } from './verve'
 import { VerveSectionNavigation, VerveSectionToggle } from './verve/section-navigation'
 import { VerveNavigationProvider } from './verve/navigation-provider'
 import { NotificationsDrawer } from './components/notifications'
-
-const tx = createTextTranslator('shell.ui')
 
 function getSidebarDefaultOpen() {
   if (typeof document === 'undefined') return true
@@ -39,12 +39,15 @@ export default function AppLayout() {
 }
 
 function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
+  const tx = useTextTranslator('shell.ui')
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 
   const t = useTranslate()
   const location = useLocation()
   const [sidebarDefaultOpen] = useState(getSidebarDefaultOpen)
+  const shellPagePolicies = useRuntime().pagePolicies
   const policies = useSyncExternalStore(
     shellPagePolicies.subscribe,
     shellPagePolicies.getSnapshot,
@@ -97,10 +100,11 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
                 className={cn(
                   'mine-main flex min-h-0 flex-1 flex-col',
                   policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
-                  policy?.padding !== false && 'p-4',
                 )}
               >
-                <Outlet />
+                <div className={cn('mx-auto w-full max-w-7xl', policy?.padding !== false && 'p-4 md:p-6')}>
+                  <Outlet />
+                </div>
               </main>
             </SidebarInset>
           </div>
@@ -121,7 +125,7 @@ function renderInsetLayout({
 }: {
   layout: LayoutDefinition
   location: ReturnType<typeof useLocation>
-  policy: ReturnType<typeof shellPagePolicies.getSnapshot>[number] | undefined
+  policy: ShellPagePolicy | undefined
   t: ReturnType<typeof useTranslate>
   sidebarDefaultOpen: boolean
 }) {
@@ -164,10 +168,11 @@ function renderInsetLayout({
                   className={cn(
                     'mine-main flex min-h-0 min-w-0 flex-1 flex-col',
                     policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
-                    policy?.padding !== false && 'p-4',
                   )}
                 >
-                  <Outlet />
+                  <div className={cn('mx-auto w-full max-w-7xl', policy?.padding !== false && 'p-4 md:p-6')}>
+                    <Outlet />
+                  </div>
                 </main>
               </div>
             </SidebarInset>

@@ -15,6 +15,7 @@
     "tests/ma-components.types.tsx",
     "src/components/ma-icon-picker",
     "src/components/ma-access",
-    "src/components/ma-remote-select"
+    "src/components/ma-remote-select",
+    "src/components/ma-dict-select"
   ]
 }

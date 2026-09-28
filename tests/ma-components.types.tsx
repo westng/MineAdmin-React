@@ -4,11 +4,26 @@ import { MaDialog, useMaFormDialog, type MaDialogProps } from '../src/components
 import { MaDrawer } from '../src/components/ma-drawer'
 import { MaForm, type MaFormItem } from '../src/components/ma-form'
 import type { MaTableExpose, MaTableOptions } from '../src/components/ma-table'
+import { MaProTable, type MaProTableExpose } from '../src/components/ma-pro-table'
 import { DialogTrigger } from '../src/components/reui/primitives/dialog'
 import { SheetTrigger } from '../src/components/reui/primitives/sheet'
 
 type Row = { id: number; name: string }
 type Payload = { title: string }
+type SearchFilters = { keyword: string; ids: number[] }
+const filteredTableRef = createRef<MaProTableExpose<Row, SearchFilters>>()
+export const filteredTable = (
+  <MaProTable<Row, SearchFilters>
+    ref={filteredTableRef}
+    data={[{ id: 1, name: 'row' }]}
+    schema={{ searchItems: [{ prop: 'keyword', label: 'Keyword' }], tableColumns: [{ prop: 'name', label: 'Name' }] }}
+    options={{ onSearchSubmit: form => ({ keyword: form.keyword.trim(), ids: form.ids.join(',') }) }}
+    onSelectionChange={rows => rows.map(row => row.name.toUpperCase())}
+  />
+)
+filteredTableRef.current?.setSearchForm({ keyword: 'search' })
+// @ts-expect-error Search filters must not be treated as response rows.
+filteredTableRef.current?.setSearchForm({ name: 'row' })
 const handle = Dialog.createHandle<Payload>()
 export const dialogTrigger = <DialogTrigger handle={handle} payload={{ title: '对话框' }} />
 export const drawerTrigger = <SheetTrigger handle={handle} payload={{ title: '抽屉' }} />

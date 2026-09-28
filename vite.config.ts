@@ -76,7 +76,9 @@ export default defineConfig(({ mode, command }) => {
         '@': path.resolve(process.cwd(), 'src'),
         '@application-styles': path.resolve(
           process.cwd(),
-          existsSync('src/app/application.css') ? 'src/app/application.css' : 'src/app/default-styles.css',
+          existsSync('src/app/styles/application.css')
+            ? 'src/app/styles/application.css'
+            : 'src/app/styles/default.css',
         ),
         '@application': path.resolve(
           process.cwd(),

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { XIcon } from 'lucide-react'
 import { Checkbox } from '@/components/reui/primitives/checkbox'
 import { Input } from '@/components/reui/primitives/input'
 import { InputGroup, InputGroupAddon, InputGroupText } from '@/components/reui/primitives/input-group'
@@ -24,6 +25,7 @@ interface FormControlProps<T extends MaFormModel> {
   disabled: boolean
   setValue: (value: unknown) => void
   id?: string
+  ariaLabel?: string
   ariaInvalid?: boolean
   ariaDescribedBy?: string
 }
@@ -71,19 +73,54 @@ function affix(control: React.ReactElement, prefix: React.ReactNode, suffix: Rea
   )
 }
 
+function ClearButton({
+  className,
+  onPointerDown,
+  onClick,
+}: {
+  className?: string
+  onPointerDown?: React.PointerEventHandler<HTMLButtonElement>
+  onClick: React.MouseEventHandler<HTMLButtonElement>
+}) {
+  return (
+    <button
+      type="button"
+      aria-label="清除"
+      title="清除"
+      className={cn(
+        'flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground',
+        className,
+      )}
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+    >
+      <XIcon className="size-3.5" aria-hidden="true" />
+    </button>
+  )
+}
+
 export function FormControl<T extends MaFormModel>({
   item,
   value,
   disabled,
   setValue,
   id,
+  ariaLabel,
   ariaInvalid,
   ariaDescribedBy,
 }: FormControlProps<T>): React.ReactNode {
   const rawProps = item.renderProps ?? {}
+  const rawAccessibilityProps = rawProps as Record<string, unknown>
   const component = item.component ?? item.render ?? 'Input'
+  const ariaLabelValue =
+    typeof rawAccessibilityProps['aria-label'] === 'string'
+      ? rawAccessibilityProps['aria-label']
+      : component === 'DatePicker' || component === 'TimePicker'
+        ? undefined
+        : ariaLabel
   const accessibility = {
     id: typeof rawProps.id === 'string' ? rawProps.id : id,
+    'aria-label': ariaLabelValue,
     'aria-invalid': Boolean(ariaInvalid || rawProps.invalid),
     'aria-describedby': ariaDescribedBy,
   }
@@ -108,6 +145,7 @@ export function FormControl<T extends MaFormModel>({
       options,
       items,
       placeholder,
+      clearable = true,
       triggerProps,
       valueProps,
       popupProps,
@@ -119,118 +157,170 @@ export function FormControl<T extends MaFormModel>({
       ...rootProps
     } = props as MaFormControlPropsMap['Select']
     const choices = getChoices(options ?? items)
+    const canClear = Boolean(
+      clearable &&
+      !disabled &&
+      (rootProps.multiple
+        ? Array.isArray(value) && value.length > 0
+        : value !== undefined && value !== null && value !== ''),
+    )
     control = (
-      <Select
-        {...rootProps}
-        items={items}
-        value={rootProps.multiple ? (Array.isArray(value) ? value : []) : (value ?? null)}
-        onValueChange={(next, details) => {
-          onValueChange?.(next, details)
-          if (details.isCanceled) return
-          onChange?.(next)
-          setValue(next)
-        }}
-        disabled={disabled}
-      >
-        <SelectTrigger
-          size={size}
-          {...triggerProps}
-          {...accessibility}
-          aria-label={rootProps['aria-label'] ?? triggerProps?.['aria-label']}
-          className={state =>
-            cn(
-              'w-full',
-              typeof className === 'function' ? className(state) : className,
-              typeof triggerProps?.className === 'function' ? triggerProps.className(state) : triggerProps?.className,
-            )
-          }
+      <div className="relative w-full">
+        <Select
+          {...rootProps}
+          items={items}
+          value={rootProps.multiple ? (Array.isArray(value) ? value : []) : (value ?? null)}
+          onValueChange={(next, details) => {
+            onValueChange?.(next, details)
+            if (details.isCanceled) return
+            onChange?.(next)
+            setValue(next)
+          }}
+          disabled={disabled}
         >
-          <SelectValue placeholder={placeholder ?? '请选择'} {...valueProps} />
-        </SelectTrigger>
-        <SelectContent {...popupProps}>
-          {choices.map((option, index) => (
-            <SelectItem
-              {...itemProps}
-              key={index}
-              value={option.value}
-              disabled={option.disabled || itemProps?.disabled}
-            >
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <SelectTrigger
+            size={size}
+            {...triggerProps}
+            {...accessibility}
+            aria-label={rootProps['aria-label'] ?? triggerProps?.['aria-label'] ?? ariaLabel}
+            className={state =>
+              cn(
+                'w-full',
+                canClear && 'pr-8',
+                typeof className === 'function' ? className(state) : className,
+                typeof triggerProps?.className === 'function' ? triggerProps.className(state) : triggerProps?.className,
+              )
+            }
+          >
+            <SelectValue placeholder={placeholder ?? '请选择'} {...valueProps} />
+          </SelectTrigger>
+          <SelectContent {...popupProps}>
+            {choices.map((option, index) => (
+              <SelectItem
+                {...itemProps}
+                key={index}
+                value={option.value}
+                disabled={option.disabled || itemProps?.disabled}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {canClear && (
+          <ClearButton
+            className="absolute top-1/2 right-7 z-10 size-5 -translate-y-1/2"
+            onPointerDown={event => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onClick={event => {
+              event.preventDefault()
+              event.stopPropagation()
+              const next = rootProps.multiple ? [] : null
+              onChange?.(next)
+              setValue(next)
+            }}
+          />
+        )}
+      </div>
     )
   } else if (component === 'Checkbox') {
-    const { onCheckedChange, placeholder, ...controlProps } = props as MaFormControlPropsMap['Checkbox']
+    const {
+      clearable = true,
+      onCheckedChange,
+      placeholder,
+      ...controlProps
+    } = props as MaFormControlPropsMap['Checkbox']
+    const canClear = Boolean(clearable && !disabled && value)
     control = (
-      <Checkbox
-        {...controlProps}
-        {...accessibility}
-        aria-label={controlProps['aria-label'] ?? placeholder}
-        checked={Boolean(value)}
-        disabled={disabled}
-        onCheckedChange={(checked, details) => {
-          onCheckedChange?.(checked, details)
-          if (!details.isCanceled) setValue(checked)
-        }}
-      />
+      <div className="flex items-center gap-1">
+        <Checkbox
+          {...controlProps}
+          {...accessibility}
+          aria-label={controlProps['aria-label'] ?? ariaLabel ?? placeholder}
+          checked={Boolean(value)}
+          disabled={disabled}
+          onCheckedChange={(checked, details) => {
+            onCheckedChange?.(checked, details)
+            if (!details.isCanceled) setValue(checked)
+          }}
+        />
+        {canClear && <ClearButton onClick={() => setValue(false)} />}
+      </div>
     )
   } else if (component === 'Switch') {
-    const { onCheckedChange, placeholder, ...controlProps } = props as MaFormControlPropsMap['Switch']
+    const { clearable = true, onCheckedChange, placeholder, ...controlProps } = props as MaFormControlPropsMap['Switch']
+    const canClear = Boolean(clearable && !disabled && value)
     control = (
-      <Switch
-        {...controlProps}
-        {...accessibility}
-        aria-label={controlProps['aria-label'] ?? placeholder}
-        checked={Boolean(value)}
-        disabled={disabled}
-        onCheckedChange={(checked, details) => {
-          onCheckedChange?.(checked, details)
-          if (!details.isCanceled) setValue(checked)
-        }}
-      />
+      <div className="flex items-center gap-1">
+        <Switch
+          {...controlProps}
+          {...accessibility}
+          aria-label={controlProps['aria-label'] ?? ariaLabel ?? placeholder}
+          checked={Boolean(value)}
+          disabled={disabled}
+          onCheckedChange={(checked, details) => {
+            onCheckedChange?.(checked, details)
+            if (!details.isCanceled) setValue(checked)
+          }}
+        />
+        {canClear && <ClearButton onClick={() => setValue(false)} />}
+      </div>
     )
   } else if (component === 'Radio') {
-    const { options, items, itemProps, placeholder, onValueChange, ...rootProps } =
-      props as MaFormControlPropsMap['Radio']
+    const {
+      clearable = true,
+      options,
+      items,
+      itemProps,
+      placeholder,
+      onValueChange,
+      ...rootProps
+    } = props as MaFormControlPropsMap['Radio']
+    const canClear = Boolean(clearable && !disabled && value !== undefined && value !== null && value !== '')
     control = (
-      <RadioGroup
-        {...rootProps}
-        {...accessibility}
-        aria-label={rootProps['aria-label'] ?? placeholder}
-        name={rootProps.name ?? id}
-        value={value}
-        disabled={disabled}
-        onValueChange={(next, details) => {
-          onValueChange?.(next, details)
-          if (!details.isCanceled) setValue(next)
-        }}
-      >
-        {getChoices(options ?? items).map((option, index) => (
-          <label key={index} className="inline-flex items-center gap-2 text-sm">
-            <RadioGroupItem
-              {...itemProps}
-              value={option.value}
-              disabled={disabled || option.disabled || itemProps?.disabled}
-            />
-            {option.label}
-          </label>
-        ))}
-      </RadioGroup>
+      <div className="flex items-center gap-1">
+        <RadioGroup
+          {...rootProps}
+          {...accessibility}
+          aria-label={rootProps['aria-label'] ?? ariaLabel ?? placeholder}
+          name={rootProps.name ?? id}
+          value={value ?? null}
+          disabled={disabled}
+          onValueChange={(next, details) => {
+            onValueChange?.(next, details)
+            if (!details.isCanceled) setValue(next)
+          }}
+        >
+          {getChoices(options ?? items).map((option, index) => (
+            <label key={index} className="inline-flex items-center gap-2 text-sm">
+              <RadioGroupItem
+                {...itemProps}
+                value={option.value}
+                disabled={disabled || option.disabled || itemProps?.disabled}
+              />
+              {option.label}
+            </label>
+          ))}
+        </RadioGroup>
+        {canClear && <ClearButton onClick={() => setValue(undefined)} />}
+      </div>
     )
   } else if (component === 'InputNumber') {
     const {
-      controls = true,
+      controls = false,
       inputProps,
       groupProps,
       incrementProps,
       decrementProps,
       placeholder,
+      clearable = true,
       onValueChange,
       onChange,
       ...rootProps
     } = props as MaFormControlPropsMap['InputNumber']
+    const canClear = Boolean(clearable && !disabled && value !== undefined && value !== null && value !== '')
     control = (
       <NumberField
         {...rootProps}
@@ -253,6 +343,7 @@ export function FormControl<T extends MaFormModel>({
               onChange?.(event)
             }}
           />
+          {canClear && <ClearButton className="size-6 shrink-0" onClick={() => setValue(undefined)} />}
           {controls && <NumberFieldIncrement aria-label="增加" {...incrementProps} />}
         </NumberFieldGroup>
       </NumberField>
@@ -278,33 +369,43 @@ export function FormControl<T extends MaFormModel>({
       />
     )
   } else if (component === 'Textarea') {
-    const { onChange, ...controlProps } = props as MaFormControlPropsMap['Textarea']
+    const { clearable = true, onChange, ...controlProps } = props as MaFormControlPropsMap['Textarea']
+    const canClear = Boolean(clearable && !disabled && value !== undefined && value !== null && value !== '')
     control = (
-      <Textarea
-        {...controlProps}
-        {...accessibility}
-        value={value == null ? '' : String(value)}
-        disabled={disabled}
-        onChange={event => {
-          onChange?.(event)
-          if (!event.defaultPrevented) setValue(event.target.value)
-        }}
-      />
+      <div className="relative w-full">
+        <Textarea
+          {...controlProps}
+          {...accessibility}
+          className={cn(canClear && 'pe-8', controlProps.className)}
+          value={value == null ? '' : String(value)}
+          disabled={disabled}
+          onChange={event => {
+            onChange?.(event)
+            if (!event.defaultPrevented) setValue(event.target.value)
+          }}
+        />
+        {canClear && <ClearButton className="absolute top-1 right-1" onClick={() => setValue('')} />}
+      </div>
     )
   } else {
-    const { onChange, ...controlProps } = props as MaFormControlPropsMap['Input']
+    const { clearable = true, onChange, ...controlProps } = props as MaFormControlPropsMap['Input']
+    const canClear = Boolean(clearable && !disabled && value !== undefined && value !== null && value !== '')
     control = (
-      <Input
-        {...controlProps}
-        {...accessibility}
-        type={component === 'Password' ? 'password' : controlProps.type}
-        value={value == null ? '' : String(value)}
-        disabled={disabled}
-        onChange={event => {
-          onChange?.(event)
-          if (!event.defaultPrevented) setValue(event.target.value)
-        }}
-      />
+      <div className="relative w-full">
+        <Input
+          {...controlProps}
+          {...accessibility}
+          className={cn(canClear && 'pe-8', controlProps.className)}
+          type={component === 'Password' ? 'password' : controlProps.type}
+          value={value == null ? '' : String(value)}
+          disabled={disabled}
+          onChange={event => {
+            onChange?.(event)
+            if (!event.defaultPrevented) setValue(event.target.value)
+          }}
+        />
+        {canClear && <ClearButton className="absolute top-1/2 right-1 -translate-y-1/2" onClick={() => setValue('')} />}
+      </div>
     )
   }
   return affix(control, prefix, suffix, disabled)

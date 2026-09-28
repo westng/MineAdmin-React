@@ -24,12 +24,19 @@
     "check:ma": "pnpm run typecheck:ma && pnpm run lint:ma && pnpm run test:ma",
     "typecheck:framework": "tsc -p tsconfig.ma-components.json --pretty false && tsc -b --pretty false",
     "check:boundaries": "node scripts/check-source-structure.mjs && node scripts/check-component-boundaries.mjs && node scripts/check-core-boundaries.mjs",
+    "check:modules": "node scripts/check-module-structure.mjs",
     "test:framework": "node --test tests/framework-*.test.mjs tests/component-boundaries.test.mjs tests/frontend-session.test.mjs tests/dashboard-slot.test.mjs",
     "check:framework": "pnpm run check:boundaries && pnpm run check:ma && pnpm run test:framework",
     "check:public-index": "node scripts/check-public-index.mjs",
     "check:bootstrap": "node scripts/check-bootstrap.mjs",
     "build:public-smoke": "node scripts/public-smoke.mjs",
-    "export:public": "node scripts/export-public.mjs"
+    "export:public": "node scripts/export-public.mjs",
+    "check:vendor": "node scripts/check-vendor-inventory.mjs",
+    "check:application-boundaries": "node scripts/check-application-boundaries.mjs",
+    "check:application": "pnpm run typecheck && pnpm run lint && pnpm run check:boundaries && pnpm run check:application-boundaries && pnpm run check:modules && pnpm test",
+    "test": "node --test tests/*.test.mjs",
+    "test:architecture": "node --test tests/application-*.test.mjs tests/notification-*.test.mjs tests/login-extension.test.mjs tests/table-cell-renderers.test.mjs tests/pro-table-toolbars.test.mjs tests/ad-account-pages.test.mjs",
+    "check:architecture": "pnpm run check:boundaries && pnpm run check:application-boundaries && pnpm run check:modules && pnpm run test:architecture"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

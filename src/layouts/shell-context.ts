@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
+import type { MenuVo } from '@/services/navigation/types'
 export interface ShellContextValue {
   menus: MenuVo[]
   activeSection: MenuVo | undefined

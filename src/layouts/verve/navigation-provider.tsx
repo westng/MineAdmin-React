@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type PropsWithChildren } from 'react'
-import { useShell } from '@/hooks/shell/use-shell'
-import { findMenuTrail, getMenuPath, isVisibleMenu } from '@/router/dynamic-menu'
+import { useShell } from '@/layouts/hooks/use-shell'
+import { findMenuTrail, getMenuPath, isVisibleMenu } from '@/router/navigation/menu'
 import { VerveNavigationContext } from './navigation-context'
 
 export function VerveNavigationProvider({ children }: PropsWithChildren) {

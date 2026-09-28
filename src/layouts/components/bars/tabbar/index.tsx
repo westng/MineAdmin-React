@@ -1,32 +1,25 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useTextTranslator, useTranslate } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { matchRoutes, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/reui/primitives/button'
-import { useTabStore, type TabItem } from '@/store/modules/useTabStore'
-import { findMenuByPath, getMenuLabel } from '@/router/dynamic-menu'
-import { useRoute } from '@/hooks/framework/use-route'
-import { useSettingStore } from '@/provider/settings'
-
-const tx = createTextTranslator('shell.ui')
-
-const defaultTab: TabItem = {
-  name: 'dashboard',
-  path: '/dashboard',
-  fullPath: '/dashboard',
-  title: 'Overview',
-  i18n: 'menu.dashboard',
-  affix: true,
-}
+import { useTabStore } from '@/store/tabs/use-tabs'
+import { useRoute } from '@/hooks/use-route'
+import { useSettingStore } from '@/store/settings/use-settings'
 
 export default function Tabbar() {
+  const tx = useTextTranslator('shell.ui')
+  const t = useTranslate()
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 
   const location = useLocation()
   const navigate = useNavigate()
-  const { menus } = useRoute()
+  const { routes } = useRoute()
   const enabled = useSettingStore(state => state.settings.tabbar.enable)
+  const dashboardPage = useSettingStore(state => state.settings.dashboardPage)
   const tabs = useTabStore(state => state.tabs)
   const initialized = useTabStore(state => state.initialized)
   const init = useTabStore(state => state.init)
@@ -34,20 +27,28 @@ export default function Tabbar() {
   const close = useTabStore(state => state.close)
 
   useEffect(() => {
-    if (!initialized) init(defaultTab)
-    const dynamic = findMenuByPath(menus, location.pathname)
+    const dashboard = {
+      name: dashboardPage.name,
+      path: dashboardPage.path,
+      fullPath: dashboardPage.path,
+      title: dashboardPage.title,
+      affix: true,
+    }
+    if (!initialized) init(dashboard)
+    const pathname = location.pathname
+    const meta = matchRoutes(routes, pathname)?.at(-1)?.route.meta
+    const title = meta?.i18n ? t(meta.i18n, meta.title) : meta?.title
     add({
-      name: location.pathname,
-      path: location.pathname,
-      fullPath: `${location.pathname}${location.search}${location.hash}`,
-      title: dynamic
-        ? getMenuLabel(dynamic)
-        : location.pathname === '/dashboard'
-          ? 'Overview'
-          : location.pathname.split('/').filter(Boolean).pop() || tx('页面'),
-      affix: location.pathname === '/dashboard',
+      name: pathname,
+      path: pathname,
+      fullPath: `${pathname}${location.search}${location.hash}`,
+      title:
+        pathname === dashboard.path
+          ? dashboard.title
+          : title || pathname.split('/').filter(Boolean).pop() || tx('页面'),
+      affix: pathname === dashboard.path,
     })
-  }, [add, init, initialized, location.hash, location.pathname, location.search, menus])
+  }, [add, init, initialized, location.hash, location.pathname, location.search, routes, t, tx, dashboardPage])
 
   if (!enabled) return null
 
@@ -79,7 +80,7 @@ export default function Tabbar() {
                   if (active)
                     navigate(
                       tabs[Math.max(0, tabs.findIndex(item => item.fullPath === tab.fullPath) - 1)]?.fullPath ||
-                        '/dashboard',
+                        dashboardPage.path,
                     )
                 }}
               >

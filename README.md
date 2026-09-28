@@ -25,7 +25,7 @@
 
 基于 React 19、TypeScript 和 ReUI 的后台管理前端，适配 MineAdmin 3.2 后端。提供认证与权限、动态菜单、可扩展布局、表单表格组件和插件接口，支持在统一框架中组织业务模块。
 
-[快速开始](#快速开始) · [架构说明](ARCHITECTURE.md) · [扩展开发](docs/EXTENSIONS.md) · [导航与菜单](docs/MENU_MIGRATION.md) · [升级迁移](docs/MIGRATION.md)
+[快速开始](#快速开始) · [架构说明](ARCHITECTURE.md) · [路由与菜单、插件接入](docs/ROUTING.md) · [升级迁移](docs/MIGRATION.md)
 
 ## 项目介绍
 
@@ -35,28 +35,28 @@
 
 ### 主要能力
 
-| 能力       | 当前实现                                                                         |
-| ---------- | -------------------------------------------------------------------------------- |
-| 认证与权限 | 会话恢复、Token 刷新、账号切换隔离，以及路由和组件访问控制                       |
-| 动态路由   | Route Registry 汇合静态路由、后端菜单和插件路由，Component Manifest 解析页面组件 |
-| 页面布局   | 经典布局、分栏导航、混合导航三种布局；当前开放经典布局和分栏导航                 |
-| 业务组件   | MaForm、MaSearch、MaTable、MaProTable、MaDialog、MaDrawer                        |
-| UI 与主题  | ReUI、shadcn/ui 风格原语、Tailwind CSS、明暗主题和主题色                         |
-| 数据访问   | Axios 请求层、TanStack Query 缓存，以及按会话隔离的请求生命周期                  |
-| 应用扩展   | 插件能力注册、Dashboard 区域、登录方式、工具栏和 Shell 插槽                      |
-| 国际化     | 语言包注册与回退，默认提供 zh_CN、zh_TW、en_US；覆盖范围以各模块语言包为准       |
+| 能力       | 当前实现                                                                   |
+| ---------- | -------------------------------------------------------------------------- |
+| 认证与权限 | 会话恢复、Token 刷新、账号切换隔离，以及路由和组件访问控制                 |
+| 动态路由   | 统一静态、菜单和插件路由，按 modules/plugins 文件路径自动解析页面          |
+| 页面布局   | 经典布局、分栏导航、混合导航三种布局；当前开放经典布局和分栏导航           |
+| 业务组件   | MaForm、MaSearch、MaTable、MaProTable、MaDialog、MaDrawer                  |
+| UI 与主题  | ReUI、shadcn/ui 风格原语、Tailwind CSS、明暗主题和主题色                   |
+| 数据访问   | Axios 请求层、TanStack Query 缓存，以及按会话隔离的请求生命周期            |
+| 应用扩展   | 插件能力注册、Dashboard 区域、登录方式、工具栏和 Shell 插槽                |
+| 国际化     | 语言包注册与回退，默认提供 zh_CN、zh_TW、en_US；覆盖范围以各模块语言包为准 |
 
 ### 布局与二级菜单扩展
 
 布局注册表使用三个固定名称：`经典布局`（`classic`）、`分栏导航`（`columns`）和`混合导航`（`mixed`）。当前账号设置开放前两种布局；`mixed` 保留为未启用实现。历史配置中的 `verve` 会兼容解析为 `columns`。
 
-分栏导航由左侧一级菜单和按当前一级菜单显示的二级菜单组成。二级菜单下方预留 `shell.section.content` 插槽，扩展可以放置业务快捷入口、统计信息或其他自定义内容。插槽占据剩余高度、独立滚动，并在二级菜单折叠时同步隐藏；没有注册内容时保持空白。组件会收到 `sectionPath`、`sectionLabel` 和当前 `pathname`，详细注册方式见[扩展开发](docs/EXTENSIONS.md)。
+分栏导航由左侧一级菜单和按当前一级菜单显示的二级菜单组成。二级菜单下方预留 `shell.section.content` 插槽，扩展可以放置业务快捷入口、统计信息或其他自定义内容。插槽占据剩余高度、独立滚动，并在二级菜单折叠时同步隐藏；没有注册内容时保持空白。组件会收到 `sectionPath`、`sectionLabel` 和当前 `pathname`，详细注册方式见[路由与插件接入](docs/ROUTING.md)。
 
 分栏导航的一级菜单图标在桌面端提供 Tooltip。面包屑位于顶部导航栏，使用实际路由层级；右侧内容区域不再重复显示面包屑，也不添加固定的 `CRM` 层级。个人资料和账号设置统一从头像菜单进入。
 
 ### 头像菜单、通知与账号偏好
 
-经典布局和分栏导航复用同一套头像菜单，提供个人资料、账号设置、通知、明暗主题、主题色和退出登录。两种布局的顶部通知按钮及头像菜单入口打开同一个 `MaDrawer`；通知正文由 `notifications` 插槽注入，未注册时显示“暂无通知”。通知数据和业务操作由应用或插件实现，注册示例见[扩展开发](docs/EXTENSIONS.md)。
+经典布局和分栏导航复用同一套头像菜单，提供个人资料、账号设置、通知、明暗主题、主题色和退出登录。两种布局的顶部通知按钮及头像菜单入口打开同一个 `MaDrawer`；通知正文由 `notifications` 插槽注入，未注册时显示“暂无通知”。通知数据和业务操作由应用或插件实现，注册示例见[路由与插件接入](docs/ROUTING.md)。
 
 账号设置保存主题模式、主题色、布局和多设备登录偏好，并保留服务端配置中的其他字段。主题和配色可即时预览，布局在保存成功后切换；保存失败保留当前草稿。存在未保存修改时，页面跳转提供继续编辑、放弃修改和保存后离开的选择，刷新或关闭页面触发浏览器离开提醒。重新加载账号资料时优先恢复服务端主题色，旧配置未提供主题色时兼容本地缓存。
 
@@ -123,33 +123,33 @@ pnpm run dev
 
 ```text
 src/
-├── app/                 # 入口、启动装配、运行时和应用适配器
-├── assets/              # 图片、图标索引、全局样式
+├── app/                 # 入口、bootstrap、runtime 工厂/实例、config、styles
+├── assets/              # 字体、图片、图标和全局样式
 ├── components/
-│   ├── ma-*/            # 业务基础组件
-│   └── reui/            # ReUI 组件、primitives 原语和内部辅助
-├── hooks/
-│   ├── framework/       # 会话、权限、路由、Query 等框架 Hook
-│   └── shell/           # 布局 Hook
-├── layouts/             # 布局、导航、标签页和 Shell 插槽
-├── modules/base/        # 登录、用户、角色、菜单、部门等基础功能
-├── provider/            # React Provider 和默认应用服务装配
-├── router/              # Route Registry、Component Manifest、访问策略
-├── services/            # 会话、HTTP、存储、注册表等底层服务
-├── store/               # 标签页、页面缓存等状态
-├── types/               # 共享类型
-└── utils/               # 通用工具
+│   ├── ma-*/            # 通用管理组件
+│   ├── reui/            # ReUI、primitives 和内部辅助
+│   └── business/        # BioTech 跨业务模块组件
+├── hooks/               # auth、query、runtime、i18n、ui；路由与字典消费
+├── layouts/             # 布局、Shell、组件和 layouts/hooks
+├── modules/             # base 基础模块及其他业务子模块
+├── plugins/             # 具体插件，按作者/名称组织
+├── provider/            # React 接入、组件适配、插件宿主、扩展注册
+├── router/              # 路由生成、页面渲染、navigation 菜单投影
+├── services/            # auth、http、query、i18n、dictionary 等非组件服务
+├── store/               # settings、tabs、keep-alive 工厂与订阅 Hook
+├── types/               # api.ts 与 env.d.ts
+└── utils/               # 无 Runtime 和业务状态的纯工具
 ```
 
-业务应用可增加 `src/modules/<业务模块>/`、`src/plugins/` 和可选的 `src/app/application.tsx`、`application.css`。公共模板导出清单不包含这些私有应用入口。完整依赖关系见 [架构说明](ARCHITECTURE.md)，接入示例见 [扩展开发](docs/EXTENSIONS.md)。
+BioTech 与 MineAdmin-React 均为开源项目。BioTech 收录完整应用及业务模块、插件、业务组件；MineAdmin-React 独立仓库和框架导出包提供可复用框架。应用配置位于 `app/config/`，业务样式及扫描范围位于 `app/styles/application.css`。完整依赖关系见 [架构说明](ARCHITECTURE.md)，菜单使用当前文件路径（例如 `base/user/views/index`）解析页面，插件静态页面通过 `views` 声明；见 [路由与插件接入](docs/ROUTING.md) 和 [可运行示例](examples/routing/README.md)。
 
 ### 组件文档
 
-[MaForm](src/components/ma-form/README.md) · [MaSearch](src/components/ma-search/README.md) · [MaTable](src/components/ma-table/README.md) · [MaProTable](src/components/ma-pro-table/README.md) · [MaDialog](src/components/ma-dialog/README.md) · [MaDrawer](src/components/ma-drawer/README.md) · [ReUI](src/components/reui/README.md)
+[MaForm](src/components/ma-form/README.md) · [MaSearch](src/components/ma-search/README.md) · [MaTable](src/components/ma-table/README.md) · [MaProTable](src/components/ma-pro-table/README.md) · [MaDialog](src/components/ma-dialog/README.md) · [MaDrawer](src/components/ma-drawer/README.md) · [MaDictSelect](src/components/ma-dict-select/README.md) · [MaRemoteSelect](src/components/ma-remote-select/README.md) · [MaIconPicker](src/components/ma-icon-picker/README.md) · [ReUI](src/components/reui/README.md)
 
 通用 UI 原语位于 `src/components/reui/primitives/`，[components.json](components.json) 中的 shadcn 配置也指向这个目录。业务页面优先复用已有 Ma 组件。
 
-应用私有的全局组件（例如 `src/components/nm-douyin-user-parser`）不属于公共组件 API，由 `.gitignore` 和公共导出清单排除。
+跨模块业务组件（例如 `src/components/business/douyin-user-parser`）由 BioTech 主仓库开源；独立框架仓库通过 `.gitignore` 和框架导出清单划定自己的分发范围。
 
 ## 开发检查
 
@@ -204,9 +204,9 @@ iframe 默认不允许任何外部来源。`VITE_IFRAME_ORIGINS` 接受如 `http
 
 构建不会自动生成 gzip/Brotli 归档；压缩与缓存策略由部署服务器决定。`VITE_BUILD_SOURCEMAP` 控制 sourcemap 生成。
 
-## 公共源码与应用源码
+## 两个开源仓库的分发范围
 
-[scripts/public-files.mjs](scripts/public-files.mjs) 定义公共源码导出白名单：包含框架、Ma/ReUI、`modules/base`、示例和指定文档；排除私有插件、业务模块和应用适配器。
+[scripts/public-files.mjs](scripts/public-files.mjs) 定义 MineAdmin-React 框架源码导出白名单：包含通用框架、Ma/ReUI、`modules/base`、示例和指定文档。BioTech 业务模块、插件和应用装配由主仓库收录，不进入这个框架分发包；这不代表它们是私有源码。
 
 ```bash
 pnpm run check:public-index
@@ -214,7 +214,7 @@ pnpm run check:public-index
 pnpm run export:public -- /absolute/path/to/new-source-directory
 ```
 
-导出会生成 `SOURCE_MANIFEST.json`，记录各文件的 SHA-256；不会提交、推送或修改 Git index。`.gitignore` 不会自动取消跟踪历史文件，因此“本地被忽略”“Git 已跟踪”“公共导出包含”需要分别核对。发布边界失败时应先审查具体路径，不能用强制添加私有源码来让依赖暂时可用。
+导出默认读取 HEAD，生成 `SOURCE_MANIFEST.json`，记录 commit 和各文件的 SHA-256；预览未提交修改时使用 `pnpm run export:public -- --working-tree /absolute/path/to/new-source-directory`。`build:public-smoke` 同样默认检查 HEAD，开发预览可显式传入 `--working-tree`。导出不会提交、推送或修改 Git index。`.gitignore` 不会自动取消跟踪历史文件，因此“本地被忽略”“Git 已跟踪”“公共导出包含”需要分别核对。发布边界失败时应先审查具体路径，不能把业务实现塞进框架分发包来掩盖反向依赖。
 
 ## 参与开发
 

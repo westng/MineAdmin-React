@@ -1,4 +1,6 @@
 import axios, { AxiosHeaders, type InternalAxiosRequestConfig, type AxiosInstance } from 'axios'
+import { runLifecycle } from '@/services/async/lifecycle'
+import { AppError } from '@/services/errors'
 
 export interface HttpSession {
   token: string | null
@@ -9,6 +11,8 @@ export interface HttpSession {
 export interface HttpClientOptions {
   baseURL?: string
   timeout?: number
+  origin?: string
+  hookTimeout?: number
   session: () => HttpSession
   callHooks?: (hook: string, ...args: unknown[]) => Promise<void>
 }
@@ -16,6 +20,18 @@ export type HttpClient = Pick<AxiosInstance, 'request' | 'get' | 'post' | 'put' 
 
 export function createHttpClient(options: HttpClientOptions) {
   const http = axios.create({ baseURL: options.baseURL, timeout: options.timeout ?? 5000, responseType: 'json' })
+  const origin = options.origin ?? 'http://localhost'
+  const trustedOrigin = new URL(options.baseURL || '/', origin).origin
+  const assertCredentialTarget = (config: InternalAxiosRequestConfig) => {
+    const target = new URL(http.getUri(config), origin)
+    if (
+      target.origin !== trustedOrigin ||
+      !['http:', 'https:'].includes(target.protocol) ||
+      target.username ||
+      target.password
+    )
+      throw new AppError('forbidden', '认证请求不能发送到非可信来源', 'http', 403)
+  }
   type SessionRequest = InternalAxiosRequestConfig & {
     _retry?: boolean
     _sessionVersion?: number
@@ -50,6 +66,7 @@ export function createHttpClient(options: HttpClientOptions) {
       throw new axios.CanceledError('登录会话已变化')
     }
     if (token && !config.headers?.Authorization) {
+      assertCredentialTarget(config)
       config.headers.Authorization = `Bearer ${token}`
       sessionConfig._managedToken = token
       sessionConfig._sessionVersion = sessionVersion
@@ -57,7 +74,11 @@ export function createHttpClient(options: HttpClientOptions) {
     if (token || language) {
       config.headers['Accept-Language'] = language
     }
-    await options.callHooks?.('networkRequest', config)
+    await runLifecycle(() => options.callHooks?.('networkRequest', config), {
+      timeoutMs: options.hookTimeout,
+      signal: config.signal as AbortSignal | undefined,
+    })
+    if (config.headers.get('Authorization')) assertCredentialTarget(config)
     if (
       sessionConfig._sessionVersion !== undefined &&
       sessionConfig._sessionVersion !== options.session().sessionVersion
@@ -72,7 +93,10 @@ export function createHttpClient(options: HttpClientOptions) {
       if (config._sessionVersion !== undefined && config._sessionVersion !== options.session().sessionVersion) {
         return Promise.reject(new axios.CanceledError('登录会话已变化'))
       }
-      await options.callHooks?.('networkResponse', response)
+      await runLifecycle(() => options.callHooks?.('networkResponse', response), {
+        timeoutMs: options.hookTimeout,
+        signal: config.signal as AbortSignal | undefined,
+      })
       if (config._sessionVersion !== undefined && config._sessionVersion !== options.session().sessionVersion)
         return Promise.reject(new axios.CanceledError('登录会话已变化'))
       if (response.data?.code && response.data.code !== 200) {
@@ -85,7 +109,8 @@ export function createHttpClient(options: HttpClientOptions) {
       return response
     },
     async error => {
-      if (axios.isCancel(error)) return Promise.reject(error)
+      if (axios.isCancel(error) || error instanceof AppError || error?.name === 'AbortError')
+        return Promise.reject(error)
       const config = error?.config as SessionRequest | undefined
       if (config?._sessionVersion !== undefined && config._sessionVersion !== options.session().sessionVersion)
         return Promise.reject(new axios.CanceledError('登录会话已变化'))

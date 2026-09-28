@@ -1,36 +1,66 @@
-# 框架入口迁移
+# 前端目录迁移指南
 
-本文件维护当前公开契约和应用源码迁移方式。下表中的旧源码入口已经删除，迁移时应更新调用方，不再依赖兼容转发文件。运行中的后端菜单 ID/URL 兼容单独治理，不因源码移动而直接删除。
+文档属性：正式开发文档。更新时间：2026-09-28。本文描述当前源码布局与调用方迁移要求；版本发布、部署和业务验收另行记录。
 
-| 已删除的旧入口 | 当前入口 | 迁移要求 |
-| --- | --- | --- |
-| `src/main.tsx`、`src/App.tsx`、`src/bootstrap.tsx` | `src/app/*` | HTML 直接使用 app/main.tsx |
-| `@/components/ui/*` | `@/components/reui/primitives/*` | 使用同一个原语实现和 Context |
-| `@/components/common/toast*`、`use-toast` | `@/components/reui/toast*`、`use-toast` | 统一 ToastProvider 与消费者 |
-| `common/ma-icon`、`common/icon-picker` | `@/components/ma-icon`、`@/components/ma-icon-picker` | 独立公共组件入口 |
-| `common/ConfirmDialog` | `@/components/reui/confirm-dialog` | 通用确认框 |
-| `components/shared/*` | `@/components/reui/utils/*` | 组件内部共享辅助 |
-| `@/i18n` | `@/provider/i18n` | 语言状态、翻译 Hook 和注册统一 |
-| `@/lib/utils`、`@/lib/icons` | `@/utils/cn`、`@/utils/icons` | 工具按职责命名 |
-| `@/iconify/data.json` | `@/assets/icons/catalog.json` | 保留索引内容和许可元数据 |
-| `@/hooks/useCache` | `@/services/storage/cache` | 无 React 状态的工具不是 Hook |
-| `@/hooks/usePermission` | `@/hooks/framework/use-permission` | 外部函数保留权限判断语义 |
-| 根级 `use-mobile`、`use-file-upload`、`useMessage` | `@/hooks/framework/*` | 分别为 use-mobile、use-file-upload、use-message |
-| `@/utils/http` | `@/provider/http` | 应用实例装配；纯 HTTP 工厂仍在 services/http |
-| `useUserStore` | `useSession` 或 `provider/session` 的 `useSessionStore` | React Framework 优先 Runtime Hook；会话只有 SessionManager 一个所有者 |
-| `useMenuStore` | `provider/navigation` 的 `useNavigationStore` | 导航数据与刷新生命周期集中装配 |
-| `useRouteStore` | `RouteRegistry` / `useRoute` | 读取 getSnapshot；setMenus/clearMenus 直接更新 Registry |
-| 旧私有共享组件 | `app/private/components/*` | 仅业务应用使用，不能从公共 Core 导入 |
-| `types/auto-imports.d.ts`、`types/components.d.ts` | 明确 import 与 `src/types` | 删除遗留 Vue 自动导入声明；# 别名指向 src/types |
+## 两个开源项目
 
-未使用的旧 useForm/useTable/useDialog、资源选择/水印 Hook、调试组件和演示副本已删除。表单、表格和弹窗使用现有 Ma 组件接口，不新建同名空壳。
+BioTech 与 MineAdmin-React 均为开源项目。BioTech 主仓库收录完整应用、业务模块、插件和共享业务组件；嵌套框架仓库及 `export:public` 提供可复用框架。业务源码被框架清单排除不表示它是私有源码。
 
-仍在使用的 `MinePlugin.install/hooks.setup` 是业务插件迁移桥，公开新插件使用 `PluginDefinition.setup(ctx)`；旧插件返回 disposer 才能清理自行创建的副作用。`registerSectionPane` 的旧应用消费尚在使用，新 Shell 扩展优先 `ctx.registerSlot({ slot: 'shell.pane', ... })`。这些活跃契约不当作无引用代码误删。
+## 导入路径
 
-旧配置 `pageAnimate`、`enableWatermark`、`watermarkText`、`asideDark`、`showBreadcrumb`、`whiteRoute` 和旧 mainAside/subAside 显示项只作为兼容数据保留，默认 Shell 未消费。tabbar 统一使用一种展示样式。布局实际支持 classic、columns、mixed；未知 ID 回退 classic。
+旧入口已移除，工作树内消费者已同步修改。外部扩展或复制的模块应按下表更新；不要恢复旧目录或新增全局转发包。
 
-菜单稳定 ID 和只读核查 SQL 见 [菜单迁移表](MENU_MIGRATION.md)。例如 `base/permission/user` 是稳定 ID，旧视图字段只作为精确 alias；没有实际菜单核对证据时保留 alias，未知 ID 不执行路径猜测。
+| 旧位置（相对 src）                                      | 新位置                                                                                    |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| app/create-runtime.ts、app/runtime.ts                   | app/runtime/create-runtime.ts、instance.ts                                                |
+| app/bootstrap.tsx                                       | app/bootstrap.ts                                                                          |
+| app/branding.ts、menu-policy.ts                         | app/config/                                                                               |
+| app/application.css、default-styles.css                 | app/styles/application.css、default.css                                                   |
+| provider/index.tsx                                      | provider/app-provider.tsx；稳定入口仍为 @/provider                                        |
+| provider/runtime/context 中的 AppRuntime                | provider/runtime/types.ts；Context 留在 context.ts                                        |
+| provider/query/client、resource                         | services/query/                                                                           |
+| provider/query/table-store                              | provider/query/table-adapter                                                              |
+| provider/navigation                                     | router/navigation/；create-navigation 更名为 manager                                      |
+| provider/settings                                       | store/settings/；create-store、defaults、colors、use-settings                             |
+| store/modules 中的 tabs、keep-alive                     | store/tabs/、store/keep-alive/；工厂与订阅 Hook 相邻                                      |
+| provider/i18n 的注册、管理和普通翻译函数                | services/i18n/                                                                            |
+| provider/i18n 的 React 订阅、hooks/framework/use-locale | hooks/i18n/                                                                               |
+| provider/dictionary                                     | services/dictionary/；订阅 Hook 在 hooks/use-dictionary.ts                                |
+| provider/dashboard、provider/runtime/branding           | provider/extensions/dashboard、login-page                                                 |
+| hooks/framework 中的会话与权限 Hook                     | hooks/auth/                                                                               |
+| hooks/framework 中的 Query Hook                         | hooks/query/                                                                              |
+| hooks/framework 中的实例 Hook                           | hooks/runtime/                                                                            |
+| hooks/framework 中的通用 UI Hook                        | hooks/ui/                                                                                 |
+| hooks/framework/use-route                               | hooks/use-route                                                                           |
+| hooks/framework/use-permission 的 PermissionGate        | provider/access/permission-gate                                                           |
+| hooks/shell                                             | layouts/hooks/                                                                            |
+| components/nm-advertiser-select、nm-douyin-user-parser  | components/business/advertiser-select、douyin-user-parser                                 |
+| types/global.d.ts                                       | 环境声明到 types/env.d.ts，设置类型到 store/settings/types.ts，路由类型到 router/types.ts |
 
-旧 API URL、权限字段和请求响应结构保持兼容。Base 公共 API 通过 Query resource 适配，新模块使用声明式 Query Hooks，旧命令式页面仍按既有交互刷新。账户设置通过可选插槽接入外部能力，保存时保留未知字段。
+能力内部引用具体实现；跨能力引用稳定入口。`services` 与纯 Store 不调用 React Hook、不读取 RuntimeContext；Provider 不硬编码业务实现。路由权限规则的输入契约由 `services/auth/access` 声明，路由类型可以消费该契约，服务不反向依赖 router。
 
-iframe 默认拒绝所有来源，部署前必须把需要的 origin 同时配置到应用和服务器 CSP；sandbox 不支持 same-origin 权限。应用扩展、语言包和布局注册见 [扩展指南](EXTENSIONS.md)。
+## Base 页面与插件
+
+Base 已按 `login/user/role/menu/department` 等直接子模块组织；页面入口统一为 `base/<子模块>/views/index`。例如旧 `base/views/permission/user/index` 应改为 `base/user/views/index`。完整目录见 [Base 模块说明](../src/modules/base/README.md)。已有菜单数据也须更新；运行时不保留旧页面地址别名。
+
+插件能力安装改用 `install(runtime)`，并返回撤销注册的函数；启动调用 `hooks.start` 和 `install`，不调用 `hooks.setup`。表格渲染器与工具栏分别注册到 `runtime.tableCellRenderers` 和 `runtime.proTableToolbars`，全局注册函数只服务独立组件的兼容场景。安装没有默认超时，也没有 `context.signal`，资源释放由插件显式处理。见 [插件接入](ROUTING.md#插件安装与-shell-插槽)。
+
+Toast 使用当前 Provider 内的 `useToast()`，不再从 `use-toast` 导入全局 `toast` 或 `useSonner`。状态方法、通知 ID 及关闭范围见 [Toast 文档](../src/components/reui/toast.md)。
+
+## 调用方需要核对的契约
+
+- 模块 API 从参数取得 Runtime。页面使用 `useRuntimeFactory(createApi)` 绑定当前实例，没有 `useApi` 或默认应用 API 单例这一层。
+- 独立调用 `createSettingsStore` 时传入第三个参数 `dashboardPage`。应用工厂已经传入原有默认首页；缓存设置纠正行为保持不变。
+- `createTextTranslator(ports, namespace)` 只要求语言注册表的 translate 和当前语言读取接口。React 翻译和语言订阅统一从 `hooks/i18n` 导入。
+- MaDictSelect 从组件自己的 `MaDictionaryContext` 读取字典和翻译；AppProviders 已负责注入。独立组件消费者需提供字典与语言的稳定快照及订阅，见 [组件文档](../src/components/ma-dict-select/README.md)。
+- 普通 CRUD 直接把资源 list API 交给 MaProTable。函数携带的 `queryOptions` 让表格复用资源 key 和 loader，写操作失效后会刷新活动表格。匿名包装若丢失该属性，会退回普通表格缓存。复杂受控列表继续使用 `useQueryTable`，不再套另一层请求模式适配。
+
+HTTP 响应封装、认证续期、权限组合、SessionManager 的会话版本隔离、Query 请求取消和 Activity 页面保活仍遵循原有行为约定。
+
+## 验证与发布
+
+目录迁移需要覆盖类型检查、组件检查、目录和依赖边界、业务模块结构、框架与应用测试。启动检查使用隔离缓存、空合成存储并阻断网络；它不能替代浏览器或真实后端验收。
+
+框架导出默认读取 HEAD。验证未提交的迁移必须使用 `--working-tree` 和新的临时目标目录，并在导出结果中检查路径与依赖。Git index 仍可能包含尚未提交的旧路径；提交只在用户明确要求后按文件清单处理，不能为了通过 index 检查自行暂存或删除已有改动。
+
+当前职责和稳定入口以 [ARCHITECTURE.md](../ARCHITECTURE.md) 与源码为准。后续新增模块应直接使用新目录。

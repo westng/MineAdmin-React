@@ -1,5 +1,11 @@
 export { MaProTable } from './components/ma-pro-table'
-export { getProTableToolbars, registerProTableToolbar, removeProTableToolbar } from './utils/toolbars'
+export {
+  createProTableToolbars,
+  ProTableToolbarsContext,
+  getProTableToolbars,
+  registerProTableToolbar,
+  removeProTableToolbar,
+} from './utils/toolbars'
 export {
   getTableCellRenderers,
   registerTableCellRenderer,

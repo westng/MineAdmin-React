@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Bell, ChevronsUpDown, LogOut, Monitor, Moon, Palette, Settings, Sun, UserRound } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/reui/primitives/avatar'
+import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from '@/components/reui/primitives/avatar'
 import { Button } from '@/components/reui/primitives/button'
 import {
   DropdownMenu,
@@ -13,14 +13,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/reui/primitives/dropdown-menu'
 import { ThemeColorPicker } from '@/components/reui/theme-color-picker'
-import { useSession } from '@/hooks/framework/use-session'
-import { useShell } from '@/hooks/shell/use-shell'
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
-import { useSettingStore } from '@/provider/settings'
-import { themeColors } from '@/provider/settings/colors'
+import { useSession } from '@/hooks/auth/use-session'
+import { useShell } from '@/layouts/hooks/use-shell'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
+import { useSettingStore } from '@/store/settings/use-settings'
+import { themeColors } from '@/store/settings/colors'
 import { cn } from '@/utils/cn'
-
-const tx = createTextTranslator('shell.ui')
 
 interface ProfileMenuProps {
   compact?: boolean
@@ -29,6 +28,8 @@ interface ProfileMenuProps {
 }
 
 export function ProfileMenu({ compact = false, contentClassName, onNavigate }: ProfileMenuProps) {
+  const tx = useTextTranslator('shell.ui')
+
   const localeRevision = useLocaleRevision()
   void localeRevision
   const userInfo = useSession(state => state.userInfo)
@@ -47,7 +48,7 @@ export function ProfileMenu({ compact = false, contentClassName, onNavigate }: P
       if (event.key.toLowerCase() === 'p') {
         event.preventDefault()
         onNavigate?.()
-        navigate('/settings')
+        navigate('/uc/index')
       }
       if (event.key.toLowerCase() === 'q') {
         event.preventDefault()
@@ -69,6 +70,7 @@ export function ProfileMenu({ compact = false, contentClassName, onNavigate }: P
       >
         {Array.from(displayName.trim())[0]?.toUpperCase() || 'M'}
       </AvatarFallback>
+      <AvatarBadge aria-hidden="true" className="bg-emerald-500 dark:bg-emerald-600" />
     </Avatar>
   )
 
@@ -113,12 +115,12 @@ export function ProfileMenu({ compact = false, contentClassName, onNavigate }: P
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem render={<NavLink to="/settings" onClick={onNavigate} />}>
+        <DropdownMenuItem render={<NavLink to="/uc/index" onClick={onNavigate} />}>
           <UserRound aria-hidden="true" />
           {tx('个人资料')}
           <span className="ml-auto text-xs text-muted-foreground">⇧⌘P</span>
         </DropdownMenuItem>
-        <DropdownMenuItem render={<NavLink to="/settings/account" onClick={onNavigate} />}>
+        <DropdownMenuItem render={<NavLink to="/uc/account" onClick={onNavigate} />}>
           <Settings aria-hidden="true" />
           {tx('账号设置')}
         </DropdownMenuItem>

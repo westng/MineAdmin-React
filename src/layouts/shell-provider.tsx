@@ -1,10 +1,11 @@
-import { useSession } from '@/hooks/framework/use-session'
-import { hasRouteAccess } from '@/router/access'
-import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
+import { useSession } from '@/hooks/auth/use-session'
+import { hasRouteAccess } from '@/services/auth/access'
+import type { MenuVo } from '@/services/navigation/types'
 import { useMemo, useState, useCallback, type PropsWithChildren } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useRoute } from '@/hooks/framework/use-route'
-import { getMenuPath, flattenVisibleMenus } from '@/router/dynamic-menu'
+import { useRoute } from '@/hooks/use-route'
+import { getMenuPath } from '@/router/navigation/menu'
+import { findMenuTrail } from '@/router/navigation/menu'
 import { ShellContext } from './shell-context'
 export function ShellProvider({ children }: PropsWithChildren) {
   const { pathname } = useLocation()
@@ -24,16 +25,11 @@ export function ShellProvider({ children }: PropsWithChildren) {
   const setSection = useCallback((path: string) => setSelection({ path, pathname }), [pathname])
   const activeSection =
     menus.find(menu => selection.pathname === pathname && getMenuPath(menu) === selection.path) ??
-    menus.find(menu =>
-      flattenVisibleMenus([menu]).some(item => {
-        const path = getMenuPath(item)
-        return path && (pathname === path || pathname.startsWith(`${path}/`))
-      }),
-    ) ??
+    findMenuTrail(menus, pathname)[0]?.menu ??
     menus[0]
   const value = useMemo(
     () => ({ menus, activeSection, setSection, pathname, notificationsOpen, setNotificationsOpen }),
-    [menus, activeSection, pathname, setSection, notificationsOpen],
+    [menus, activeSection, pathname, setSection, notificationsOpen, setNotificationsOpen],
   )
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>
 }

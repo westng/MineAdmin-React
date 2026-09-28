@@ -1,11 +1,6 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/reui/primitives/avatar'
-
-const tx = createTextTranslator('base.user-center.ui')
-
-function getInitial(name: string) {
-  return Array.from(name.trim())[0]?.toUpperCase() || tx('管')
-}
 
 export function ProfileAvatar({
   name,
@@ -16,6 +11,11 @@ export function ProfileAvatar({
   avatar?: string | null
   size?: 'default' | 'sm' | 'lg'
 }) {
+  const tx = useTextTranslator('base.user-center.ui')
+  function getInitial(name: string) {
+    return Array.from(name.trim())[0]?.toUpperCase() || tx('管')
+  }
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 

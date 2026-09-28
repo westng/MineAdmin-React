@@ -1,11 +1,12 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { ArrowUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/reui/primitives/button'
 
-const tx = createTextTranslator('shell.ui')
-
 export default function BackTop() {
+  const tx = useTextTranslator('shell.ui')
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 

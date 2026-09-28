@@ -1,3 +1,4 @@
+import { usePortalContainer } from '@/components/reui/primitives/portal-container'
 "use client"
 
 import { Autocomplete as AutocompletePrimitive } from "@base-ui/react/autocomplete"
@@ -74,8 +75,10 @@ function AutocompleteStatus({
 }
 
 function AutocompletePortal({ ...props }: AutocompletePrimitive.Portal.Props) {
+const portalContainer = usePortalContainer()
+
   return (
-    <AutocompletePrimitive.Portal data-slot="autocomplete-portal" {...props} />
+    <AutocompletePrimitive.Portal container={portalContainer} data-slot="autocomplete-portal" {...props} />
   )
 }
 

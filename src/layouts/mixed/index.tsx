@@ -1,6 +1,6 @@
 import MainAside from '@/layouts/components/main-aside'
 import SectionNavigation from '@/layouts/components/section-navigation'
-import { useShell } from '@/hooks/shell/use-shell'
+import { useShell } from '@/layouts/hooks/use-shell'
 export function MixedHeaderNavigation() {
   return <SectionNavigation />
 }

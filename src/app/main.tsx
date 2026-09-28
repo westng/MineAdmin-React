@@ -22,7 +22,8 @@ bootstrap()
         dispose()
       })
   })
-  .catch(() => {
+  .catch(error => {
+    console.error('[MineAdmin] Application bootstrap failed', error)
     const root = document.getElementById('app')
     if (root) root.textContent = '应用初始化失败，请刷新重试。'
   })

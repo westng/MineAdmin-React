@@ -1,9 +1,7 @@
 import { useContext } from 'react'
 import { ToastContext } from './toast-context'
 
-export { toast } from './toast-api'
-export type { ToastApi, ToastVariant } from './toast-api'
-export { useSonner } from 'sonner'
+export type { ToastApi } from './toast-api'
 export type * from 'sonner'
 
 export function useToast() {

@@ -1,6 +1,12 @@
 export { MaTable } from './components/ma-table'
 export { MaTableToolbar } from './components/ma-table-toolbar'
-export { getTableCellRenderers, registerTableCellRenderer, removeTableCellRenderer } from './utils/cell-renderers'
+export {
+  createTableCellRenderers,
+  TableCellRenderersContext,
+  getTableCellRenderers,
+  registerTableCellRenderer,
+  removeTableCellRenderer,
+} from './utils/cell-renderers'
 export type {
   MaTableCellContext,
   MaTableCellRenderer,

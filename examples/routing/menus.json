@@ -1,0 +1,14 @@
+[
+  {
+    "name": "example:module",
+    "path": "/examples/module",
+    "component": "example/report/views/index",
+    "meta": { "title": "模块页面", "componentPath": "modules/" }
+  },
+  {
+    "name": "example:plugin",
+    "path": "/examples/plugin",
+    "component": "example/report/views/index",
+    "meta": { "title": "插件页面", "componentPath": "plugins/" }
+  }
+]

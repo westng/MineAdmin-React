@@ -36,7 +36,7 @@ export function MaTableCellOverflowPopover({ children, content }: MaTableCellOve
 
   return (
     <Popover>
-      <PopoverTrigger render={trigger} />
+      <PopoverTrigger nativeButton={false} render={trigger} />
       <PopoverContent
         side="top"
         align="start"

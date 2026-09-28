@@ -1,21 +1,26 @@
-import { useLocale } from '@/hooks/framework/use-locale'
-import { useTranslate } from '@/provider/i18n'
+import { useRuntime } from '@/hooks/runtime/use-runtime'
+import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
+import { useLocale } from '@/hooks/i18n/use-locale'
+import { useTranslate, useTextTranslator } from '@/hooks/i18n/use-translator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/reui/primitives/select'
 import { useSyncExternalStore } from 'react'
-import { layoutRegistry } from '@/layouts/builtins'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 import { Monitor, Palette } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/reui/primitives/card'
 import { ThemeColorPicker } from '@/components/reui/theme-color-picker'
-import { useSettingStore } from '@/provider/settings'
-import { themeColors } from '@/provider/settings/colors'
-import { settingsModes } from './data'
+import { useSettingStore } from '@/store/settings/use-settings'
+import { themeColors } from '@/store/settings/colors'
+import { createViewData as createResourceViewData } from './data/settings'
 
 export default function SettingsPageView() {
+  const { settingsModes } = useRuntimeFactory(createResourceViewData)
+
   const t = useTranslate()
+  const tx = useTextTranslator('base.account-settings.ui')
   const { locale, setLocale, available } = useLocale()
   const languageLabels: Record<string, string> = { zh_CN: '简体中文', zh_TW: '繁體中文', en_US: 'English' }
+  const layoutRegistry = useRuntime().layouts
   const layouts = useSyncExternalStore(layoutRegistry.subscribe, layoutRegistry.getSnapshot, layoutRegistry.getSnapshot)
   const { settings, setColorMode, setPrimaryColor, setSettings } = useSettingStore()
   const currentMode = settings.app.colorMode
@@ -75,7 +80,7 @@ export default function SettingsPageView() {
                     variant={layoutRegistry.resolve(settings.app.layout).id === layout.id ? 'default' : 'outline'}
                     onClick={() => setSettings({ app: { ...settings.app, layout: layout.id } })}
                   >
-                    {layout.label}
+                    {layout.labelKey ? tx(layout.labelKey) : layout.label}
                   </Button>
                 ))}
             </div>

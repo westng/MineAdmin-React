@@ -40,39 +40,53 @@ const {
   RouterProvider,
   Routes,
   Route,
-  Outlet,
   useNavigate,
   useLocation,
 } = require('react-router-dom')
 const result = await build({
   stdin: {
     contents: `
-  export { Access } from './src/provider/access'
+  import { createAppRuntime as buildRuntime } from './src/app/runtime/create-runtime'
+  import { createBuiltinLayouts } from './src/layouts/builtins'
+  export const testRuntime = buildRuntime({ storage: localStorage, prefix: 'dom_', layouts: createBuiltinLayouts() })
+  export const { session: sessionManager, http, query: queryClient, settings: useSettingStore, tabs: useTabStore, layouts: layoutRegistry, slots: shellSlots } = testRuntime
+  export const useI18nStore = testRuntime.i18n.store
+  export { AppProviders } from './src/provider/app-provider'
+  export { Access } from './src/provider/access/access'
   export { AppRouter } from './src/router'
-  export { PermissionGate } from './src/hooks/framework/use-permission'
-  export { useSession } from './src/hooks/framework/use-session'
-  export { useShell } from './src/hooks/shell/use-shell'
-  export { createRouteRegistry } from './src/router/registry'
-  export { createComponentManifest } from './src/router/manifest'
-  export { default as DynamicMenuPage } from './src/modules/base/dynamic-menu/views'
-  export { useI18nStore, useTranslate } from './src/provider/i18n'
+  export { useUserQueries } from './src/modules/base/user/hooks/use-user-queries'
+  export { createAppRuntime } from './src/app/runtime/create-runtime'
+  export { createApi as createUserApi } from './src/modules/base/user/api/user'
+  export { usePermission } from './src/hooks/auth/use-permission'
+  export { PermissionGate } from './src/provider/access/permission-gate'
+  export { useSession } from './src/hooks/auth/use-session'
+  export { useShell } from './src/layouts/hooks/use-shell'
+  export { menuToRoutes, createViewResolver } from './src/router/dynamic-routes'
+
+
+  export { useTranslate } from './src/hooks/i18n'
   export { PageViewport } from './src/router/page-viewport'
   export { RuntimeContext } from './src/provider/runtime/context'
-  export { useTabStore } from './src/store/modules/useTabStore'
-  export { useSettingStore } from './src/provider/settings'
-  export { sessionManager } from './src/provider/session'
-  export { queryClient } from './src/provider/query/client'
-  export { default as http } from './src/provider/http'
-  export { default as AccountSettingsPage } from './src/modules/base/account-settings/views'
+
+
+
+
+
+  export { default as AccountSettingsPage } from './src/modules/base/account-settings/views/index'
   export { default as AppLayout } from './src/layouts'
-  export { layoutRegistry } from './src/layouts/builtins'
-  export { shellSlots } from './src/layouts/slots'
+  export { default as RolePage } from './src/modules/base/role/views'
+  export { default as DepartmentPage } from './src/modules/base/department/views'
+  export { DepartmentPositionsDialog } from './src/modules/base/department/views/components/DepartmentPositionsDialog'
+  export { DepartmentLeadersDialog } from './src/modules/base/department/views/components/DepartmentLeadersDialog'
+  export { HeaderActionsSetterContext } from './src/layouts/components/bars/toolbar/header-actions-context'
+
+
   export * as sidebar from './src/components/reui/primitives/sidebar'
   export * as chart from './src/components/reui/primitives/chart'
   export { ToastContext } from './src/components/reui/toast-context'
   export { ToastProvider } from './src/components/reui/toast'
   export { useToast } from './src/components/reui/use-toast'
-  export { toast } from './src/components/reui/toast-api'
+
 `,
     resolveDir: process.cwd(),
   },
@@ -104,7 +118,6 @@ const roots = []
 afterEach(async () => {
   await act(async () => {
     for (const root of roots.splice(0)) root.unmount()
-    core.toast.dismiss()
   })
   document.body.replaceChildren()
 })
@@ -117,12 +130,14 @@ async function mount(element) {
   document.body.append(container)
   const root = createRoot(container)
   roots.push(root)
-  await act(async () => root.render(element))
+  await act(async () => root.render(React.createElement(core.AppProviders, { runtime: core.testRuntime }, element)))
   return container
 }
 
 function accountPreferencesFixture(t) {
   const originalAdapter = core.http.defaults.adapter
+  const originalToken = localStorage.getItem('dom_token')
+  localStorage.setItem('dom_token', 'synthetic')
   const originalSession = core.sessionManager.getState()
   const originalSettings = core.useSettingStore.getState().settings
   const profile = {
@@ -164,6 +179,8 @@ function accountPreferencesFixture(t) {
   t.after(async () => {
     await act(async () => {
       for (const root of roots.splice(0)) root.unmount()
+      if (originalToken === null) localStorage.removeItem('dom_token')
+      else localStorage.setItem('dom_token', originalToken)
       core.sessionManager.setState(originalSession, true)
       core.useSettingStore.getState().setSettings(originalSettings)
       core.useSettingStore.getState().setColorMode(originalSettings.app.colorMode)
@@ -224,6 +241,7 @@ test('Account preferences save appearance and account fields, then restore them 
     store.setSettings({
       app: { ...store.settings.app, colorMode: 'light', primaryColor: '#2563EB', layout: 'classic' },
     })
+    core.sessionManager.setState({ initialized: false })
     assert.equal(await core.sessionManager.getState().hydrate(), true)
   })
   assert.ok(api.requests.includes('/admin/passport/getInfo'))
@@ -231,8 +249,8 @@ test('Account preferences save appearance and account fields, then restore them 
   assert.equal(restored.colorMode, 'dark')
   assert.equal(restored.primaryColor, '#DB2777')
   assert.equal(restored.layout, 'columns')
-  assert.equal(document.documentElement.style.getPropertyValue('--primary'), '#DB2777')
-  assert.equal(JSON.parse(localStorage.getItem('dom_settings')).value.app.primaryColor, '#DB2777')
+  assert.equal(document.querySelector('[data-app-scope]').style.getPropertyValue('--primary'), '#DB2777')
+  assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.primaryColor, '#DB2777')
 })
 
 test('Failed account preference saves preserve the saved profile and allow retry', async t => {
@@ -279,8 +297,8 @@ test('Unsaved preferences warn on unload and allow continuing or discarding befo
   assert.equal(app.colorMode, 'light')
   assert.equal(app.primaryColor, '#2563EB')
   assert.equal(app.layout, 'classic')
-  assert.equal(document.documentElement.classList.contains('dark'), false)
-  assert.equal(JSON.parse(localStorage.getItem('dom_settings')).value.app.primaryColor, '#2563EB')
+  assert.equal(document.querySelector('[data-app-scope]').classList.contains('dark'), false)
+  assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.primaryColor, '#2563EB')
   assert.deepEqual(api.profile, savedProfile)
   assert.equal(api.requests.length, 0)
   assert.equal(unloadIsBlocked(), false)
@@ -339,6 +357,7 @@ test('Unsaved layout changes revert to the server setting after refresh', async 
   assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
   assert.equal(api.profile.backend_setting.app.layout, 'classic')
   await act(async () => {
+    core.sessionManager.setState({ initialized: false })
     assert.equal(await core.sessionManager.getState().hydrate(), true)
   })
   assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
@@ -352,26 +371,17 @@ test('Layout drafts survive in the application shell and save before leaving', a
     navigate = useNavigate()
     return React.createElement(core.AccountSettingsPage)
   }
-  app.routes.configure({
-    layout: {
-      name: 'root',
-      path: '/',
-      element: React.createElement(core.AppLayout),
-      children: [
-        { name: 'preferences', path: 'preferences', element: React.createElement(Preferences) },
-        { name: 'other', path: 'other', element: React.createElement('p', null, 'other-page') },
-      ],
-    },
-    guests: [],
-    publics: [],
-    renderMenu: () => null,
-  })
-  app.routes.setMenus([])
+  app.testStaticRoutes = [
+    { name: 'preferences', path: '/preferences', element: React.createElement(Preferences) },
+    { name: 'other', path: '/other', element: React.createElement('p', null, 'other-page') },
+  ]
+  setMenus(app, [])
   window.history.replaceState(null, '', '/#/preferences')
   const container = await mount(
     React.createElement(core.RuntimeContext.Provider, { value: app }, React.createElement(core.AppRouter)),
   )
   const layout = container.querySelector('[role="radio"][aria-label="分栏导航"]')
+  assert.ok(layout, container.textContent.slice(0, 400))
   await act(async () => layout.click())
   assert.equal(container.querySelector('[role="radio"][aria-label="分栏导航"]').getAttribute('aria-checked'), 'true')
   assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
@@ -390,6 +400,7 @@ test('Legacy profiles without a server primary color retain their cached color',
   const api = accountPreferencesFixture(t)
   delete api.profile.backend_setting.app.primaryColor
   core.useSettingStore.getState().setPrimaryColor('#7C3AED')
+  core.sessionManager.setState({ initialized: false })
   assert.equal(await core.sessionManager.getState().hydrate(), true)
   assert.equal(core.useSettingStore.getState().settings.app.primaryColor, '#7C3AED')
 })
@@ -463,8 +474,8 @@ for (const layout of ['classic', 'columns']) {
     await act(async () => menuItem('通知').click())
     assert.equal(shell.notificationsOpen, true)
     await act(async () => trigger().click())
-    await act(async () => popup().querySelector('a[href="/settings/account"]').click())
-    assert.equal(container.querySelector('[data-profile-location]').textContent, '/settings/account')
+    await act(async () => popup().querySelector('a[href="/uc/account"]').click())
+    assert.equal(container.querySelector('[data-profile-location]').textContent, '/uc/account')
     await act(async () => trigger().click())
     await act(async () => menuItem('退出登录').click())
     assert.equal(logoutCalls, 1)
@@ -485,15 +496,21 @@ test('Public Sidebar and Toast providers share state with consumers', async () =
     ),
   )
   assert.match(container.textContent, /expanded/)
-  assert.equal(observed.toast, core.toast)
+  assert.equal(typeof observed.toast.success, 'function')
+  await act(async () => {
+    observed.toast.success('provider-toast')
+    await new Promise(resolve => setTimeout(resolve, 50))
+  })
+  assert.match(container.textContent, /provider-toast/)
 })
 
 function runtime() {
-  const routes = core.createRouteRegistry()
-  routes.setMenus([])
   return {
-    routes,
-    components: core.createComponentManifest(),
+    ...core.testRuntime,
+    navigation: createStore(() => ({ menus: [], routes: [] })),
+    http: core.http,
+    query: core.queryClient,
+    views: core.createViewResolver(),
     session: createStore(() => ({
       token: 'synthetic',
       sessionVersion: 1,
@@ -506,6 +523,9 @@ function runtime() {
       permissions: ['*'],
     })),
   }
+}
+function setMenus(app, input) {
+  app.navigation.setState(core.menuToRoutes(input, app.testStaticRoutes ?? [], app.views))
 }
 function setTabs(paths) {
   core.useTabStore.setState({
@@ -621,7 +641,78 @@ test('Unsupported layouts fall back without remounting the page and slot disposa
   assert.doesNotMatch(container.textContent, /extension-content/)
 })
 
-test('Column navigation supports saved Verve settings, preserves the page and filters inaccessible menus', async () => {
+test('Classic parent menus stay manually collapsed and reveal nested active routes after navigation', async t => {
+  const settings = core.useSettingStore.getState().settings
+  core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout: 'classic' } } })
+  t.after(() => core.useSettingStore.setState({ settings }))
+  const app = runtime()
+  setMenus(app, [
+    {
+      name: 'Reports',
+      path: '/reports',
+      children: [
+        { name: 'Summary', path: '/reports/summary' },
+        { name: 'Audits', path: '/reports/audits', children: [{ name: 'Daily', path: '/archive/daily' }] },
+      ],
+    },
+    { name: 'Operations', path: '/operations', children: [{ name: 'History', path: '/operations/history' }] },
+  ])
+  setTabs(['/reports/summary'])
+  let navigate
+  function Page() {
+    navigate = useNavigate()
+    return React.createElement('input', { 'aria-label': 'parent-menu-page', defaultValue: 'preserved' })
+  }
+  const container = await mount(
+    React.createElement(
+      core.RuntimeContext.Provider,
+      { value: app },
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/reports/summary'] },
+        React.createElement(
+          Routes,
+          null,
+          React.createElement(
+            Route,
+            { path: '/', element: React.createElement(core.AppLayout) },
+            React.createElement(Route, { path: '*', element: React.createElement(Page) }),
+          ),
+        ),
+      ),
+    ),
+  )
+  const trigger = label =>
+    [...container.querySelectorAll('button[data-slot="sidebar-menu-button"][aria-expanded]')].find(
+      button => button.textContent === label,
+    )
+  const settle = () => act(async () => new Promise(resolve => setTimeout(resolve, 30)))
+  await settle()
+  const page = container.querySelector('[aria-label="parent-menu-page"]')
+  assert.equal(trigger('Reports').getAttribute('aria-expanded'), 'true')
+  await act(async () => trigger('Reports').click())
+  await settle()
+  assert.equal(trigger('Reports').getAttribute('aria-expanded'), 'false', 'active branch must stay manually closed')
+  await act(async () => app.session.setState({ userInfo: { username: 'alice', nickname: 'Updated' } }))
+  await settle()
+  assert.equal(trigger('Reports').getAttribute('aria-expanded'), 'false', 'unrelated shell updates must not reopen it')
+  await act(async () => trigger('Operations').click())
+  await settle()
+  assert.equal(trigger('Operations').getAttribute('aria-expanded'), 'true')
+  await act(async () => trigger('Operations').click())
+  await settle()
+  assert.equal(trigger('Operations').getAttribute('aria-expanded'), 'false')
+  assert.equal(container.querySelector('[aria-label="parent-menu-page"]'), page)
+  await act(async () => navigate('/archive/daily'))
+  await settle()
+  assert.equal(trigger('Reports').getAttribute('aria-expanded'), 'true')
+  assert.equal(trigger('Audits').getAttribute('aria-expanded'), 'true', 'all ancestors must reveal the active leaf')
+  await act(async () => trigger('Audits').click())
+  await settle()
+  assert.equal(trigger('Audits').getAttribute('aria-expanded'), 'false')
+})
+
+test('Column navigation preserves the page and filters inaccessible menus', async () => {
   assert.deepEqual(
     core.layoutRegistry.getSnapshot().map(layout => layout.id),
     ['classic', 'columns', 'mixed'],
@@ -634,10 +725,10 @@ test('Column navigation supports saved Verve settings, preserves the page and fi
     ['classic', 'columns'],
   )
   const settings = core.useSettingStore.getState().settings
-  core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout: 'verve' } } })
+  core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout: 'columns' } } })
   const app = runtime()
   app.session.setState({ permissions: ['reports:read'] })
-  app.routes.setMenus([
+  setMenus(app, [
     {
       name: 'Reports',
       path: '/reports',
@@ -676,7 +767,7 @@ test('Column navigation supports saved Verve settings, preserves the page and fi
               element: React.createElement('input', { 'aria-label': 'page-state', defaultValue: 'preserved' }),
             }),
             React.createElement(Route, {
-              path: 'settings/account',
+              path: 'uc/account',
               element: React.createElement('div', null, 'account-page'),
             }),
             React.createElement(Route, {
@@ -759,7 +850,7 @@ test('Column navigation supports saved Verve settings, preserves the page and fi
   await act(async () => profile.querySelector('[role="radio"][aria-label="深色"]').click())
   assert.equal(core.useSettingStore.getState().settings.app.colorMode, 'dark')
   assert.equal(profile.querySelector('[role="radio"][aria-label="深色"]').getAttribute('aria-checked'), 'true')
-  await act(async () => profile.querySelector('a[href="/settings/account"]').click())
+  await act(async () => profile.querySelector('a[href="/uc/account"]').click())
   assert.equal(inset.querySelector('[data-verve-section]'), null)
   assert.match(container.querySelector('#main-content').textContent, /account-page/)
   await act(async () =>
@@ -843,105 +934,6 @@ for (const layout of ['classic', 'columns']) {
   })
 }
 
-test('Router, permissions and Shell consume the same injected session and route registry', async () => {
-  const app = runtime()
-  app.session.setState({ permissions: ['reports:read'], userInfo: { username: 'injected-account' } })
-  window.history.replaceState(null, '', '/#/reports')
-  function Page() {
-    const username = core.useSession(state => state.userInfo?.username)
-    return React.createElement(core.PermissionGate, { permission: 'reports:read' }, `report:${username}`)
-  }
-  app.routes.configure({
-    layout: {
-      name: 'root',
-      path: '/',
-      element: React.createElement(core.AppLayout),
-      children: [
-        { name: 'reports', path: 'reports', element: React.createElement(Page), meta: { permission: 'reports:read' } },
-      ],
-    },
-    guests: [{ name: 'login', path: '/login', element: React.createElement('p', null, 'injected-login') }],
-    publics: [],
-    renderMenu: () => null,
-  })
-  app.routes.setMenus([
-    { name: 'reports-menu', path: '/REPORTS', meta: { title: 'Injected Reports', permission: 'reports:read' } },
-  ])
-  setTabs(['/reports'])
-  const container = await mount(
-    React.createElement(core.RuntimeContext.Provider, { value: app }, React.createElement(core.AppRouter)),
-  )
-  assert.match(container.textContent, /report:injected-account/)
-  assert.match(container.textContent, /Injected Reports/)
-  assert.doesNotMatch(container.textContent, /injected-login/)
-  await act(async () => app.session.setState({ permissions: [] }))
-  assert.doesNotMatch(container.textContent, /report:injected-account/)
-  await act(async () => app.session.setState({ permissions: ['reports:read'] }))
-  assert.match(container.textContent, /report:injected-account/)
-  await act(async () => app.session.setState({ token: null, userInfo: null, sessionVersion: 2 }))
-  assert.match(container.textContent, /injected-login/)
-  assert.equal(app.routes.getSnapshot().initialized, false)
-})
-
-test('Dynamic pages resolve components and menus from the injected runtime', async () => {
-  const app = runtime()
-  app.components.register([
-    {
-      id: 'injected-page',
-      load: async () => ({ default: () => React.createElement('p', null, 'custom-manifest-page') }),
-    },
-  ])
-  app.routes.setMenus([{ name: 'custom', path: '/custom', component: 'injected-page' }])
-  const container = await mount(
-    React.createElement(
-      core.RuntimeContext.Provider,
-      { value: app },
-      React.createElement(MemoryRouter, { initialEntries: ['/custom'] }, React.createElement(core.DynamicMenuPage)),
-    ),
-  )
-  await act(async () => {
-    await Promise.resolve()
-  })
-  assert.match(container.textContent, /custom-manifest-page/)
-})
-
-test('Router invokes the application navigation listener without a global plugin dependency', async () => {
-  const app = runtime()
-  let navigate
-  const events = []
-  function Page() {
-    navigate = useNavigate()
-    return React.createElement(Outlet)
-  }
-  app.routes.configure({
-    layout: {
-      name: 'root',
-      path: '/',
-      element: React.createElement(Page),
-      children: [
-        { name: 'first', path: 'first', element: React.createElement('p', null, 'first') },
-        { name: 'second', path: 'second', element: React.createElement('p', null, 'second') },
-      ],
-    },
-    guests: [],
-    publics: [],
-    renderMenu: () => null,
-  })
-  window.history.replaceState(null, '', '/#/first')
-  const container = await mount(
-    React.createElement(
-      core.RuntimeContext.Provider,
-      { value: app },
-      React.createElement(core.AppRouter, {
-        onNavigate: (location, previous) => events.push([previous.pathname, location.pathname]),
-      }),
-    ),
-  )
-  await act(async () => navigate('/second'))
-  assert.match(container.textContent, /second/)
-  assert.deepEqual(events, [['/first', '/second']])
-})
-
 test('Page cache evicts its least recently used page, revoked permissions and previous account instances', async () => {
   let navigate
   function Controls() {
@@ -980,7 +972,8 @@ test('Page cache evicts its least recently used page, revoked permissions and pr
   assert.equal(container.querySelectorAll('[data-cache-page]').length, 8)
   assert.equal(container.querySelector('[data-cache-page="/cache-0"]'), null)
   await act(async () => app.session.setState({ permissions: [] }))
-  assert.equal(container.querySelectorAll('[data-cache-page]').length, 1)
+  assert.equal(container.querySelectorAll('[data-cache-page]').length, 0)
+  await act(async () => app.session.setState({ permissions: ['read'] }))
   const previous = container.querySelector('input')
   previous.value = 'previous account data'
   await act(async () => app.session.setState({ sessionVersion: 2, permissions: ['*'] }))
@@ -1017,3 +1010,263 @@ test('Access reacts to permission changes and translations preserve the mounted 
   assert.equal(input.value, 'unsaved')
   await act(async () => core.useI18nStore.getState().setLocale('zh_CN'))
 })
+
+test('列表观察注入 Query 的变更，写入失效后自动更新，不依赖默认 runtime', async t => {
+  const entries = new Map()
+  const app = core.createAppRuntime({
+    storage: {
+      getItem: key => entries.get(key) ?? null,
+      setItem: (key, value) => entries.set(key, value),
+      removeItem: key => entries.delete(key),
+    },
+  })
+  t.after(() => app.dispose())
+  let reads = 0,
+    username = 'before',
+    table
+  app.http.defaults.adapter = async config => {
+    if (config.method === 'get') reads++
+    else username = 'after'
+    return {
+      config,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      data: { code: 200, data: config.method === 'get' ? { items: [{ username }], total: 1 } : null },
+    }
+  }
+  function List() {
+    table = core.useUserQueries()
+    return React.createElement('p', null, table.data.map(row => row.username).join(','))
+  }
+  const container = await mount(
+    React.createElement(core.RuntimeContext.Provider, { value: app }, React.createElement(List)),
+  )
+  await act(async () => {
+    await table.request({ page: 1, page_size: 20 })
+    await new Promise(resolve => setTimeout(resolve, 20))
+  })
+  assert.equal(container.textContent, 'before')
+  assert.equal(reads, 1)
+  await act(async () => {
+    await core.createUserApi(app).saveUser(1, { username: 'after' })
+    await new Promise(resolve => setTimeout(resolve, 20))
+  })
+  assert.equal(container.textContent, 'after')
+  assert.equal(reads, 2)
+})
+
+test('权限回调使用注入会话，并在延迟操作时重新检查当前权限', async () => {
+  const app = runtime()
+  let canAccess
+  function Button() {
+    canAccess = core.usePermission().hasAuth
+    return React.createElement('button', { disabled: !canAccess('edit') }, 'Edit')
+  }
+  const container = await mount(
+    React.createElement(core.RuntimeContext.Provider, { value: app }, React.createElement(Button)),
+  )
+  assert.equal(container.querySelector('button').disabled, false)
+  const delayed = canAccess
+  await act(async () => app.session.setState({ permissions: [] }))
+  assert.equal(container.querySelector('button').disabled, true)
+  assert.equal(delayed('edit'), false)
+})
+
+for (const fixture of [
+  {
+    name: '角色',
+    Page: core.RolePage,
+    url: '/admin/role',
+    fields: { 角色名称: '测试角色', 角色编码: 'crud_test_role' },
+  },
+  { name: '部门', Page: core.DepartmentPage, url: '/admin/department', fields: { 部门名称: '测试部门' } },
+]) {
+  test(`${fixture.name} CRUD uses validated forms, blocks duplicate writes and retains input after failure`, async t => {
+    const app = core.createAppRuntime({ storage: localStorage, prefix: `crud_${fixture.name}_` })
+    app.session.setState({
+      token: 'synthetic',
+      initialized: true,
+      permissions: ['*'],
+      roles: [],
+      userInfo: { username: 'crud-test' },
+    })
+    const writes = []
+    let finishSave
+    app.http.defaults.adapter = async config => {
+      if (config.method === 'post' && config.url === fixture.url) {
+        writes.push(JSON.parse(config.data))
+        const code = await new Promise(resolve => {
+          finishSave = resolve
+        })
+        return {
+          config,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          data: { code, message: code === 200 ? 'success' : '保存测试失败', data: null },
+        }
+      }
+      return {
+        config,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        data: { code: 200, message: 'success', data: { list: [], total: 0 } },
+      }
+    }
+    t.after(async () => {
+      await act(async () => {
+        for (const root of roots.splice(0)) root.unmount()
+      })
+      app.dispose()
+    })
+    function Header({ children }) {
+      const [actions, setActions] = React.useState(null)
+      return React.createElement(core.HeaderActionsSetterContext.Provider, { value: setActions }, actions, children)
+    }
+    await mount(
+      React.createElement(
+        core.RuntimeContext.Provider,
+        { value: app },
+        React.createElement(MemoryRouter, null, React.createElement(Header, null, React.createElement(fixture.Page))),
+      ),
+    )
+    const click = async button => {
+      assert.ok(button)
+      await act(async () => {
+        button.click()
+        await new Promise(resolve => setTimeout(resolve, 20))
+      })
+    }
+    const button = label => [...document.querySelectorAll('button')].find(item => item.textContent.trim() === label)
+    await click(button(`新增${fixture.name}`))
+    await click(button('保存'))
+    assert.equal(writes.length, 0, 'required field validation must prevent writes')
+    for (const [label, value] of Object.entries(fixture.fields)) {
+      const input = document.querySelector(`[role="dialog"] input[aria-label="${label}"]`)
+      assert.ok(input, `missing form field ${label}`)
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, value)
+        input.dispatchEvent(new window.Event('input', { bubbles: true }))
+      })
+    }
+    await click(button('保存'))
+    assert.equal(writes.length, 1, document.body.textContent.slice(-2400))
+    assert.equal(button('保存').disabled, true)
+    await click(button('保存'))
+    assert.equal(writes.length, 1, 'a pending save must not submit again')
+    await act(async () => {
+      finishSave(500)
+      await new Promise(resolve => setTimeout(resolve, 20))
+    })
+    for (const [label, value] of Object.entries(fixture.fields))
+      assert.equal(document.querySelector(`[role="dialog"] input[aria-label="${label}"]`).value, value)
+    await click(button('保存'))
+    assert.equal(writes.length, 2)
+    await act(async () => {
+      finishSave(200)
+      await new Promise(resolve => setTimeout(resolve, 20))
+    })
+    assert.equal(document.querySelector(`[role="dialog"] input[aria-label="${Object.keys(fixture.fields)[0]}"]`), null)
+    assert.equal(writes[1].name, Object.values(fixture.fields)[0])
+  })
+}
+
+for (const fixture of [
+  {
+    name: '岗位',
+    Dialog: core.DepartmentPositionsDialog,
+    url: '/admin/position',
+    row: { id: 91, dept_id: 7, name: '检验岗位' },
+    removeText: '删除',
+    deletePayload: [91],
+  },
+  {
+    name: '负责人',
+    Dialog: core.DepartmentLeadersDialog,
+    url: '/admin/leader',
+    row: { dept_id: 7, user_id: 11, user: { username: 'leader-test', nickname: '测试负责人' } },
+    removeText: '移除',
+    deletePayload: { dept_id: 7, user_ids: [11] },
+  },
+]) {
+  test(`部门${fixture.name} dialog preserves table actions and scoped writes`, async t => {
+    const app = core.createAppRuntime({ storage: localStorage, prefix: `relation_${fixture.name}_` })
+    app.session.setState({ token: 'synthetic', initialized: true, permissions: ['*'], roles: [] })
+    const writes = []
+    let changes = 0
+    let reads = 0
+    app.http.defaults.adapter = async config => {
+      let data = null
+      if (config.method === 'get') {
+        assert.equal(config.url, `${fixture.url}/list`)
+        assert.equal(config.params.dept_id, 7)
+        reads++
+        data = { list: [fixture.row], total: 1 }
+      } else {
+        assert.equal(config.url, fixture.url)
+        writes.push({ method: config.method, payload: JSON.parse(config.data) })
+      }
+      return { config, status: 200, statusText: 'OK', headers: {}, data: { code: 200, message: 'success', data } }
+    }
+    t.after(async () => {
+      await act(async () => {
+        for (const root of roots.splice(0)) root.unmount()
+      })
+      app.dispose()
+    })
+    await mount(
+      React.createElement(
+        core.RuntimeContext.Provider,
+        { value: app },
+        React.createElement(
+          MemoryRouter,
+          null,
+          React.createElement(fixture.Dialog, {
+            departmentId: 7,
+            departmentName: '检测部',
+            onClose() {},
+            onChanged: async () => {
+              changes++
+            },
+          }),
+        ),
+      ),
+    )
+    const button = label => [...document.querySelectorAll('button')].find(item => item.textContent.trim() === label)
+    const click = async label => {
+      const target = button(label)
+      assert.ok(target, `missing action ${label}`)
+      await act(async () => {
+        target.click()
+        await new Promise(resolve => setTimeout(resolve, 25))
+      })
+    }
+    assert.ok(button(fixture.removeText), 'table operation columns must render')
+    if (fixture.name === '岗位') {
+      await click('新增岗位')
+      await click('保存岗位')
+      assert.equal(writes.length, 0)
+      const input = [...document.querySelectorAll('[role="dialog"] input[aria-label="岗位名称"]')].at(-1)
+      assert.ok(input)
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, '新岗位')
+        input.dispatchEvent(new window.Event('input', { bubbles: true }))
+      })
+      await click('保存岗位')
+      assert.deepEqual(writes[0], { method: 'post', payload: { dept_id: 7, name: '新岗位' } })
+      assert.equal(changes, 1)
+    }
+    const readsBeforeDelete = reads
+    await click(fixture.removeText)
+    const writesBeforeConfirm = writes.length
+    await click('取消')
+    assert.equal(writes.length, writesBeforeConfirm, 'cancel must not delete')
+    await click(fixture.removeText)
+    await click('确定')
+    assert.deepEqual(writes.at(-1), { method: 'delete', payload: fixture.deletePayload })
+    assert.ok(reads > readsBeforeDelete, 'successful delete must refresh the table')
+    assert.equal(changes, fixture.name === '岗位' ? 2 : 1)
+  })
+}

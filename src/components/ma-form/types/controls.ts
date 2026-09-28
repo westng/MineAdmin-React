@@ -20,6 +20,7 @@ import type { Popover, PopoverContent } from '@/components/reui/primitives/popov
 
 export interface MaFormControlDecoration {
   invalid?: boolean
+  clearable?: boolean
   prefix?: React.ReactNode
   suffix?: React.ReactNode
   placeholder?: string

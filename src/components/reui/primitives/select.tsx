@@ -1,4 +1,4 @@
-'use client'
+import { usePortalContainer } from '@/components/reui/primitives/portal-container'
 
 import * as React from 'react'
 import { Select as SelectPrimitive } from '@base-ui/react/select'
@@ -120,8 +120,10 @@ function SelectContent({
     positionerProps?: Omit<SelectPrimitive.Positioner.Props, 'children'>
     listProps?: Omit<SelectPrimitive.List.Props, 'children'>
   }) {
+  const portalContainer = usePortalContainer()
+
   return (
-    <SelectPrimitive.Portal {...portalProps}>
+    <SelectPrimitive.Portal container={portalContainer} {...portalProps}>
       <SelectPrimitive.Positioner
         side={side}
         sideOffset={sideOffset}

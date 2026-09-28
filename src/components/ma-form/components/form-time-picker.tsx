@@ -1,3 +1,4 @@
+import { XIcon } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/reui/primitives/select'
 import { cn } from '@/utils/cn'
 import type { MaFormTimePickerProps, MaFormTimePartProps } from '../types'
@@ -8,6 +9,8 @@ export function FormTimePicker({
   ...props
 }: MaFormTimePickerProps & { value: unknown; setValue: (value: unknown) => void }) {
   const parts = typeof value === 'string' && /^\d{2}:\d{2}(:\d{2})?$/.test(value) ? value.split(':') : []
+  const clearable = props.clearable ?? true
+  const canClear = Boolean(clearable && !props.disabled && !props.readOnly && value)
   const fields: { label: string; max: number; step?: number; props?: MaFormTimePartProps }[] = [
     { label: '时', max: 24, props: props.hourProps },
     { label: '分', max: 60, step: props.minuteStep, props: props.minuteProps },
@@ -69,6 +72,17 @@ export function FormTimePicker({
           </Select>
         )
       })}
+      {canClear && (
+        <button
+          type="button"
+          aria-label="清除"
+          title="清除"
+          className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => setValue(undefined)}
+        >
+          <XIcon className="size-3.5" aria-hidden="true" />
+        </button>
+      )}
       {props.name && <input type="hidden" name={props.name} value={String(value ?? '')} />}
     </div>
   )

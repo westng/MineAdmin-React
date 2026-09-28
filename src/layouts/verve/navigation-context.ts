@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
+import type { MenuVo } from '@/services/navigation/types'
 
 export const VerveNavigationContext = createContext<{
   section?: MenuVo

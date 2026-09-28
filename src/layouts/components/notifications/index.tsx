@@ -1,17 +1,17 @@
 import { Bell } from 'lucide-react'
 import { MaDrawer } from '@/components/ma-drawer'
 import { Button } from '@/components/reui/primitives/button'
-import { useSession } from '@/hooks/framework/use-session'
-import { useShell } from '@/hooks/shell/use-shell'
+import { useSession } from '@/hooks/auth/use-session'
+import { useShell } from '@/layouts/hooks/use-shell'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
-import { useTranslate } from '@/provider/i18n'
+import { useTranslate } from '@/hooks/i18n/use-translator'
 
 export function NotificationsButton({ className }: { className?: string }) {
   const t = useTranslate()
   const { notificationsOpen, setNotificationsOpen } = useShell()
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="icon-sm"
       className={className}
       aria-label={t('通知')}

@@ -1,6 +1,10 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useRuntime } from '@/hooks/runtime/use-runtime'
+import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
+import { createApi as createProfileApi } from '@/modules/base/user-center/api/profile'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
-import { toast } from '@/components/reui/use-toast'
+import { useToast } from '@/components/reui/use-toast'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useBlocker } from 'react-router-dom'
 import {
@@ -16,6 +20,7 @@ import {
 import { Switch } from '@base-ui/react/switch'
 import { Button } from '@/components/reui/primitives/button'
 import { IconTile } from '@/components/reui/icon-tile'
+import { MaDialog } from '@/components/ma-dialog'
 import {
   Card,
   CardContent,
@@ -24,31 +29,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/reui/primitives/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/reui/primitives/dialog'
-import { updateCurrentUser } from '@/modules/base/account-settings/api/account'
-import { useSession } from '@/hooks/framework/use-session'
+
+import { useSession } from '@/hooks/auth/use-session'
 import type { UserInfo } from '@/services/auth/session-manager'
-import type { AppSettings } from '@/types/global'
-import { PasswordForm } from '@/modules/base/user-center/views/components/password-form'
+import type { AppSettings } from '@/store/settings/types'
+import { PasswordForm } from '@/modules/base/user-center'
 import { ThemeColorPicker } from '@/components/reui/theme-color-picker'
-import { useSettingStore } from '@/provider/settings'
-import { themeColors } from '@/provider/settings/colors'
-import { settingsModes } from '@/modules/base/settings/views/data'
-import { layoutRegistry } from '@/layouts/builtins'
+import { useSettingStore } from '@/store/settings/use-settings'
+import { themeColors } from '@/store/settings/colors'
+import { createSettingsViewData } from '@/modules/base/settings'
 import { cn } from '@/utils/cn'
-
-const tx = createTextTranslator('base.account-settings.ui')
-
-interface AccountSettings {
-  multiDeviceLogin: boolean
-}
+import type { AccountSettings } from '../api/account'
 
 interface AccountSettingsPageProps {
   userInfo?: UserInfo | null
@@ -90,10 +81,6 @@ function savedAppearanceSettings(userInfo: UserInfo | null | undefined, fallback
     primaryColor: typeof app.primaryColor === 'string' ? app.primaryColor : fallback.primaryColor,
     layout: typeof app.layout === 'string' ? app.layout : fallback.layout,
   }
-}
-
-function responseMessage(response: { data?: { code?: number; message?: string } }) {
-  return response.data?.message || tx('操作失败')
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -184,10 +171,12 @@ function LayoutPicker({
   value,
   onChange,
 }: {
-  layouts: readonly { id: string; label: string }[]
+  layouts: readonly { id: string; label: string; labelKey?: string }[]
   value: string
   onChange: (value: string) => void
 }) {
+  const tx = useTextTranslator('base.account-settings.ui')
+
   return (
     <div role="radiogroup" aria-label={tx('布局')} className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
       {layouts.map((layout, index) => {
@@ -198,8 +187,8 @@ function LayoutPicker({
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={layout.label}
-            title={layout.label}
+            aria-label={layout.labelKey ? tx(layout.labelKey) : layout.label}
+            title={layout.labelKey ? tx(layout.labelKey) : layout.label}
             tabIndex={selected || (!layouts.some(item => item.id === value) && index === 0) ? 0 : -1}
             onClick={() => onChange(layout.id)}
             onKeyDown={event => {
@@ -228,6 +217,17 @@ function LayoutPicker({
 }
 
 export default function AccountSettingsPage({ userInfo, onUserInfoChange }: AccountSettingsPageProps) {
+  const { toast } = useToast()
+
+  const { settingsModes } = useRuntimeFactory(createSettingsViewData)
+
+  const tx = useTextTranslator('base.account-settings.ui')
+  function responseMessage(response: { data?: { code?: number; message?: string } }) {
+    return response.data?.message || tx('操作失败')
+  }
+
+  const { updateCurrentUser } = useRuntimeFactory(createProfileApi)
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 
@@ -238,6 +238,8 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   const setColorMode = useSettingStore(state => state.setColorMode)
   const setPrimaryColor = useSettingStore(state => state.setPrimaryColor)
   const setSystemSettings = useSettingStore(state => state.setSettings)
+  const runtime = useRuntime()
+  const layoutRegistry = runtime.layouts
   const layouts = useSyncExternalStore(layoutRegistry.subscribe, layoutRegistry.getSnapshot, layoutRegistry.getSnapshot)
   const [settings, setSettings] = useState(() => readAccountSettings(activeUserInfo))
   const [selectedLayout, setSelectedLayout] = useState(appSettings.layout)
@@ -273,7 +275,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   function discardChanges() {
     setSettings(savedSettings.account)
     setSelectedLayout(savedSettings.app.layout)
-    setSystemSettings({ app: { ...useSettingStore.getState().settings.app, ...savedSettings.app } })
+    setSystemSettings({ app: { ...runtime.settings.getState().settings.app, ...savedSettings.app } })
     setColorMode(savedSettings.app.colorMode)
   }
 
@@ -283,7 +285,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
 
   function updateLayout(layout: string) {
     setSelectedLayout(layout)
-    setSystemSettings({ app: { ...useSettingStore.getState().settings.app, layout } })
+    setSystemSettings({ app: { ...runtime.settings.getState().settings.app, layout } })
   }
 
   async function saveSettings(leaveAfterSave = false) {
@@ -299,7 +301,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
       setSavedSettings({ account: settings, app: appearanceSettings(nextAppSettings) })
       // Continue the blocked navigation before applying a layout that may remount this page.
       if (leaveAfterSave && blocker.state === 'blocked') blocker.proceed()
-      setSystemSettings({ app: { ...useSettingStore.getState().settings.app, layout: selectedLayout } })
+      setSystemSettings({ app: { ...runtime.settings.getState().settings.app, layout: selectedLayout } })
       toast.success(tx('账号设置已保存'))
       return true
     } catch (error) {
@@ -430,48 +432,50 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
         </CardContent>
       </Card>
 
-      <Dialog
+      <MaDialog
         open={blocker.state === 'blocked'}
         onOpenChange={open => {
           if (!open && !saving && blocker.state === 'blocked') blocker.reset()
         }}
+        title={tx('是否保存账号偏好？')}
+        description={tx('您有尚未保存的修改，离开前是否保存？')}
+        showFullscreenButton={false}
+        showCloseButton={!saving}
+        contentClassName="sm:max-w-md"
+        footer={false}
       >
-        <DialogContent className="sm:max-w-md" showCloseButton={!saving}>
-          <DialogHeader>
-            <DialogTitle>{tx('是否保存账号偏好？')}</DialogTitle>
-            <DialogDescription>{tx('您有尚未保存的修改，离开前是否保存？')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" disabled={saving} onClick={() => blocker.state === 'blocked' && blocker.reset()}>
-              {tx('继续编辑')}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={saving}
-              onClick={() => {
-                discardChanges()
-                if (blocker.state === 'blocked') blocker.proceed()
-              }}
-            >
-              {tx('放弃修改')}
-            </Button>
-            <Button disabled={saving} onClick={() => void saveSettings(true)}>
-              {saving && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-              {saving ? tx('保存中…') : tx('保存并离开')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" disabled={saving} onClick={() => blocker.state === 'blocked' && blocker.reset()}>
+            {tx('继续编辑')}
+          </Button>
+          <Button
+            variant="outline"
+            disabled={saving}
+            onClick={() => {
+              discardChanges()
+              if (blocker.state === 'blocked') blocker.proceed()
+            }}
+          >
+            {tx('放弃修改')}
+          </Button>
+          <Button disabled={saving} onClick={() => void saveSettings(true)}>
+            {saving && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+            {saving ? tx('保存中…') : tx('保存并离开')}
+          </Button>
+        </div>
+      </MaDialog>
 
-      <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{tx('修改密码')}</DialogTitle>
-            <DialogDescription>{tx('请输入当前密码和新的登录密码。')}</DialogDescription>
-          </DialogHeader>
-          <PasswordForm onSuccess={() => setPasswordOpen(false)} onCancel={() => setPasswordOpen(false)} />
-        </DialogContent>
-      </Dialog>
+      <MaDialog
+        open={passwordOpen}
+        onOpenChange={setPasswordOpen}
+        title={tx('修改密码')}
+        description={tx('请输入当前密码和新的登录密码。')}
+        showFullscreenButton={false}
+        contentClassName="sm:max-w-lg"
+        footer={false}
+      >
+        <PasswordForm onSuccess={() => setPasswordOpen(false)} onCancel={() => setPasswordOpen(false)} />
+      </MaDialog>
     </div>
   )
 }

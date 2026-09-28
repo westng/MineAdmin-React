@@ -1,7 +1,7 @@
 import MainAside from '@/layouts/components/main-aside'
 import SectionNavigation from '@/layouts/components/section-navigation'
-import { useShell } from '@/hooks/shell/use-shell'
-import { useIsMobile } from '@/hooks/framework/use-mobile'
+import { useShell } from '@/layouts/hooks/use-shell'
+import { useIsMobile } from '@/hooks/ui/use-mobile'
 export default function ColumnsNavigation() {
   const { activeSection } = useShell()
   const mobile = useIsMobile()

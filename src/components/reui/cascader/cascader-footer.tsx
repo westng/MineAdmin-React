@@ -1,3 +1,4 @@
+import { usePortalContainer } from '@/components/reui/primitives/portal-container'
 "use client"
 
 import * as React from "react"
@@ -574,6 +575,8 @@ function CascaderSubmenuContent({
   alignOffset = 0,
   ...props
 }: CascaderSubmenuContentProps) {
+const portalContainer = usePortalContainer()
+
   const { rowRef, close, triggerId, keyboardRef } = useCascaderSubmenu()
   const direction = useDirection()
   const popupRef = React.useRef<HTMLDivElement | null>(null)
@@ -673,7 +676,7 @@ function CascaderSubmenuContent({
   )
 
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={portalContainer}>
       <PopoverPrimitive.Positioner
         /* The ROW, not whatever Base UI last treated as the trigger. */
         anchor={rowRef}

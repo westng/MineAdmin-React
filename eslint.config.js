@@ -8,17 +8,13 @@ export default tseslint.config(
   {
     ignores: [
       'dist*',
+      // Git/public export exclusions do not exclude application or plugin sources from lint.
       'src/components/reui/*',
       '!src/components/reui/primitives',
       '!src/components/reui/primitives/**',
       '!src/components/reui/utils',
       '!src/components/reui/utils/**',
       '!src/components/reui/{toast,toast-api,toast-context,use-toast,theme-color-picker,confirm-dialog,error-boundary}.{ts,tsx}',
-      'src/app/private/**',
-      'src/plugins/**',
-      'src/modules/*',
-      '!src/modules/base',
-      '!src/modules/base/**',
     ],
   },
   js.configs.recommended,
@@ -67,7 +63,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/modules/**/views/data/**/*.{ts,tsx}'],
+    files: ['src/**/views/**/data/**/*.{ts,tsx}'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

@@ -11,7 +11,7 @@ import {
 } from '@/components/reui/primitives/input-group'
 import { TabsContent, TabsList, TabsTrigger } from '@/components/reui/primitives/tabs'
 import { useIcon } from '@/components/ma-icon/use-icon'
-import { useIsMobile } from '@/hooks/framework/use-mobile'
+import { useIsMobile } from '@/hooks/ui/use-mobile'
 import { customIconUrls, normalizeIconName } from '@/utils/icons'
 import { cn } from '@/utils/cn'
 import data from '@/assets/icons/catalog.json'

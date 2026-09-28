@@ -25,7 +25,7 @@ export function checkComponentBoundaries(root = projectRoot) {
     'src/utils/cn.ts',
     'src/utils/icons.ts',
     'src/components/ma-icon/use-icon.ts',
-    'src/hooks/framework/use-mobile.ts',
+    'src/hooks/ui/use-mobile.ts',
     'src/assets/icons/catalog.json',
   ])
   const failures = []
@@ -34,6 +34,7 @@ export function checkComponentBoundaries(root = projectRoot) {
     if (seen.has(file)) return
     seen.add(file)
     const relative = path.relative(root, file).split(path.sep).join('/')
+    if (permittedLeaves.has(relative)) return
     if (!/^src\/components\/(ma-[^/]+|reui)\//.test(relative) && !permittedLeaves.has(relative)) {
       failures.push([...chain, relative].join(' -> '))
       return

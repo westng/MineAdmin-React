@@ -1,3 +1,4 @@
+import { usePortalContainer } from '@/components/reui/primitives/portal-container'
 import * as React from "react"
 import type { CSSProperties, ReactNode } from "react"
 import {
@@ -903,6 +904,8 @@ export interface KanbanOverlayProps extends Omit<
 }
 
 function KanbanOverlay({ children, className, ...props }: KanbanOverlayProps) {
+const portalContainer = usePortalContainer()
+
   const { activeId, isColumn, modifiers } = useContext(KanbanContext)
   const mounted = useSyncExternalStore(
     subscribeToNothing,
@@ -932,7 +935,7 @@ function KanbanOverlay({ children, className, ...props }: KanbanOverlayProps) {
         {content}
       </IsOverlayContext.Provider>
     </DragOverlay>,
-    document.body
+    portalContainer ?? document.body
   )
 }
 

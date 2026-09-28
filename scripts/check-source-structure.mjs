@@ -31,13 +31,41 @@ export function checkSourceStructure(root = projectRoot) {
     }
   }
   inspect('src', (name, directory) => directory && sourceDirectories.has(name))
-  inspect('src/components', (name, directory) => directory && /^(ma-.+|reui|nm-douyin-user-parser)$/.test(name))
-  inspect('src/hooks', (name, directory) => directory && ['framework', 'shell'].includes(name))
+  inspect('src/components', (name, directory) => directory && /^(ma-.+|reui|business)$/.test(name))
+  inspect('src/hooks', (name, directory) =>
+    directory
+      ? ['auth', 'query', 'runtime', 'i18n', 'ui'].includes(name)
+      : ['use-route.ts', 'use-dictionary.ts'].includes(name),
+  )
+  inspect('src/store', (name, directory) => directory && ['settings', 'tabs', 'keep-alive'].includes(name))
+  inspect('src/provider', (name, directory) =>
+    directory
+      ? ['runtime', 'query', 'access', 'plugins', 'extensions'].includes(name)
+      : ['index.ts', 'app-provider.tsx'].includes(name),
+  )
+  inspect('src/types', (name, directory) => !directory && ['api.ts', 'env.d.ts'].includes(name))
   for (const retired of [
+    'src/app/runtime.ts',
+    'src/app/create-runtime.ts',
+    'src/app/bootstrap.tsx',
+    'src/app/branding.ts',
+    'src/app/menu-policy.ts',
+    'src/app/application.css',
+    'src/app/default-styles.css',
+    'src/provider/query/client.ts',
+    'src/provider/query/resource.ts',
+    'src/provider/query/table-store.ts',
     'src/app/private',
     'src/layouts/provider.tsx',
     'src/layouts/uc.tsx',
     'src/layouts/components/bars/index.tsx',
+    'src/router/component-registry.ts',
+    'src/router/component-path.ts',
+    'src/router/manifest.ts',
+    'src/router/registry.ts',
+    'src/router/route-assembly.ts',
+    'src/router/static-routes/',
+    'src/router/view-discovery.ts',
     'src/store/modules/useRouteStore.ts',
     'src/store/modules/useUserStore.ts',
     'src/store/modules/useMenuStore.ts',

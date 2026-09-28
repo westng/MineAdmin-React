@@ -1,15 +1,10 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { ErrorBoundary } from '@/components/reui/error-boundary'
-import type { DashboardSlotRegistration } from '../../register-dashboard-slot'
+import type { DashboardSlotRegistration, DashboardSlotName } from '@/provider/extensions/dashboard'
+import { useRuntime } from '@/hooks/runtime/use-runtime'
 import { useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
-import {
-  getDashboardSlotsSnapshot,
-  subscribeDashboardSlots,
-  type DashboardSlotName,
-} from '../../register-dashboard-slot'
-
-const tx = createTextTranslator('base.dashboard.ui')
 
 function SlotContent({ registration }: { registration: DashboardSlotRegistration }) {
   return registration.render()
@@ -24,6 +19,9 @@ export interface DashboardSlotOutletProps {
  * 框架页面使用的稳定出口。没有业务注册时返回 fallback（默认为空）。
  */
 export function DashboardSlotOutlet({ slot = 'main', fallback = null }: DashboardSlotOutletProps) {
+  const tx = useTextTranslator('base.dashboard.ui')
+  const { getSnapshot: getDashboardSlotsSnapshot, subscribe: subscribeDashboardSlots } = useRuntime().dashboard
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 

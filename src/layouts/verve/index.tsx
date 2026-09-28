@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useState } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, matchRoutes, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight, CircleDot, LayoutDashboard, Search } from 'lucide-react'
-import { useTranslate } from '@/provider/i18n'
-import { useShell } from '@/hooks/shell/use-shell'
+import { useTranslate } from '@/hooks/i18n/use-translator'
+import { useShell } from '@/layouts/hooks/use-shell'
+import { useRoute } from '@/hooks/use-route'
+import { useSettingStore } from '@/store/settings/use-settings'
 import { MaIcon } from '@/components/ma-icon'
 import {
   Breadcrumb,
@@ -39,15 +41,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/reui/primitives/sidebar'
-import {
-  findMenuByPath,
-  findMenuTrail,
-  flattenVisibleMenus,
-  getMenuLabel,
-  getMenuPath,
-  isVisibleMenu,
-} from '@/router/dynamic-menu'
-import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
+import { flattenVisibleMenus, getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/navigation/menu'
+import type { MenuVo } from '@/services/navigation/types'
 import HeaderActionSlot from '@/layouts/components/bars/toolbar'
 import { VerveSectionNavigation } from './section-navigation'
 import { VerveProfileMenu } from './profile-menu'
@@ -88,8 +83,9 @@ export default function VerveNavigation() {
   const location = useLocation()
   const { menus } = useShell()
   const { section: activeSection, selectSection, clearSection } = useVerveNavigation()
+  const dashboardPath = useSettingStore(state => state.settings.dashboardPage.path)
   const visibleItems = menus.map(menuToRailItem).filter((item): item is RailItem => Boolean(item))
-  const items: RailItem[] = [{ label: t('首页'), to: '/dashboard' }, ...visibleItems].filter(
+  const items: RailItem[] = [{ label: t('首页'), to: dashboardPath }, ...visibleItems].filter(
     (item, index, list) => list.findIndex(candidate => candidate.to === item.to) === index,
   )
   return (
@@ -106,7 +102,7 @@ export default function VerveNavigation() {
         >
           <SidebarHeader className="h-[52px] shrink-0 items-center justify-center p-0">
             <NavLink
-              to="/dashboard"
+              to={dashboardPath}
               onClick={() => {
                 clearSection()
                 setOpenMobile(false)
@@ -133,7 +129,11 @@ export default function VerveNavigation() {
                         tooltip={{ children: item.label, hidden: isMobile }}
                         className="size-8! justify-center p-0!"
                         render={
-                          isSection ? <button type="button" /> : <NavLink to={item.to} end={item.to === '/dashboard'} />
+                          isSection ? (
+                            <button type="button" />
+                          ) : (
+                            <NavLink to={item.to} end={item.to === dashboardPath} />
+                          )
                         }
                         onClick={() => {
                           if (isSection) {
@@ -144,7 +144,7 @@ export default function VerveNavigation() {
                           }
                         }}
                       >
-                        <NavigationIcon icon={item.icon} dashboard={item.to === '/dashboard'} />
+                        <NavigationIcon icon={item.icon} dashboard={item.to === dashboardPath} />
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   )
@@ -305,51 +305,36 @@ export function VerveHeader() {
 
 function VerveBreadcrumb() {
   const t = useTranslate()
-  const { menus } = useShell()
+  const { routes } = useRoute()
   const { pathname } = useLocation()
-  const trail = findMenuTrail(menus, pathname)
-  const title = findMenuByPath(menus, pathname)
-  const fallback =
-    pathname === '/settings/account'
-      ? t('账号设置')
-      : pathname === '/settings'
-        ? t('个人资料')
-        : title
-          ? getMenuLabel(title)
-          : t('首页')
+  const dashboardPath = useSettingStore(state => state.settings.dashboardPage.path)
+  // 面包屑来自当前路由的 meta.breadcrumb，由菜单拍平时生成。
+  const route = matchRoutes(routes, pathname)?.at(-1)?.route
+  const trail = pathname === dashboardPath ? [] : (route?.meta?.breadcrumb ?? [])
   return (
     <Breadcrumb className="flex min-w-0 items-center overflow-hidden" aria-label={t('页面')}>
       <BreadcrumbList className="min-w-0 flex-nowrap gap-2 text-[12.8px]">
         <BreadcrumbItem className="shrink-0">
           <BreadcrumbLink asChild>
-            <NavLink to="/dashboard">{t('首页')}</NavLink>
+            <NavLink to={dashboardPath}>{t('首页')}</NavLink>
           </BreadcrumbLink>
         </BreadcrumbItem>
-        {trail.length
-          ? trail.map((item, index) => (
-              <Fragment key={item.path}>
-                <BreadcrumbSeparator>
-                  <ChevronRight className="size-3.5" />
-                </BreadcrumbSeparator>
-                <BreadcrumbItem className="min-w-0">
-                  {index === trail.length - 1 ? (
-                    <BreadcrumbPage className="truncate">{getMenuLabel(item.menu)}</BreadcrumbPage>
-                  ) : (
-                    <span className="truncate">{getMenuLabel(item.menu)}</span>
-                  )}
-                </BreadcrumbItem>
-              </Fragment>
-            ))
-          : pathname !== '/dashboard' && (
-              <>
-                <BreadcrumbSeparator>
-                  <ChevronRight className="size-3.5" />
-                </BreadcrumbSeparator>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{fallback}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </>
-            )}
+        {trail.map((item, index) => (
+          <Fragment key={`${item.path}-${index}`}>
+            <BreadcrumbSeparator>
+              <ChevronRight className="size-3.5" />
+            </BreadcrumbSeparator>
+            <BreadcrumbItem className="min-w-0">
+              {index === trail.length - 1 ? (
+                <BreadcrumbPage className="truncate">
+                  {item.i18n ? t(item.i18n, item.title) : item.title}
+                </BreadcrumbPage>
+              ) : (
+                <span className="truncate">{item.i18n ? t(item.i18n, item.title) : item.title}</span>
+              )}
+            </BreadcrumbItem>
+          </Fragment>
+        ))}
       </BreadcrumbList>
     </Breadcrumb>
   )

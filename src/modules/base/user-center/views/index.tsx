@@ -1,10 +1,11 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
-import { useSession } from '@/hooks/framework/use-session'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
+import { useSession } from '@/hooks/auth/use-session'
 import { ProfileForm } from './components/profile-form'
 
-const tx = createTextTranslator('base.user-center.ui')
-
 export default function UserCenterPage() {
+  const tx = useTextTranslator('base.user-center.ui')
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 

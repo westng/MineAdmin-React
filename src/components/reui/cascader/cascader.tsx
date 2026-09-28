@@ -1,3 +1,4 @@
+import { usePortalContainer } from '@/components/reui/primitives/portal-container'
 "use client"
 
 import * as React from "react"
@@ -2576,6 +2577,8 @@ function CascaderContent({
   ref,
   ...props
 }: CascaderContentProps) {
+const portalContainer = usePortalContainer()
+
   const { labels } = useCascaderActions()
   const popupRef = React.useRef<HTMLDivElement | null>(null)
 
@@ -2614,7 +2617,7 @@ function CascaderContent({
   return (
     // Conditional spreads throughout: `mergeProps` iterates own keys, so an
     // explicit `undefined` reads as "deleted" rather than "not supplied".
-    <ComboboxPrimitive.Portal
+    <ComboboxPrimitive.Portal container={portalContainer}
       {...(container !== undefined ? { container } : null)}
     >
       <ComboboxPrimitive.Positioner

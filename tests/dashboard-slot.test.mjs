@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url)
 const result = await build({
   stdin: {
     contents:
-      "export * from './src/modules/base/dashboard/register-dashboard-slot'; export { DashboardSlotOutlet } from './src/modules/base/dashboard/views/components/DashboardSlotOutlet'",
+      "import { createAppRuntime } from './src/app/runtime/create-runtime'; export { RuntimeContext } from './src/provider/runtime/context'; export const testRuntime = createAppRuntime({storage:{getItem:()=>null,setItem(){},removeItem(){}}}); export const registerDashboardSlot = testRuntime.dashboard.register; export const subscribeDashboardSlots = testRuntime.dashboard.subscribe; export const getDashboardSlotsSnapshot = testRuntime.dashboard.getSnapshot; export const getDashboardSlots = testRuntime.dashboard.getSlots; export { DashboardSlotOutlet } from './src/modules/base/dashboard/views/components/DashboardSlotOutlet'",
     resolveDir: process.cwd(),
     sourcefile: 'dashboard-slot-entry.ts',
   },
@@ -87,12 +87,27 @@ test('Dashboard Slot Outlet：只渲染当前插槽的注册内容', () => {
   })
 
   assert.equal(
-    renderToStaticMarkup(createElement(registry.DashboardSlotOutlet, { slot: 'main' })),
+    renderToStaticMarkup(
+      createElement(
+        registry.RuntimeContext.Provider,
+        { value: registry.testRuntime },
+        createElement(registry.DashboardSlotOutlet, { slot: 'main' }),
+      ),
+    ),
     '<span data-slot="main">业务内容</span>',
   )
   disposeMain()
   disposeFooter()
-  assert.equal(renderToStaticMarkup(createElement(registry.DashboardSlotOutlet, { slot: 'main' })), '')
+  assert.equal(
+    renderToStaticMarkup(
+      createElement(
+        registry.RuntimeContext.Provider,
+        { value: registry.testRuntime },
+        createElement(registry.DashboardSlotOutlet, { slot: 'main' }),
+      ),
+    ),
+    '',
+  )
 })
 
 test('Dashboard Slot：拒绝空 ID 和非法渲染器', () => {

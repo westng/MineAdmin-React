@@ -1,4 +1,6 @@
 export { MaDialog } from './ma-dialog'
+export { ConfirmDialog } from './confirm-dialog'
+export type { ConfirmDialogProps } from './confirm-dialog'
 export { useMaDialog } from './use-ma-dialog'
 export { useMaFormDialog } from './use-ma-form-dialog'
 export type { UseMaFormDialogOptions } from './use-ma-form-dialog'

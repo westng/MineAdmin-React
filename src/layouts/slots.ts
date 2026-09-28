@@ -1,5 +1,4 @@
 import type { ComponentType } from 'react'
-import { createRegistry } from '@/services/registry'
 export type ShellSlotName =
   | 'shell.overlays'
   | 'shell.toolbar'
@@ -24,8 +23,6 @@ export interface ShellSlotRegistration {
   order?: number
   match?: (pathname: string) => boolean
 }
-export const shellSlots = createRegistry<ShellSlotRegistration>()
-export const registerShellSlot = shellSlots.register
 export interface ShellPagePolicy {
   id: string
   path: string
@@ -33,4 +30,3 @@ export interface ShellPagePolicy {
   overflow?: 'auto' | 'hidden'
   order?: number
 }
-export const shellPagePolicies = createRegistry<ShellPagePolicy>()

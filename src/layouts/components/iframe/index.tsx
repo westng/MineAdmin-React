@@ -1,17 +1,19 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { resolveIframeSource } from '@/services/navigation/iframe-policy'
-import { getIframePolicy } from './policy'
+import { useRuntime } from '@/hooks/runtime/use-runtime'
 
-const tx = createTextTranslator('shell.ui')
 interface IframeViewProps {
   src: string
   title?: string
 }
-export default function IframeView({ src, title = tx('外部页面') }: IframeViewProps) {
+export default function IframeView({ src, title }: IframeViewProps) {
+  const tx = useTextTranslator('shell.ui')
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 
-  const policy = getIframePolicy()
+  const policy = useRuntime().iframe.get()
   const source = resolveIframeSource(src, policy)
   if (!source)
     return (
@@ -23,7 +25,7 @@ export default function IframeView({ src, title = tx('外部页面') }: IframeVi
     <iframe
       className="h-[calc(100vh-9rem)] min-h-[32rem] w-full rounded-md border bg-background"
       src={source}
-      title={title}
+      title={title ?? tx('外部页面')}
       loading="lazy"
       referrerPolicy="no-referrer"
       sandbox={policy.sandbox}

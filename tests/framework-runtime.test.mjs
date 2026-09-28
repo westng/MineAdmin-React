@@ -6,21 +6,25 @@ const require = createRequire(import.meta.url)
 const result = await build({
   stdin: {
     contents: `
-  export { createRouteRegistry } from './src/router/registry'
-  export { hasMatchedRouteAccess, hasRouteAccess } from './src/router/access'
-  export { routePatternsOverlap } from './src/router/path-pattern'
-  export { menusSchema } from './src/modules/base/permission/menu/api/schema'
-  export { createComponentManifest } from './src/router/manifest'
+  export { hasRouteAccess } from './src/services/auth/access'
+  export { menusSchema } from './src/services/navigation/schemas'
   export { createPluginHost } from './src/provider/plugins/host'
-  export { createLocaleRegistry } from './src/provider/i18n/registry'
+  export { createLocaleRegistry } from './src/services/i18n/registry'
   export { createLayoutRegistry } from './src/layouts/registry'
-  export { createQueryClient, bindQuerySession, queryKeys } from './src/provider/query/client'
-  export { createResourceQueries } from './src/provider/query/resource'
+  export { createQueryClient, bindQuerySession, queryKeys } from './src/services/query/client'
+  export { createResourceQueries } from './src/services/query/resource'
   export { createSessionManager } from './src/services/auth/session-manager'
   export { evaluateAccess } from './src/services/auth/access'
   export { resolveIframeSource } from './src/services/navigation/iframe-policy'
-  export { registerDictionary, useDictStore } from './src/provider/dictionary'
+  import { createDictionaryManager } from './src/services/dictionary/manager'
+const dictionary = createDictionaryManager()
+export const registerDictionary = dictionary.register
+export const useDictStore = dictionary.store
   export { reportError } from './src/services/telemetry'
+  export { createSettingsStore } from './src/store/settings/create-store'
+  export { dashboardPage } from './src/router/dashboard'
+  export { createCache } from './src/services/storage/cache'
+  export { createTabStore } from './src/store/tabs/create-store'
 `,
     resolveDir: process.cwd(),
   },
@@ -33,6 +37,72 @@ const result = await build({
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, require)
 const core = module.exports
+
+test('Dashboard remains the homepage when cached or account settings contain a retired welcome page', () => {
+  const storage = new Map()
+  const cache = core.createCache(
+    {
+      getItem: key => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value),
+      removeItem: key => storage.delete(key),
+    },
+    'dashboard_',
+  )
+  cache.set('settings', {
+    welcomePage: { name: 'welcome', path: '/welcome', title: '欢迎页' },
+    app: { colorMode: 'dark', layout: 'columns' },
+  })
+  const store = core.createSettingsStore(cache, 'Dashboard test', core.dashboardPage)
+  const assertDashboard = settings => {
+    assert.equal(settings.dashboardPage.name, 'dashboard')
+    assert.equal(settings.dashboardPage.path, '/dashboard')
+    assert.equal(settings.dashboardPage.title, '仪表盘')
+    assert.equal(Object.hasOwn(settings, 'welcomePage'), false)
+  }
+  assertDashboard(store.getState().settings)
+  assertDashboard(cache.get('settings'))
+  assert.equal(store.getState().settings.app.colorMode, 'dark')
+  assert.equal(store.getState().settings.app.layout, 'columns')
+  store.getState().setSettings({
+    welcomePage: { name: 'welcome', path: '/welcome', title: '欢迎页' },
+    dashboardPage: { name: 'welcome', path: '/welcome' },
+    app: { primaryColor: '#123456' },
+  })
+  assertDashboard(store.getState().settings)
+  assertDashboard(cache.get('settings'))
+  assert.equal(store.getState().settings.app.colorMode, 'dark')
+  assert.equal(store.getState().settings.app.primaryColor, '#123456')
+})
+
+test('Restoring tabs removes the retired welcome page and pins the current dashboard without losing business tabs', () => {
+  const cached = new Map([
+    [
+      'tabs',
+      [
+        { name: 'welcome', path: '/welcome', fullPath: '/welcome', title: '欢迎页', affix: true },
+        { name: 'orders', path: '/orders', fullPath: '/orders?page=2', title: '订单' },
+        { name: 'dashboard', path: '/dashboard', fullPath: '/dashboard', title: '旧首页标题' },
+      ],
+    ],
+  ])
+  const store = core.createTabStore({
+    get: (key, fallback) => cached.get(key) ?? fallback,
+    set: (key, value) => cached.set(key, value),
+    remove: key => cached.delete(key),
+  })
+  const dashboard = { name: 'dashboard', path: '/dashboard', fullPath: '/dashboard', title: '仪表盘', affix: true }
+  store.getState().init(dashboard)
+  assert.deepEqual(store.getState().tabs, [
+    dashboard,
+    { name: 'orders', path: '/orders', fullPath: '/orders?page=2', title: '订单' },
+  ])
+  assert.deepEqual(cached.get('tabs'), store.getState().tabs)
+  store.getState().init(dashboard)
+  assert.equal(store.getState().tabs.length, 2)
+  store.getState().close('/dashboard')
+  assert.equal(store.getState().tabs[0].fullPath, '/dashboard')
+})
+
 const defer = () => {
   let resolve
   const promise = new Promise(r => {
@@ -41,45 +111,100 @@ const defer = () => {
   return { promise, resolve }
 }
 
-test('Route Registry gives static routes ownership and intersects menu/plugin restrictions', () => {
-  const registry = core.createRouteRegistry()
-  const element = { stable: true }
-  registry.configure({
-    layout: {
-      name: 'root',
-      path: '/',
-      children: [{ name: 'users', path: 'users', element, meta: { permission: 'read' } }],
+function sessionFixture(api = {}) {
+  const storage = new Map()
+  const events = []
+  const session = core.createSessionManager({
+    prefix: 'disposed_',
+    storage: {
+      getItem: key => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value),
+      removeItem: key => storage.delete(key),
     },
-    guests: [{ name: 'login', path: '/login' }],
-    publics: [],
-    renderMenu: () => null,
+    api: { logout: async () => events.push('logout'), ...api },
+    menus: {
+      clearMenus: () => events.push('clearMenus'),
+      refreshMenus: async () => {
+        events.push('menus')
+        return []
+      },
+      refreshRoles: async () => {
+        events.push('roles')
+        return []
+      },
+    },
+    callHooks: async name => events.push(name),
+    applySettings: () => events.push('settings'),
   })
-  registry.setMenus([
-    {
-      name: 'root-menu',
-      meta: { role: 'staff' },
-      children: [{ name: 'users-menu', path: '/users', meta: { permission: 'users' } }],
+  return { session, storage, events }
+}
+
+test('Disposed sessions abort login, reject late credentials and cannot start new operations', async () => {
+  const pending = defer()
+  let signal
+  let calls = 0
+  const { session, storage, events } = sessionFixture({
+    login: (_data, requestSignal) => {
+      calls++
+      signal = requestSignal
+      return pending.promise
     },
-  ])
-  const dispose = registry.register('plugin', [{ name: 'plugin-users', path: '/users', meta: { user: 'alice' } }])
-  const routes = registry.getSnapshot().protectedRoutes[0].children
-  assert.equal(routes.length, 1)
-  assert.equal(routes[0].element, element)
-  assert.deepEqual(routes[0].accessMeta, [{ role: 'staff' }, { permission: 'users' }, { user: 'alice' }])
-  assert.equal(registry.getSnapshot(), registry.getSnapshot())
-  assert.throws(() => registry.register('other', [{ name: 'same', path: 'users' }]), /conflict/)
-  dispose()
-  assert.throws(
-    () => registry.register('public-users', [{ name: 'public-users', path: '/users', scope: 'public' }]),
-    /Protected route conflict/,
-  )
-  assert.throws(
-    () => registry.register('protected-login', [{ name: 'protected-login', path: '/login' }]),
-    /Reserved route/,
-  )
-  assert.equal(registry.getSnapshot().protectedRoutes[0].children[0].accessMeta.length, 2)
-  registry.clearMenus()
-  assert.equal(registry.getSnapshot().menuRoutes.length, 0)
+  })
+  const credentials = { access_token: 'fixture', refresh_token: 'fixture-refresh', expire_at: 100 }
+  const login = session.getState().login({ username: 'fixture', password: 'fixture' })
+  const rejected = assert.rejects(login, { name: 'AbortError' })
+  await Promise.resolve()
+  session.dispose()
+  session.dispose()
+  assert.equal(signal.aborted, true)
+  pending.resolve({ data: { data: credentials } })
+  await rejected
+  assert.equal(storage.size, 0)
+  assert.deepEqual(events, ['loginBefore'])
+  await assert.rejects(session.getState().login({ username: 'next', password: 'fixture' }), { name: 'AbortError' })
+  await assert.rejects(session.getState().loginWithTokens(credentials), { name: 'AbortError' })
+  assert.equal(await session.getState().hydrate(), false)
+  assert.equal(await session.getState().refreshToken(), false)
+  await session.getState().logout()
+  assert.throws(() => session.getState().setUserInfo({ username: 'next' }), { name: 'AbortError' })
+  assert.throws(() => session.getState().setLanguage('en_US'), { name: 'AbortError' })
+  assert.equal(calls, 1)
+  assert.equal(storage.size, 0)
+  assert.deepEqual(events, ['loginBefore'])
+})
+
+test('Disposal cancels token refresh without clearing or replacing completed credentials', async () => {
+  const pending = defer()
+  let signal
+  const { session, storage } = sessionFixture({
+    refresh: (_token, requestSignal) => {
+      signal = requestSignal
+      return pending.promise
+    },
+  })
+  await session.getState().loginWithTokens({ access_token: 'saved', refresh_token: 'saved-refresh', expire_at: 100 })
+  const saved = new Map(storage)
+  const refresh = session.getState().refreshToken()
+  session.dispose()
+  assert.equal(signal.aborted, true)
+  pending.resolve({ data: { data: { access_token: 'late', refresh_token: 'late-refresh', expire_at: 200 } } })
+  assert.equal(await refresh, false)
+  assert.deepEqual(storage, saved)
+  assert.equal(session.getState().token, 'saved')
+})
+
+test('Disposed hydration does not load menus, apply preferences or overwrite persisted profile data', async () => {
+  const pending = defer()
+  const { session, storage, events } = sessionFixture({ info: () => pending.promise })
+  await session.getState().loginWithTokens({ access_token: 'saved', refresh_token: 'refresh', expire_at: 100 })
+  const saved = new Map(storage)
+  events.length = 0
+  const hydrated = session.getState().hydrate()
+  session.dispose()
+  pending.resolve({ data: { data: { username: 'late', backend_setting: { app: { colorMode: 'dark' } } } } })
+  assert.equal(await hydrated, false)
+  assert.deepEqual(storage, saved)
+  assert.deepEqual(events, [])
 })
 
 test('Legacy menu permission fields normalize empty conditions and intersect every supplied alias', () => {
@@ -110,224 +235,6 @@ test('Legacy menu permission fields normalize empty conditions and intersect eve
   assert.equal(core.hasRouteAccess({ permission: [] }, { ...reader, permissions: ['*'] }), false)
 })
 
-test('Equivalent menu/static patterns retain all access restrictions and static component ownership', () => {
-  const registry = core.createRouteRegistry()
-  const element = { static: true }
-  registry.configure({
-    layout: {
-      name: 'root',
-      path: '/',
-      children: [
-        { name: 'reports', path: 'reports', element },
-        { name: 'detail', path: 'reports/:id', element },
-      ],
-    },
-    guests: [],
-    publics: [],
-    renderMenu: () => null,
-  })
-  registry.setMenus([
-    { path: '/REPORTS/', meta: { permission: 'reports:read' } },
-    { path: '/REPORTS/:reportId', meta: { auth: ['reports:detail'] } },
-  ])
-  const snapshot = registry.getSnapshot()
-  assert.equal(snapshot.protectedRoutes[0].children.length, 2)
-  assert.equal(snapshot.protectedRoutes[0].children[0].element, element)
-  for (const path of ['/reports', '/REPORTS/', '/reports/42']) {
-    assert.equal(
-      core.hasMatchedRouteAccess(snapshot.protectedRoutes, path, { permissions: [], roles: [], userInfo: null }),
-      false,
-    )
-  }
-  assert.equal(
-    core.hasMatchedRouteAccess(snapshot.protectedRoutes, '/reports/42', {
-      permissions: ['reports:detail'],
-      roles: [],
-      userInfo: null,
-    }),
-    true,
-  )
-})
-
-test('Cross-scope route conflicts follow case, parameter, optional-segment and splat matching', () => {
-  const overlaps = [
-    ['reports', '/REPORTS/'],
-    ['reports', '/reports/*'],
-    ['reports/:id', '/reports/42'],
-    ['reports/:id?', '/reports'],
-    [':locale?/reports', '/reports'],
-    ['reports/:id/*', '/reports/:slug/settings'],
-    ['reports/edit?', '/reports'],
-    ['reports/:id', '/reports/:slug?'],
-  ]
-  for (const [protectedPath, publicPath] of overlaps) {
-    assert.equal(core.routePatternsOverlap(protectedPath, publicPath), true)
-    for (const scope of ['public', 'guest']) {
-      const registry = core.createRouteRegistry()
-      registry.configure({
-        layout: {
-          name: 'root',
-          path: '/',
-          children: [
-            { name: 'protected', path: protectedPath },
-            { name: 'fallback', path: '*' },
-          ],
-        },
-        guests: [],
-        publics: [{ name: 'not-found', path: '*' }],
-        renderMenu: () => null,
-      })
-      const before = registry.getSnapshot()
-      assert.throws(
-        () => registry.register('extension', [{ name: 'extension', path: publicPath, scope }]),
-        /Protected route conflict/,
-      )
-      assert.equal(registry.getSnapshot(), before)
-    }
-  }
-  assert.equal(core.routePatternsOverlap('/reports/:id', '/settings/:id'), false)
-  const registry = core.createRouteRegistry()
-  registry.configure({
-    layout: { name: 'root', path: '/', children: [{ name: 'fallback', path: '*' }] },
-    guests: [{ name: 'login', path: '/login' }],
-    publics: [],
-    renderMenu: () => null,
-  })
-  registry.register('docs', [{ name: 'docs', path: '/docs/*', scope: 'public' }])
-  const before = registry.getSnapshot()
-  assert.throws(
-    () => registry.setMenus([{ name: 'restricted', path: '/DOCS/private', meta: { permission: 'secret' } }]),
-    /Protected route conflict/,
-  )
-  assert.equal(registry.getSnapshot(), before)
-  assert.throws(() => registry.register('login', [{ name: 'login', path: '/LOGIN/' }]), /Reserved route/)
-  assert.throws(
-    () => registry.register('auth', [{ name: 'auth', path: '/auth', scope: 'public', meta: { auth: ['secret'] } }]),
-    /access policies/,
-  )
-  assert.throws(
-    () => registry.register('query', [{ name: 'query', path: '/query?value=x' }]),
-    /Invalid route descriptor/,
-  )
-  const { matchRoutes } = require('react-router-dom')
-  const branch = matchRoutes(
-    [{ id: 'protected', path: '/', children: [{ path: '*' }] }, ...registry.getSnapshot().publicRoutes],
-    '/docs/intro',
-  )
-  assert.equal(branch.at(-1).route.name, 'docs')
-})
-
-test('Component Manifest only resolves exact registered IDs and explicit aliases', () => {
-  const manifest = core.createComponentManifest()
-  const dispose = manifest.register([
-    { id: 'base/users', aliases: ['base/views/users/index'], load: async () => ({ default: () => null }) },
-  ])
-  assert.equal(manifest.resolve('base/users'), manifest.resolve('base/views/users/index.tsx'))
-  assert.equal(manifest.resolve('users'), null)
-  assert.equal(manifest.resolve('../base/users'), null)
-  assert.equal(manifest.resolve('https://example.com/script.js'), null)
-  assert.throws(() => manifest.register([{ id: 'base/users', load: async () => ({}) }]), /duplicate/)
-  dispose()
-  manifest.register([{ id: 'base/users', load: async () => ({ default: () => null }) }])
-  dispose()
-  assert.ok(manifest.resolve('base/users'))
-})
-
-function pluginHarness() {
-  const active = new Set()
-  const register = value => {
-    assert.ok(!active.has(value))
-    active.add(value)
-    return () => active.delete(value)
-  }
-  const host = core.createPluginHost({
-    route: (_, route) => register(route.name),
-    locale: value => register(value.id),
-    dictionary: name => register(name),
-    slot: value => register(value.id),
-    toolbar: value => register(value.id),
-  })
-  return { host, active }
-}
-const manifest = id => ({
-  id,
-  version: '1.0.0',
-  coreApi: 1,
-  capabilities: ['route', 'locale', 'dictionary', 'slot', 'toolbar'],
-})
-
-test('Plugin Host installs once, releases every resource, and supports re-enable', async () => {
-  const { host, active } = pluginHarness()
-  let setups = 0
-  let disposed = 0
-  const plugin = {
-    manifest: manifest('demo'),
-    setup(ctx) {
-      setups++
-      ctx.registerRoute({ name: 'route', path: '/demo' })
-      ctx.registerLocale({ id: 'locale', locale: 'en_US', namespace: 'demo', messages: {} })
-      ctx.registerDictionary('dictionary', [])
-      ctx.registerSlot({ id: 'slot', slot: 'shell.overlays', component: () => null })
-      ctx.registerToolbar({ id: 'toolbar', slot: 'shell.toolbar', component: () => null })
-      return () => disposed++
-    },
-  }
-  await Promise.all([host.enable(plugin), host.enable(plugin)])
-  assert.equal(setups, 1)
-  assert.equal(active.size, 5)
-  host.disable('demo')
-  host.disable('demo')
-  assert.equal(active.size, 0)
-  assert.equal(disposed, 1)
-  await host.enable(plugin)
-  assert.equal(setups, 2)
-  host.dispose()
-  assert.equal(active.size, 0)
-})
-
-test('Failed plugins roll back registrations; missing capabilities and incompatible versions fail closed', async () => {
-  const { host, active } = pluginHarness()
-  await host.enable({
-    manifest: manifest('broken'),
-    setup(ctx) {
-      ctx.registerDictionary('temporary', [])
-      throw new Error('private-token-payload')
-    },
-  })
-  assert.equal(active.size, 0)
-  assert.equal(host.isEnabled('broken'), false)
-  assert.deepEqual(host.getErrors(), { broken: '插件初始化失败' })
-  await host.enable({
-    manifest: { ...manifest('denied'), capabilities: [] },
-    setup: ctx => ctx.registerDictionary('no', []),
-  })
-  assert.equal(active.size, 0)
-  assert.throws(() => host.enable({ manifest: { ...manifest('unsupported'), coreApi: 2 }, setup() {} }))
-})
-
-test('Disable during async setup cannot leak resources or remove a newer installation', async () => {
-  const { host, active } = pluginHarness()
-  const pending = defer()
-  let disposed = 0
-  const old = host.enable({
-    manifest: manifest('race'),
-    async setup(ctx) {
-      ctx.registerDictionary('old', [])
-      await pending.promise
-      return () => disposed++
-    },
-  })
-  await Promise.resolve()
-  host.disable('race')
-  await host.enable({ manifest: manifest('race'), setup: ctx => ctx.registerDictionary('new', []) })
-  pending.resolve()
-  await old
-  assert.deepEqual([...active], ['new'])
-  assert.equal(disposed, 1)
-  host.dispose()
-  assert.equal(active.size, 0)
-})
-
 test('Locale namespace conflicts reject atomically; missing translations fall back without losing empty strings', () => {
   const locales = core.createLocaleRegistry()
   const dispose = locales.register({
@@ -348,13 +255,13 @@ test('Locale namespace conflicts reject atomically; missing translations fall ba
   assert.equal(locales.translate('en_US', 'demo', 'title', 'fallback'), 'fallback')
 })
 
-test('Layout selection resolves legacy aliases and safely falls back for missing or disabled IDs', () => {
+test('Layout selection safely falls back for missing or disabled IDs', () => {
   const fallback = { id: 'classic', label: 'Classic', navigation: () => null }
   const registry = core.createLayoutRegistry(fallback)
-  const remove = registry.register({ id: 'columns', aliases: ['verve'], label: 'Columns', navigation: () => null })
+  const remove = registry.register({ id: 'columns', label: 'Columns', navigation: () => null })
   registry.register({ id: 'mixed', aliases: ['legacy-mixed'], label: 'Mixed', navigation: () => null, enabled: false })
   assert.equal(registry.resolve('columns').id, 'columns')
-  assert.equal(registry.resolve('verve').id, 'columns')
+  assert.equal(registry.resolve('columns').id, 'columns')
   assert.equal(registry.resolve('unknown').id, 'classic')
   assert.equal(registry.resolve('mixed').id, 'classic')
   assert.equal(registry.resolve('legacy-mixed').id, 'classic')
@@ -488,68 +395,6 @@ test('Telemetry never receives raw error messages, request payloads or credentia
   )
 })
 
-test('Plugin batches sort by order and isolate malformed manifests without aborting valid plugins', async () => {
-  const { host } = pluginHarness()
-  const seen = []
-  const plugin = (id, order) => ({
-    manifest: { ...manifest(id), order },
-    setup: () => {
-      seen.push(id)
-    },
-  })
-  await host.enableAll([
-    plugin('last', 10),
-    { manifest: { id: 42 }, setup() {} },
-    plugin('first', -1),
-    plugin('middle', 0),
-  ])
-  assert.deepEqual(seen, ['first', 'middle', 'last'])
-  assert.equal(host.isEnabled('middle'), true)
-  assert.equal(Object.keys(host.getErrors()).length, 1)
-  host.dispose()
-})
-
-test('Host disposal invalidates a pending batch without cancelling a later explicit installation', async () => {
-  const { host, active } = pluginHarness()
-  const blocked = defer()
-  const seen = []
-  const pending = host.enableAll([
-    {
-      manifest: manifest('a'),
-      async setup(ctx) {
-        seen.push('a')
-        ctx.registerSlot({ id: 'a-slot', slot: 'shell.toolbar', component: () => null })
-        await blocked.promise
-      },
-    },
-    {
-      manifest: manifest('b'),
-      setup(ctx) {
-        seen.push('b')
-        ctx.registerSlot({ id: 'b-slot', slot: 'shell.toolbar', component: () => null })
-      },
-    },
-  ])
-  await Promise.resolve()
-  host.dispose()
-  assert.equal(active.size, 0)
-  await host.enableAll([
-    {
-      manifest: manifest('new'),
-      setup(ctx) {
-        ctx.registerSlot({ id: 'new-slot', slot: 'shell.toolbar', component: () => null })
-      },
-    },
-  ])
-  blocked.resolve()
-  await pending
-  assert.deepEqual(seen, ['a'])
-  assert.equal(host.isEnabled('b'), false)
-  assert.equal(host.isEnabled('new'), true)
-  assert.deepEqual([...active], ['new-slot'])
-  host.dispose()
-})
-
 test('Resource queries separate list/detail keys, cancel pre-write reads and never invalidate a new session', async t => {
   const client = core.createQueryClient()
   client.setDefaultOptions({ queries: { retry: false, gcTime: Infinity } })
@@ -603,4 +448,193 @@ test('Cancelling one resource consumer preserves a shared query for other consum
   pending.resolve('shared result')
   assert.equal(await second, 'shared result')
   assert.equal(calls, 1)
+})
+
+// File-based routing and rendering cases live in framework-routing and framework-route-pages.
+test('Plugin declarations enable views, notify consumers and release installations once', async () => {
+  const host = core.createPluginHost()
+  const events = []
+  const unsubscribe = host.subscribe(() => events.push(host.getViews().length))
+  const plugin = {
+    config: { enable: true, info: { name: 'example/report', version: '1' } },
+    views: [{ name: 'help', path: '/help', component: async () => ({ default: () => null }) }],
+    install: () => {
+      events.push('install')
+      return () => events.push('dispose')
+    },
+  }
+  await host.register(plugin, {})
+  assert.equal(host.getViews().length, 1)
+  await assert.rejects(host.register(plugin, {}), /重复/)
+  host.dispose()
+  host.dispose()
+  unsubscribe()
+  assert.equal(events.filter(v => v === 'install').length, 1)
+  assert.equal(events.filter(v => v === 'dispose').length, 1)
+  assert.equal(host.getViews().length, 0)
+})
+
+test('Disabled or failed plugins publish no views and do not prevent valid plugins', async () => {
+  const host = core.createPluginHost()
+  const config = (name, enable = true) => ({ enable, info: { name, version: '1' } })
+  await host.register(
+    {
+      config: config('disabled', false),
+      install: () => assert.fail('disabled installation'),
+      views: [{ name: 'disabled', path: '/disabled' }],
+    },
+    {},
+  )
+  await host.register(
+    {
+      config: config('failed'),
+      install: () => {
+        throw new Error('fixture failure')
+      },
+    },
+    {},
+  )
+  await host.register({ config: config('valid'), views: [{ name: 'valid', path: '/valid' }] }, {})
+  assert.deepEqual(
+    host.getViews().map(v => v.path),
+    ['/valid'],
+  )
+  assert.equal(host.isEnabled('failed'), false)
+  assert.equal(host.getErrors().failed, '插件初始化失败')
+  host.dispose()
+})
+
+test('Disposing a pending plugin prevents its late installation from leaking into a new runtime', async () => {
+  const host = core.createPluginHost()
+  const pending = defer()
+  let released = 0
+  const config = () => ({ enable: true, info: { name: 'example/report', version: '1' } })
+  const install = host.register(
+    {
+      config: config(),
+      install: async () => {
+        await pending.promise
+        return () => released++
+      },
+    },
+    {},
+  )
+  await new Promise(resolve => setImmediate(resolve))
+  host.dispose()
+  await host.register({ config: config(), views: [{ name: 'new', path: '/new' }] }, {})
+  pending.resolve()
+  await install
+  assert.equal(released, 1)
+  assert.deepEqual(
+    host.getViews().map(v => v.path),
+    ['/new'],
+  )
+  host.dispose()
+})
+
+test('Last resource consumer cancels transport across separate API factories and can retry', async t => {
+  const client = core.createQueryClient()
+  client.setDefaultOptions({ queries: { retry: false, gcTime: Infinity } })
+  t.after(() => client.clear())
+  const a = core.createResourceQueries('order', 'main', client, () => 1)
+  const b = core.createResourceQueries('order', 'main', client, () => 1)
+  const signals = []
+  const load = signal => {
+    signals.push(signal)
+    return new Promise(() => {})
+  }
+  const first = new AbortController()
+  const second = new AbortController()
+  const one = a.fetch({}, load, first.signal).catch(error => error)
+  const two = b.fetch({}, load, second.signal).catch(error => error)
+  first.abort()
+  assert.equal((await one).name, 'AbortError')
+  assert.equal(signals[0].aborted, false)
+  second.abort()
+  assert.equal((await two).name, 'AbortError')
+  assert.equal(signals[0].aborted, true)
+  assert.equal(client.isFetching(), 0)
+  assert.equal(await a.fetch({}, async () => 'retried'), 'retried')
+})
+
+test('Cancelling an imperative consumer preserves a mounted query observer', async t => {
+  const { QueryObserver } = require('@tanstack/react-query')
+  const client = core.createQueryClient()
+  client.setDefaultOptions({ queries: { retry: false, gcTime: Infinity } })
+  t.after(() => client.clear())
+  const resource = core.createResourceQueries('order', 'main', client, () => 1)
+  const pending = defer()
+  let transport
+  const list = resource.list((_params, signal) => {
+    transport = signal
+    return pending.promise
+  })
+  const observer = new QueryObserver(client, list.queryOptions({}))
+  const unsubscribe = observer.subscribe(() => {})
+  t.after(unsubscribe)
+  const controller = new AbortController()
+  const request = list({}, controller.signal).catch(error => error)
+  controller.abort()
+  assert.equal((await request).name, 'AbortError')
+  assert.equal(transport.aborted, false)
+  pending.resolve('observed')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(observer.getCurrentResult().data, 'observed')
+})
+
+test('Plugin failure and start hooks cannot mutate a definition shared by another runtime', async () => {
+  const one = core.createPluginHost()
+  const two = core.createPluginHost()
+  const definition = {
+    config: Object.freeze({ enable: true, info: Object.freeze({ name: 'shared', version: '1' }) }),
+    install: runtime => {
+      if (runtime.fail) throw new Error('local failure')
+    },
+  }
+  await one.register(definition, { fail: true })
+  await two.register(definition, {})
+  assert.equal(one.isEnabled('shared'), false)
+  assert.equal(two.isEnabled('shared'), true)
+  assert.equal(definition.config.enable, true)
+  const disabled = {
+    config: { enable: true, info: { name: 'disabled-by-hook', version: '1' } },
+    hooks: {
+      start: config => {
+        config.enable = false
+      },
+    },
+  }
+  await one.register(disabled, {})
+  assert.equal(one.isEnabled('disabled-by-hook'), false)
+  assert.equal(disabled.config.enable, true)
+  one.dispose()
+  two.dispose()
+})
+
+test('A React observer leaving cannot cancel another imperative consumer of the same request', async t => {
+  const { QueryObserver } = require('@tanstack/react-query')
+  const client = core.createQueryClient()
+  client.setDefaultOptions({ queries: { retry: false, gcTime: Infinity } })
+  t.after(() => client.clear())
+  const resource = core.createResourceQueries('order', 'main', client, () => 1)
+  const pending = defer()
+  let transport
+  const list = resource.list((_params, signal) => {
+    transport = signal
+    return pending.promise
+  })
+  const observer = new QueryObserver(client, list.queryOptions({}))
+  const unsubscribe = observer.subscribe(() => {})
+  const otherConsumer = list({})
+  unsubscribe()
+  assert.equal(transport.aborted, false)
+  pending.resolve('still needed')
+  assert.equal(await otherConsumer, 'still needed')
+  assert.equal(
+    client
+      .getQueryCache()
+      .find({ queryKey: list.queryOptions({}).queryKey })
+      .getObserversCount(),
+    0,
+  )
 })

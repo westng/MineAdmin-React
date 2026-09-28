@@ -3,6 +3,14 @@ export interface AccessSubject {
   permissions: readonly string[]
   userInfo: { username?: string; id?: number } | null
 }
+export interface RouteAccessMeta {
+  auth?: boolean | string | string[]
+  permission?: string | string[]
+  permissions?: string | string[]
+  role?: string | string[]
+  roles?: string | string[]
+  user?: string | string[]
+}
 export interface AccessPolicy {
   permission?: string | string[]
   role?: string | string[]
@@ -31,5 +39,15 @@ export function evaluateAccess(policy: AccessPolicy, subject: AccessSubject) {
           subject.userInfo.username,
         ),
       ))
+  )
+}
+
+/** 菜单权限别名保持兼容；每项已声明的限制都必须满足。 */
+export function hasRouteAccess(meta: RouteAccessMeta | undefined, state: AccessSubject) {
+  const auth = typeof meta?.auth === 'boolean' ? undefined : meta?.auth
+  return (
+    [meta?.permission, meta?.permissions, auth].every(permission => evaluateAccess({ permission }, state)) &&
+    [meta?.role, meta?.roles].every(role => evaluateAccess({ role }, state)) &&
+    evaluateAccess({ user: meta?.user }, state)
   )
 }

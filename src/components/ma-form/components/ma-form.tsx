@@ -1,3 +1,4 @@
+import { equalFormValue } from '../utils/form-utils'
 import * as React from 'react'
 import { Button } from '@/components/reui/primitives/button'
 import {
@@ -19,6 +20,7 @@ import type {
   MaFormModel,
   MaFormOptions,
   MaFormProps,
+  MaFormState,
   MaFormRenderContext,
   MaFormRule,
   MaFormValidationResult,
@@ -113,17 +115,35 @@ function MaFormInner<T extends MaModel>(
     onModelValueChange,
     onChange,
     onSubmit,
+    onSubmitError,
+    onStateChange,
   }: MaFormProps<T>,
   ref: React.ForwardedRef<MaFormExpose<T>>,
 ) {
   const [internalValues, setInternalValues] = React.useState<T>({ ...(defaultValue ?? {}), ...(modelValue ?? {}) } as T)
   const [items, setItemsState] = usePropState(initialItems)
   const [options, setOptionsState] = usePropState(initialOptions)
-  const [loading, setLoading] = usePropState(Boolean(options.loading))
+  const [externalLoading, setLoading] = usePropState(Boolean(options.loading))
+  const [submitting, setSubmitting] = React.useState(false)
+  const [touchedFields, setTouchedFields] = React.useState<string[]>([])
+  const [validations, setValidations] = React.useState(0)
+  const [submitError, setSubmitError] = React.useState('')
+  const submittingRef = React.useRef(false)
+  const loading = externalLoading || submitting
   const [errors, setErrors] = React.useState<Record<string, string[]>>({})
   const formElementRef = React.useRef<HTMLFormElement>(null)
-  const initialValuesRef = React.useRef<T>({ ...(defaultValue ?? {}), ...(modelValue ?? {}) } as T)
+  const [initialValues, setInitialValues] = React.useState<T>(() =>
+    structuredClone({ ...(defaultValue ?? {}), ...(modelValue ?? {}) } as T),
+  )
   const values = modelValue ?? internalValues
+  const validationVersion = React.useRef(0)
+  const fieldVersions = React.useRef(new Map<string, number>())
+  React.useLayoutEffect(() => {
+    validationVersion.current += 1
+    return () => {
+      validationVersion.current += 1
+    }
+  }, [values])
 
   const emitValues = React.useCallback(
     (nextValues: T) => {
@@ -153,51 +173,67 @@ function MaFormInner<T extends MaModel>(
   )
 
   const validate = React.useCallback(async (): Promise<MaFormValidationResult> => {
-    const nextErrors: Record<string, string[]> = {}
-    for (const item of items) {
-      const prop = resolveProp(item.prop, values)
-      if (!prop || !itemIsShown(item, values) || itemIsHidden(item, values)) continue
-      const rules = getRulesForItem(item)
-      for (const rule of rules) {
-        const result = await runValidationRule(rule, getPathValue(values, prop), values)
-        if (typeof result === 'string') {
-          nextErrors[prop] = [...(nextErrors[prop] ?? []), result]
-          break
+    setValidations(count => count + 1)
+    try {
+      const version = ++validationVersion.current
+      const nextErrors: Record<string, string[]> = {}
+      for (const item of items) {
+        const prop = resolveProp(item.prop, values)
+        if (!prop || !itemIsShown(item, values) || itemIsHidden(item, values)) continue
+        const rules = getRulesForItem(item)
+        for (const rule of rules) {
+          const result = await runValidationRule(rule, getPathValue(values, prop), values)
+          if (typeof result === 'string') {
+            nextErrors[prop] = [...(nextErrors[prop] ?? []), result]
+            break
+          }
         }
       }
+      if (version !== validationVersion.current) return { valid: false, errors: {} }
+      setErrors(nextErrors)
+      return { valid: Object.keys(nextErrors).length === 0, errors: nextErrors }
+    } finally {
+      setValidations(count => count - 1)
     }
-    setErrors(nextErrors)
-    return { valid: Object.keys(nextErrors).length === 0, errors: nextErrors }
   }, [getRulesForItem, items, values])
 
   const validateField = React.useCallback(
     async (prop: string) => {
-      const item = items.find(candidate => resolveProp(candidate.prop, values) === prop)
-      if (!item) return true
-      if (!itemIsShown(item, values) || itemIsHidden(item, values)) {
+      setValidations(count => count + 1)
+      try {
+        const version = validationVersion.current
+        const fieldVersion = (fieldVersions.current.get(prop) ?? 0) + 1
+        fieldVersions.current.set(prop, fieldVersion)
+        const item = items.find(candidate => resolveProp(candidate.prop, values) === prop)
+        if (!item) return true
+        if (!itemIsShown(item, values) || itemIsHidden(item, values)) {
+          setErrors(current => {
+            if (!(prop in current)) return current
+            const next = { ...current }
+            delete next[prop]
+            return next
+          })
+          return true
+        }
+        const fieldErrors: string[] = []
+        for (const rule of getRulesForItem(item)) {
+          const result = await runValidationRule(rule, getPathValue(values, prop), values)
+          if (typeof result === 'string') {
+            fieldErrors.push(result)
+            break
+          }
+        }
+        if (version !== validationVersion.current || fieldVersions.current.get(prop) !== fieldVersion) return false
         setErrors(current => {
-          if (!(prop in current)) return current
           const next = { ...current }
-          delete next[prop]
+          if (fieldErrors.length) next[prop] = fieldErrors
+          else delete next[prop]
           return next
         })
-        return true
+        return fieldErrors.length === 0
+      } finally {
+        setValidations(count => count - 1)
       }
-      const fieldErrors: string[] = []
-      for (const rule of getRulesForItem(item)) {
-        const result = await runValidationRule(rule, getPathValue(values, prop), values)
-        if (typeof result === 'string') {
-          fieldErrors.push(result)
-          break
-        }
-      }
-      setErrors(current => {
-        const next = { ...current }
-        if (fieldErrors.length) next[prop] = fieldErrors
-        else delete next[prop]
-        return next
-      })
-      return fieldErrors.length === 0
     },
     [getRulesForItem, items, values],
   )
@@ -208,9 +244,10 @@ function MaFormInner<T extends MaModel>(
         props ?? items.map(item => resolveProp(item.prop, values)).filter((prop): prop is string => Boolean(prop))
       let nextValues = values
       targetProps.forEach(prop => {
-        nextValues = setPathValue(nextValues, prop, getPathValue(initialValuesRef.current, prop))
+        nextValues = setPathValue(nextValues, prop, getPathValue(initialValues, prop))
       })
       emitValues(nextValues)
+      setTouchedFields(current => current.filter(prop => !targetProps.includes(prop)))
       setErrors(current => {
         const next = { ...current }
         targetProps.forEach(prop => {
@@ -220,7 +257,7 @@ function MaFormInner<T extends MaModel>(
       })
       return nextValues
     },
-    [emitValues, items, values],
+    [emitValues, initialValues, items, values],
   )
 
   const clearValidate = React.useCallback((props?: string[]) => {
@@ -235,20 +272,32 @@ function MaFormInner<T extends MaModel>(
   const handleSubmit = React.useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      const result = await validate()
-      if (!result.valid) {
-        const firstErrorProp = Object.keys(result.errors)[0]
-        if (firstErrorProp) {
-          const control = Array.from(formElementRef.current?.elements ?? []).find(
-            element => (element as HTMLElement).id === firstErrorProp,
-          ) as HTMLElement | undefined
-          control?.focus()
+      if (submittingRef.current || externalLoading) return
+      submittingRef.current = true
+      setSubmitting(true)
+      setSubmitError('')
+      try {
+        const result = await validate()
+        if (!result.valid) {
+          const firstErrorProp = Object.keys(result.errors)[0]
+          if (firstErrorProp) {
+            const control = Array.from(formElementRef.current?.elements ?? []).find(
+              element => (element as HTMLElement).id === firstErrorProp,
+            ) as HTMLElement | undefined
+            control?.focus()
+          }
+          return
         }
-        return
+        await onSubmit?.(values)
+      } catch (error) {
+        setSubmitError(error instanceof Error ? error.message : '提交失败，请重试')
+        onSubmitError?.(error)
+      } finally {
+        submittingRef.current = false
+        setSubmitting(false)
       }
-      await onSubmit?.(values)
     },
-    [onSubmit, validate, values],
+    [externalLoading, onSubmit, onSubmitError, validate, values],
   )
 
   const setValues = React.useCallback(
@@ -258,9 +307,43 @@ function MaFormInner<T extends MaModel>(
     [emitValues, values],
   )
 
+  const formState = React.useMemo<MaFormState>(
+    () => ({
+      dirty: !equalFormValue(values, initialValues),
+      dirtyFields: items.flatMap(item => {
+        const prop = resolveProp(item.prop, values)
+        return prop && !equalFormValue(getPathValue(values, prop), getPathValue(initialValues, prop)) ? [prop] : []
+      }),
+      touchedFields,
+      validating: validations > 0,
+      submitting,
+      errors,
+      submitError,
+    }),
+    [values, initialValues, items, touchedFields, validations, submitting, errors, submitError],
+  )
+  const lastReportedState = React.useRef<MaFormState | null>(null)
+  React.useEffect(() => {
+    if (equalFormValue(lastReportedState.current, formState)) return
+    lastReportedState.current = formState
+    onStateChange?.(formState)
+  }, [formState, onStateChange])
+  const reset = React.useCallback(
+    (next?: T) => {
+      validationVersion.current++
+      if (next) setInitialValues(structuredClone(next))
+      emitValues(structuredClone(next ?? initialValues))
+      setTouchedFields([])
+      setErrors({})
+      setSubmitError('')
+    },
+    [emitValues, initialValues],
+  )
   React.useImperativeHandle(
     ref,
     () => ({
+      getState: () => formState,
+      reset,
       validate,
       validateField,
       resetFields,
@@ -279,6 +362,8 @@ function MaFormInner<T extends MaModel>(
     }),
     [
       clearValidate,
+      formState,
+      reset,
       items,
       options,
       resetFields,
@@ -300,18 +385,24 @@ function MaFormInner<T extends MaModel>(
           gap: options.grid?.gap ?? options.flex?.gap ?? '1rem',
           alignItems: options.grid?.alignment,
         }
-      : { gap: options.flex?.gap ?? '1rem' }
+      : { gap: options.flex?.gap ?? '1rem', justifyContent: options.flex?.justify, alignItems: options.flex?.align }
 
   return (
     <form
       ref={formElementRef}
       className={cn('relative w-full', options.containerClass, className)}
+      aria-busy={loading}
       onSubmit={event => {
         void handleSubmit(event)
       }}
     >
       <FieldGroup
-        className={cn(options.layout === 'grid' || columns > 1 ? 'grid' : 'flex', options.inline && 'items-end')}
+        className={cn(
+          options.layout === 'grid' || columns > 1 ? 'grid' : 'flex',
+          options.inline && 'items-end',
+          options.className,
+          options.grid?.className,
+        )}
         style={layoutStyle}
       >
         {items.map((item, itemIndex) => {
@@ -328,6 +419,7 @@ function MaFormInner<T extends MaModel>(
             },
           }
           const label = item.itemSlots?.label?.(context) ?? readLabel(item.label)
+          const accessibleLabel = typeof label === 'string' || typeof label === 'number' ? String(label) : undefined
           const itemProps = item.itemProps ?? {}
           const fieldError = prop ? errors[prop] : undefined
           const errorId = prop ? `${prop.replace(/[^a-zA-Z0-9_-]/g, '-')}-error` : undefined
@@ -344,6 +436,7 @@ function MaFormInner<T extends MaModel>(
                 disabled={Boolean(options.disabled || loading || item.renderProps?.disabled)}
                 setValue={context.setValue}
                 id={prop}
+                ariaLabel={accessibleLabel}
                 ariaInvalid={Boolean(fieldError?.length)}
                 ariaDescribedBy={fieldError?.length ? errorId : undefined}
               />
@@ -351,6 +444,9 @@ function MaFormInner<T extends MaModel>(
           return (
             <Field
               key={`${prop ?? 'item'}-${itemIndex}`}
+              onBlurCapture={() => {
+                if (prop) setTouchedFields(current => (current.includes(prop) ? current : [...current, prop]))
+              }}
               data-invalid={Boolean(fieldError?.length)}
               className={cn(itemProps.className, hidden && 'hidden')}
               orientation={horizontalLabel ? 'horizontal' : 'vertical'}
@@ -381,6 +477,8 @@ function MaFormInner<T extends MaModel>(
                 {typeof item.render === 'function' && React.isValidElement(rendered)
                   ? React.cloneElement(rendered, {
                       id: prop,
+                      'aria-label':
+                        (rendered.props as { 'aria-label'?: string | undefined })['aria-label'] ?? accessibleLabel,
                       'aria-invalid': Boolean(fieldError?.length),
                       'aria-describedby': fieldError?.length ? errorId : undefined,
                     } as Record<string, unknown>)
@@ -407,6 +505,11 @@ function MaFormInner<T extends MaModel>(
         })}
       </FieldGroup>
       {children}
+      {submitError && (
+        <p role="alert" className="text-destructive">
+          {submitError}
+        </p>
+      )}
       {footer ?? (typeof options.footerSlot === 'function' ? options.footerSlot() : options.footerSlot)}
       {loading && (
         <div className="pointer-events-none absolute inset-0 rounded-lg bg-background/50" aria-hidden="true">

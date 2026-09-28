@@ -1,4 +1,8 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
+import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
+import { createApi as createAttachmentApi } from '@/modules/base/attachment/api/attachment'
+import { createApi as createProfileApi } from '@/modules/base/user-center/api/profile'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { Check, LoaderCircle, Upload, X } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
@@ -13,20 +17,13 @@ import {
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/reui/primitives/field'
 import { Input } from '@/components/reui/primitives/input'
 import { Textarea } from '@/components/reui/primitives/textarea'
-import { upload } from '@/modules/base/user-center/api/attachment'
-import { updateCurrentUser } from '@/modules/base/account-settings/api/account'
-import type { UserInfo } from '@/provider/session'
-import { ProfileAvatar } from './profile-avatar'
 
-const tx = createTextTranslator('base.user-center.ui')
+import type { UserInfo } from '@/services/auth/session-manager'
+import { ProfileAvatar } from './profile-avatar'
 
 interface ProfileFormProps {
   userInfo: UserInfo
   onUserInfoChange: (userInfo: UserInfo) => void
-}
-
-function responseMessage(response: { data?: { code?: number; message?: string } }) {
-  return response.data?.message || tx('操作失败')
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -59,6 +56,14 @@ function ReadonlyInput({ id, value }: { id: string; value: string }) {
 }
 
 export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
+  const tx = useTextTranslator('base.user-center.ui')
+  function responseMessage(response: { data?: { code?: number; message?: string } }) {
+    return response.data?.message || tx('操作失败')
+  }
+
+  const { upload } = useRuntimeFactory(createAttachmentApi)
+  const { updateCurrentUser } = useRuntimeFactory(createProfileApi)
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 

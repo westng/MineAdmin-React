@@ -33,14 +33,15 @@ export interface UserState {
   setLanguage: (language: string) => void
   hasRole: (role: string | string[]) => boolean
   hasPermission: (permission: string | string[]) => boolean
+  synchronize: () => boolean
 }
 
 export interface SessionPorts {
   storage: StorageAdapter
   prefix: string
   api: {
-    login: (data: LoginParams) => Promise<{ data: { data: LoginResult } }>
-    refresh: (token: string) => Promise<{ data: { data: LoginResult } }>
+    login: (data: LoginParams, signal?: AbortSignal) => Promise<{ data: { data: LoginResult } }>
+    refresh: (token: string, signal?: AbortSignal) => Promise<{ data: { data: LoginResult } }>
     logout: (token: string) => Promise<unknown>
     info: () => Promise<{ data: { data: CurrentUserInfo } }>
   }
@@ -65,8 +66,17 @@ export function createSessionManager(ports: SessionPorts) {
   const userInfoKey = `${prefix}user_info`
   const refreshTokenKey = `${prefix}refresh_token`
   const expireKey = `${prefix}expire`
+  const identityKey = `${prefix}session_id`
+  let identity = ports.storage.getItem(identityKey)
 
   let refreshTask: { version: number; promise: Promise<boolean> } | null = null
+  let loadTask: { version: number; promise: Promise<boolean> } | null = null
+  const lifetime = new AbortController()
+  let disposed = false
+
+  function assertActive() {
+    if (disposed) throw new DOMException('会话已释放', 'AbortError')
+  }
 
   function readUserInfo(): UserInfo | null {
     const stored = ports.storage.getItem(userInfoKey)
@@ -97,68 +107,44 @@ export function createSessionManager(ports: SessionPorts) {
     roles: [],
     permissions: [],
     login: async data => {
+      assertActive()
       const startedVersion = get().sessionVersion + 1
       set({ sessionVersion: startedVersion, loading: false })
       await ports.callHooks('loginBefore', data)
+      assertActive()
       if (get().sessionVersion !== startedVersion) throw new Error('登录已取消')
-      const response = await ports.api.login(data)
+      const response = await ports.api.login(data, lifetime.signal)
+      assertActive()
       if (get().sessionVersion !== startedVersion) throw new Error('登录已取消')
       const result = validateResponse(tokenSchema, response.data.data, 'session')
       persistSession(result, { username: data.username })
+      const persistedVersion = get().sessionVersion
       await ports.callHooks('login', { username: data.username, ...result })
+      assertActive()
+      if (get().sessionVersion !== persistedVersion) throw new Error('登录已取消')
       return result
     },
     loginWithTokens: async (result, userInfo = {}) => {
+      assertActive()
       persistSession(validateResponse(tokenSchema, result, 'session'), userInfo)
+      const persistedVersion = get().sessionVersion
       await ports.callHooks('login', { provider: 'external', ...result })
+      assertActive()
+      if (get().sessionVersion !== persistedVersion) throw new Error('登录已取消')
       return result
     },
     hydrate: async () => {
+      if (disposed) return false
+      synchronize()
       if (!get().token) {
         set({ initialized: true, loading: false, userInfo: null, roles: [], permissions: [] })
         return false
       }
-      if (get().loading) {
-        return false
-      }
-      const startedVersion = get().sessionVersion
-      const isCurrent = () => get().sessionVersion === startedVersion
-      set({ loading: true, error: null })
-      try {
-        const response = await ports.api.info()
-        if (!isCurrent()) return false
-        const userInfo = validateResponse(profileSchema, response.data.data, 'session') as CurrentUserInfo
-        const menuStore = ports.menus
-        const menus = await menuStore.refreshMenus()
-        if (!isCurrent()) return false
-        const roles = await menuStore.refreshRoles()
-        if (!isCurrent()) return false
-        const permissions = roles.includes('SuperAdmin')
-          ? ['*', ...collectPermissions(menus)]
-          : collectPermissions(menus)
-        if (userInfo.backend_setting && !Array.isArray(userInfo.backend_setting)) {
-          ports.applySettings(userInfo.backend_setting)
-        }
-        ports.storage.setItem(userInfoKey, JSON.stringify({ ...userInfo, permissions }))
-        set({ userInfo: { ...userInfo, permissions }, roles, permissions, initialized: true, loading: false })
-        await ports.callHooks('getUserInfo', userInfo)
-        return true
-      } catch (error) {
-        if (!isCurrent()) return false
-        const message =
-          typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
-            ? error.message
-            : '用户信息加载失败'
-        const unauthorized =
-          typeof error === 'object' && error !== null && 'code' in error && Number(error.code) === 401
-        set({ initialized: false, loading: false, error: message, roles: [], permissions: [] })
-        if (unauthorized) {
-          void get().logout()
-        }
-        return false
-      }
+      return get().initialized || loadUser()
     },
     refreshToken: async () => {
+      if (disposed) return false
+      if (synchronize()) return false
       const startedVersion = get().sessionVersion
       if (refreshTask?.version === startedVersion) return refreshTask.promise
       const refreshToken = ports.storage.getItem(refreshTokenKey)
@@ -167,10 +153,13 @@ export function createSessionManager(ports: SessionPorts) {
         return false
       }
       const isCurrent = () =>
-        get().sessionVersion === startedVersion && ports.storage.getItem(refreshTokenKey) === refreshToken
+        !disposed &&
+        !synchronize() &&
+        get().sessionVersion === startedVersion &&
+        ports.storage.getItem(refreshTokenKey) === refreshToken
       const promise = (async () => {
         try {
-          const response = await ports.api.refresh(refreshToken)
+          const response = await ports.api.refresh(refreshToken, lifetime.signal)
           if (!isCurrent()) return false
           const result = validateResponse(tokenSchema, response.data.data, 'session')
           ports.storage.setItem(tokenKey, result.access_token)
@@ -190,6 +179,8 @@ export function createSessionManager(ports: SessionPorts) {
       return promise
     },
     logout: async () => {
+      if (disposed) return
+      synchronize()
       const token = get().token
       clearSession()
       // Explicit credentials keep a delayed logout tied to the old session.
@@ -197,6 +188,7 @@ export function createSessionManager(ports: SessionPorts) {
       await Promise.allSettled([request, ports.callHooks('logout')])
     },
     setUserInfo: userInfo => {
+      assertActive()
       if (userInfo) {
         ports.storage.setItem(userInfoKey, JSON.stringify(userInfo))
       } else {
@@ -205,6 +197,7 @@ export function createSessionManager(ports: SessionPorts) {
       set({ userInfo })
     },
     setLanguage: language => {
+      assertActive()
       const nextLanguage = language.trim()
       if (!nextLanguage) return
       ports.storage.setItem(languageKey, nextLanguage)
@@ -212,13 +205,70 @@ export function createSessionManager(ports: SessionPorts) {
     },
     hasRole: role => hasValue(get().roles, role),
     hasPermission: permission => hasValue(get().permissions, permission),
+    synchronize,
   }))
 
+  /** 同一会话共享初始化任务；暂时失败保留凭据，让守卫显示重试入口。 */
+  function loadUser(): Promise<boolean> {
+    const startedVersion = session.getState().sessionVersion
+    if (loadTask?.version === startedVersion) return loadTask.promise
+    const isCurrent = () => !disposed && !synchronize() && session.getState().sessionVersion === startedVersion
+    const promise = (async () => {
+      session.setState({ loading: true, error: null })
+      let step = '用户信息加载'
+      try {
+        const response = await ports.api.info()
+        if (!isCurrent()) return false
+        const userInfo = validateResponse(profileSchema, response.data.data, 'session') as CurrentUserInfo
+        step = '菜单加载'
+        const menus = await ports.menus.refreshMenus()
+        if (!isCurrent()) return false
+        step = '角色加载'
+        const roles = await ports.menus.refreshRoles()
+        if (!isCurrent()) return false
+        step = '用户配置初始化'
+        const permissions = roles.includes('SuperAdmin')
+          ? ['*', ...collectPermissions(menus)]
+          : collectPermissions(menus)
+        if (userInfo.backend_setting && !Array.isArray(userInfo.backend_setting)) {
+          ports.applySettings(userInfo.backend_setting)
+        }
+        ports.storage.setItem(userInfoKey, JSON.stringify({ ...userInfo, permissions }))
+        session.setState({
+          userInfo: { ...userInfo, permissions },
+          roles,
+          permissions,
+          initialized: true,
+          loading: false,
+        })
+        step = '用户扩展初始化'
+        await ports.callHooks('getUserInfo', userInfo)
+        return isCurrent()
+      } catch (error) {
+        if (isCurrent()) {
+          const code = typeof error === 'object' && error !== null && 'code' in error ? Number(error.code) : undefined
+          if (code === 401) await session.getState().logout()
+          else session.setState({ initialized: false, loading: false, error: `${step}失败，请重试` })
+        }
+        return false
+      } finally {
+        if (loadTask?.version === startedVersion) loadTask = null
+      }
+    })()
+    loadTask = { version: startedVersion, promise }
+    return promise
+  }
+
   function persistSession(result: LoginResult, userInfo: UserInfo) {
+    assertActive()
+    identity = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), byte =>
+      byte.toString(16).padStart(2, '0'),
+    ).join('')
     ports.storage.setItem(tokenKey, result.access_token)
     ports.storage.setItem(refreshTokenKey, result.refresh_token)
     ports.storage.setItem(expireKey, String(Date.now() + result.expire_at * 1000))
     ports.storage.setItem(userInfoKey, JSON.stringify(userInfo))
+    ports.storage.setItem(identityKey, identity)
     ports.menus.clearMenus()
     session.setState(state => ({
       token: result.access_token,
@@ -233,7 +283,11 @@ export function createSessionManager(ports: SessionPorts) {
   }
 
   function clearSession() {
-    for (const key of [tokenKey, refreshTokenKey, expireKey, userInfoKey]) ports.storage.removeItem(key)
+    if (disposed) return
+    if (ports.storage.getItem(identityKey) === identity) {
+      for (const key of [tokenKey, refreshTokenKey, expireKey, userInfoKey, identityKey]) ports.storage.removeItem(key)
+    }
+    identity = ports.storage.getItem(identityKey)
     ports.menus.clearMenus()
     session.setState(state => ({
       token: null,
@@ -270,7 +324,63 @@ export function createSessionManager(ports: SessionPorts) {
     return [...new Set(permissions)]
   }
 
-  return session
+  function synchronize() {
+    if (disposed) return false
+    const nextIdentity = ports.storage.getItem(identityKey)
+    const token = ports.storage.getItem(tokenKey)
+    if (nextIdentity === identity) {
+      // A refresh rotates credentials within the same identity. Legacy sessions
+      // without an identity marker are invalidated if their credentials change.
+      if (token === session.getState().token) return false
+      if (identity !== null && token) {
+        session.setState({ token })
+        return false
+      }
+    }
+    identity = nextIdentity
+    refreshTask = null
+    loadTask = null
+    if (!token) {
+      ports.menus.clearMenus()
+      session.setState(state => ({
+        token: null,
+        userInfo: null,
+        roles: [],
+        permissions: [],
+        initialized: false,
+        loading: false,
+        error: null,
+        sessionVersion: state.sessionVersion + 1,
+      }))
+      return true
+    }
+    // A new account must never render the previous account's pages while its permissions load.
+    ports.menus.clearMenus()
+    session.setState(state => ({
+      token,
+      loading: false,
+      error: null,
+      sessionVersion: state.sessionVersion + 1,
+      userInfo: null,
+      roles: [],
+      permissions: [],
+      initialized: false,
+    }))
+    return true
+  }
+  const unsubscribe = ports.storage.subscribe?.(key => {
+    if (key === null || [identityKey, tokenKey, refreshTokenKey].includes(key)) synchronize()
+  })
+  return Object.assign(session, {
+    dispose() {
+      if (disposed) return
+      disposed = true
+      lifetime.abort()
+      refreshTask = null
+      loadTask = null
+      unsubscribe?.()
+    },
+  })
 }
 
 export type SessionManager = Pick<ReturnType<typeof createSessionManager>, 'getState' | 'getInitialState' | 'subscribe'>

@@ -4,13 +4,23 @@ export interface Registration {
   order?: number
 }
 /** Stable snapshots and ownership-aware disposal for typed extension collections. */
-export function createRegistry<T extends Registration>() {
+export function createRegistry<T extends Registration>(onSubscriberError: (error: unknown) => void = () => undefined) {
   const values = new Map<string, T>()
   const listeners = new Set<() => void>()
   let snapshot: readonly T[] = []
   function publish() {
     snapshot = [...values.values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id))
-    for (const listener of listeners) listener()
+    for (const listener of listeners) {
+      try {
+        listener()
+      } catch (error) {
+        try {
+          onSubscriberError(error)
+        } catch {
+          /* Diagnostics must not corrupt registration ownership. */
+        }
+      }
+    }
   }
   return {
     getSnapshot: () => snapshot,

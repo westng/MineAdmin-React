@@ -1,5 +1,7 @@
-import { createTextTranslator, useLocaleRevision } from '@/provider/i18n'
-import { useShell } from '@/hooks/shell/use-shell'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
+import { useShell } from '@/layouts/hooks/use-shell'
+import { useSettingStore } from '@/store/settings/use-settings'
 import * as React from 'react'
 import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -33,35 +35,26 @@ import {
   SidebarRail,
   useSidebar,
 } from '@/components/reui/primitives/sidebar'
-import { getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/dynamic-menu'
-import type { MenuVo } from '@/modules/base/permission/menu/api/permission'
+import { getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/navigation/menu'
+import type { MenuVo } from '@/services/navigation/types'
 import { cn } from '@/utils/cn'
 import { ProfileMenu } from '@/layouts/components/profile-menu'
-
-const tx = createTextTranslator('shell.ui')
 
 type NavigationIcon = ComponentType<{ className?: string }> | string
 type MenuItem = { label: string; to: string; icon?: NavigationIcon; children?: MenuItem[]; end?: boolean }
 
 const fallbackStoreItems: MenuItem[] = []
-const fallbackSystemItems: MenuItem[] = [
-  {
-    get label() {
-      return tx('个人资料')
-    },
-    to: '/settings',
-    icon: UserRound,
-    end: true,
-  },
-  {
-    get label() {
-      return tx('账号设置')
-    },
-    to: '/settings/account',
-    icon: Settings,
-  },
-]
-const workspaceItems: MenuItem[] = [{ label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard }]
+
+function getActiveParentPaths(items: MenuItem[], pathname: string): string[] {
+  return items.flatMap(item => {
+    if (!item.children?.length) return []
+    const ancestors = getActiveParentPaths(item.children, pathname)
+    const hasActiveChild = item.children.some(
+      child => pathname === child.to || (!child.end && pathname.startsWith(`${child.to}/`)),
+    )
+    return hasActiveChild || ancestors.length ? [item.to, ...ancestors] : []
+  })
+}
 
 function getMenuIcon(icon?: string): NavigationIcon {
   return icon?.trim() || CircleDot
@@ -84,6 +77,8 @@ function toMenuItem(menu: MenuVo): MenuItem | null {
   }
 }
 function NavigationSearchMenu({ items }: { items: MenuItem[] }) {
+  const tx = useTextTranslator('shell.ui')
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 
@@ -248,9 +243,32 @@ export default function MainAside({
   menusOverride?: MenuVo[]
   sidebarOffset?: string
 }) {
+  const tx = useTextTranslator('shell.ui')
+  const systemItems = React.useMemo<MenuItem[]>(
+    () => [
+      {
+        label: tx('个人资料'),
+        to: '/uc/index',
+        icon: UserRound,
+        end: true,
+      },
+      {
+        label: tx('账号设置'),
+        to: '/uc/account',
+        icon: Settings,
+      },
+    ],
+    [tx],
+  )
+
   const localeRevision = useLocaleRevision()
   void localeRevision
 
+  const dashboardPage = useSettingStore(state => state.settings.dashboardPage)
+  const workspaceItems = React.useMemo<MenuItem[]>(
+    () => [{ label: dashboardPage.title, to: dashboardPage.path, icon: dashboardPage.icon || LayoutDashboard }],
+    [dashboardPage],
+  )
   const location = useLocation()
   const { menus: storedMenus } = useShell()
   const menus = menusOverride ?? storedMenus
@@ -261,24 +279,31 @@ export default function MainAside({
     return menus.map(toMenuItem).filter((item): item is MenuItem => Boolean(item))
   }, [menus, localeRevision])
   const storeItems = React.useMemo(
-    () => (menuItems.length > 0 ? menuItems : fallbackStoreItems).filter(item => item.to !== '/dashboard'),
-    [menuItems],
+    () => (menuItems.length > 0 ? menuItems : fallbackStoreItems).filter(item => item.to !== dashboardPage.path),
+    [menuItems, dashboardPage.path],
   )
-  const systemItems = fallbackSystemItems
-  const allItems = React.useMemo(() => [...workspaceItems, ...storeItems, ...systemItems], [storeItems, systemItems])
+  const allItems = React.useMemo(
+    () => [...workspaceItems, ...storeItems, ...systemItems],
+    [workspaceItems, storeItems, systemItems],
+  )
+  // 菜单对象重建不应覆盖手动折叠；自动展开只跟随路由及其祖先路径变化。
+  const activeParentPaths = JSON.stringify(getActiveParentPaths(allItems, location.pathname))
   React.useEffect(() => {
-    const active = allItems
-      .filter(item =>
-        item.children?.some(child => location.pathname === child.to || location.pathname.startsWith(`${child.to}/`)),
-      )
-      .map(item => item.to)
+    const active = JSON.parse(activeParentPaths) as string[]
     if (!active.length) return
-    const timer = window.setTimeout(() => setExpanded(previous => new Set([...previous, ...active])), 0)
+    const timer = window.setTimeout(
+      () =>
+        setExpanded(previous =>
+          active.every(path => previous.has(path)) ? previous : new Set([...previous, ...active]),
+        ),
+      0,
+    )
     return () => window.clearTimeout(timer)
-  }, [location.pathname, allItems])
+  }, [location.pathname, activeParentPaths])
   const onToggle = React.useCallback(
     (path: string, open: boolean) =>
       setExpanded(previous => {
+        if (previous.has(path) === open) return previous
         const next = new Set(previous)
         if (open) next.add(path)
         else next.delete(path)
