@@ -15,6 +15,7 @@ const roots = new Set([
   '.prettierrc.json',
   '.prettierignore',
   '.gitignore',
+  '.gitleaks.toml',
   '.env.example',
   '.node-version',
   '.npmrc',

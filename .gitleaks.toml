@@ -1,0 +1,14 @@
+title = "MineAdmin secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "ReUI source SHA-256 entries, independently verified by check:vendor"
+condition = "AND"
+paths = ['''^THIRD_PARTY_SOURCE\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"src/components/reui/[^"\r\n]+": "[a-f0-9]{64}",?\s*$''']
