@@ -311,18 +311,20 @@ test('MaForm Select 和 Switch 的 cancel 阻止模型写入，全局 disabled �
   assert.equal(view.container.querySelector('[role="switch"]').getAttribute('aria-disabled'), 'true')
 })
 
-test('MaForm Switch 和 Radio 使用 Base UI 控件，并保留业务值', async t => {
+test('MaForm Switch、Radio 和 Checkbox 不显示清除按钮，仍可正常切换业务值', async t => {
   const ref = createRef()
   const view = await mount(t, MaForm, {
     ref,
-    defaultValue: { active: false, status: 0 },
+    defaultValue: { active: false, status: 0, checked: false },
     items: [
-      { prop: 'active', label: '开关', render: 'Switch' },
+      { prop: 'active', label: '开关', render: 'Switch', renderProps: { clearable: true } },
+      { prop: 'checked', label: '复选框', render: 'Checkbox', renderProps: { clearable: true } },
       {
         prop: 'status',
         label: '状态',
         render: 'Radio',
         renderProps: {
+          clearable: true,
           options: [
             { label: '关', value: 0 },
             { label: '开', value: 1 },
@@ -332,13 +334,20 @@ test('MaForm Switch 和 Radio 使用 Base UI 控件，并保留业务值', async
     ],
   })
   assert.ok(view.container.querySelector('[data-slot="switch-thumb"]'))
+  assert.equal(view.container.querySelector('[aria-label="清除"]'), null)
   await click(view.container.querySelector('[role="switch"]'))
+  await click(view.container.querySelector('[role="checkbox"]'))
   await click(view.container.querySelectorAll('[role="radio"]')[1])
-  assert.equal(ref.current.getValues().active, true)
-  assert.equal(ref.current.getValues().status, 1)
+  assert.deepEqual(ref.current.getValues(), { active: true, status: 1, checked: true })
+  assert.equal(view.container.querySelector('[aria-label="清除"]'), null)
+  await click(view.container.querySelector('[role="switch"]'))
+  await click(view.container.querySelector('[role="checkbox"]'))
+  await click(view.container.querySelectorAll('[role="radio"]')[0])
+  assert.deepEqual(ref.current.getValues(), { active: false, status: 0, checked: false })
+  assert.equal(view.container.querySelector('[aria-label="清除"]'), null)
 })
 
-test('MaForm InputNumber 使用 NumberField，步进、范围、事件和清空按数值契约处理', async t => {
+test('MaForm InputNumber 不显示清除按钮，步进、范围、事件和手动清空按数值契约处理', async t => {
   const ref = createRef()
   const events = []
   const view = await mount(t, MaForm, {
@@ -353,12 +362,14 @@ test('MaForm InputNumber 使用 NumberField，步进、范围、事件和清空�
           max: 4,
           step: 2,
           controls: true,
+          clearable: true,
           onValueChange: (value, details) => events.push([value, details.reason]),
         },
       },
     ],
   })
   assert.ok(view.container.querySelector('[data-slot="number-field"]'))
+  assert.equal(view.container.querySelector('[aria-label="清除"]'), null)
   await click(button(view.container, '增加'))
   assert.equal(ref.current.getValues().count, 4)
   await click(button(view.container, '增加'))
@@ -368,7 +379,7 @@ test('MaForm InputNumber 使用 NumberField，步进、范围、事件和清空�
   assert.ok(events.some(event => event[1] === 'increment-press'))
 })
 
-test('MaForm 内置控件默认支持清除', async t => {
+test('MaForm 内置控件清除时保留 InputNumber、Switch、Radio 和 Checkbox 的值', async t => {
   const ref = createRef()
   const view = await mount(t, MaForm, {
     ref,
@@ -396,16 +407,17 @@ test('MaForm 内置控件默认支持清除', async t => {
     ],
   })
   const clearButtons = [...view.container.querySelectorAll('[aria-label="清除"]')]
-  assert.equal(clearButtons.length, 9)
+  assert.equal(view.container.querySelector('[data-slot="number-field"] [aria-label="清除"]'), null)
+  assert.equal(clearButtons.length, 5)
   for (const clearButton of clearButtons) await click(clearButton)
   assert.deepEqual(ref.current.getValues(), {
     name: '',
     description: '',
-    count: undefined,
+    count: 2,
     status: null,
-    active: false,
-    enabled: false,
-    mode: undefined,
+    active: true,
+    enabled: true,
+    mode: 'a',
     date: undefined,
     time: undefined,
   })

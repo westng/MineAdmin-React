@@ -47,6 +47,7 @@ export function getFormItems(
       label: tx('菜单类型'),
       render: 'Select',
       renderProps: {
+        popupProps: { alignItemWithTrigger: false },
         options: [
           { value: 'M', label: tx('菜单（M）') },
           { value: 'L', label: tx('外链（L）') },
@@ -69,6 +70,7 @@ export function getFormItems(
       render: 'Select',
       show: (_item, values) => values.type === 'M',
       renderProps: {
+        popupProps: { alignItemWithTrigger: false },
         options: [
           { value: 'modules/', label: 'src/modules/' },
           { value: 'plugins/', label: 'src/plugins/' },
@@ -121,6 +123,7 @@ export function getFormItems(
       label: tx('状态'),
       render: 'Select',
       renderProps: {
+        popupProps: { alignItemWithTrigger: false },
         options: [
           { value: 1, label: tx('启用') },
           { value: 2, label: tx('禁用') },

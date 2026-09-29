@@ -60,7 +60,7 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
     <SelectPrimitive.Group
       data-slot="select-group"
-      className={state => cn('scroll-my-1 p-1', typeof className === 'function' ? className(state) : className)}
+      className={state => cn('scroll-my-1', typeof className === 'function' ? className(state) : className)}
       {...props}
     />
   )
@@ -109,7 +109,7 @@ function SelectContent({
   sideOffset = 4,
   align = 'center',
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  alignItemWithTrigger = false,
   portalProps,
   positionerProps,
   listProps,
@@ -145,7 +145,14 @@ function SelectContent({
           {...props}
         >
           <SelectScrollUpButton />
-          <SelectPrimitive.List {...listProps}>{children}</SelectPrimitive.List>
+          <SelectPrimitive.List
+            {...listProps}
+            className={state =>
+              cn('p-1', typeof listProps?.className === 'function' ? listProps.className(state) : listProps?.className)
+            }
+          >
+            {children}
+          </SelectPrimitive.List>
           <SelectScrollDownButton />
         </SelectPrimitive.Popup>
       </SelectPrimitive.Positioner>

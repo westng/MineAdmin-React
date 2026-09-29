@@ -112,7 +112,7 @@ import { MaForm, type MaFormExpose, type MaFormItem, type MaFormOptions, type Ma
 | `itemSlots`   | 自定义标签、帮助、附加说明和错误内容                                                                            | `MaFormItem<T>['itemSlots']`                              |
 | `render`      | 内置控件名、自定义渲染函数或组件                                                                                | `MaFormRender<T> \| MaFormComponentName \| ComponentType` |
 | `component`   | 内置控件名或自定义组件；优先于 `render`                                                                         | `MaFormComponentName \| ComponentType`                    |
-| `renderProps` | 随内置控件类型检查参数；内置控件默认 `clearable: true`，可显式设置 `clearable: false`；自定义渲染器保留开放配置 | `MaFormControlPropsMap[组件名]`                           |
+| `renderProps` | 随内置控件类型检查参数；支持清除的内置控件默认 `clearable: true`，可设为 `false`；`InputNumber`、`Switch`、`Radio`、`Checkbox` 不显示清除按钮；自定义渲染器保留开放配置 | `MaFormControlPropsMap[组件名]`                           |
 | `children`    | 自定义渲染项的子配置                                                                                            | `MaFormItem<T>[]`                                         |
 
 `show` 和 `hide` 的区别是：`show` 为假时字段不挂载，`hide` 为真时字段保留在表单树中但使用隐藏样式。`MaForm` 当前只使用 `cols.span` 和 `cols.offset`；未实现的响应式字段已从类型中移除。`children` 当前只对带函数式 `render` 的自定义子项执行渲染。
@@ -120,6 +120,8 @@ import { MaForm, type MaFormExpose, type MaFormItem, type MaFormOptions, type Ma
 ## 内置控件
 
 `render` 或 `component` 使用以下字符串时会渲染对应的项目控件：
+
+`InputNumber`、`Switch`、`Radio`、`Checkbox` 不显示清除按钮，传入 `clearable` 也不会启用。`Switch`、`Checkbox` 通过自身控件切换选中状态，`Radio` 通过选项切换值。`InputNumber` 仍可手动删除输入内容，模型值会更新为 `undefined`；加减步进按钮继续由 `controls` 控制。
 
 | 名称          | 控件                                     | 值类型                                |
 | ------------- | ---------------------------------------- | ------------------------------------- |
@@ -137,6 +139,8 @@ import { MaForm, type MaFormExpose, type MaFormItem, type MaFormOptions, type Ma
 `Select` 和 `Radio` 从 `renderProps.options` 或 `renderProps.items` 读取选项。选项可以是字符串、数字、布尔值或包含 `label/name/title/value/id` 的对象；保留原值类型，不再强制转成字符串。选中后展示 label，提交仍使用 value。旧业务如果自行依赖字符串数值，应将选项 value 明确配置为字符串。
 
 ## 配置、事件和高级控件
+
+MaForm 的 `Select` 默认使用 `alignItemWithTrigger: false`，按常规下拉方式定位面板。需要选中项与输入框文字重叠对齐时，可设置 `renderProps.popupProps.alignItemWithTrigger: true`。
 
 新的 `items/options` props 会立即生效。`setItems/setOptions` 的运行时修改保留到对应 props 换成新引用；`defaultValue` 只初始化模型，持续控制模型请使用 `modelValue`。表单级 `disabled/loading` 对内置控件优先，控件不能用 `disabled: false` 覆盖。
 

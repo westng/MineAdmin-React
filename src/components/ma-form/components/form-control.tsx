@@ -4,7 +4,14 @@ import { Checkbox } from '@/components/reui/primitives/checkbox'
 import { Input } from '@/components/reui/primitives/input'
 import { InputGroup, InputGroupAddon, InputGroupText } from '@/components/reui/primitives/input-group'
 import { RadioGroup, RadioGroupItem } from '@/components/reui/primitives/radio-group'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/reui/primitives/select'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/reui/primitives/select'
 import { Switch } from '@/components/reui/primitives/switch'
 import { Textarea } from '@/components/reui/primitives/textarea'
 import {
@@ -186,7 +193,7 @@ export function FormControl<T extends MaFormModel>({
             className={state =>
               cn(
                 'w-full',
-                canClear && 'pr-8',
+                canClear && '[&>[data-slot=select-value]]:pe-6',
                 typeof className === 'function' ? className(state) : className,
                 typeof triggerProps?.className === 'function' ? triggerProps.className(state) : triggerProps?.className,
               )
@@ -194,17 +201,19 @@ export function FormControl<T extends MaFormModel>({
           >
             <SelectValue placeholder={placeholder ?? '请选择'} {...valueProps} />
           </SelectTrigger>
-          <SelectContent {...popupProps}>
-            {choices.map((option, index) => (
-              <SelectItem
-                {...itemProps}
-                key={index}
-                value={option.value}
-                disabled={option.disabled || itemProps?.disabled}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
+          <SelectContent alignItemWithTrigger={false} {...popupProps}>
+            <SelectGroup>
+              {choices.map((option, index) => (
+                <SelectItem
+                  {...itemProps}
+                  key={index}
+                  value={option.value}
+                  disabled={option.disabled || itemProps?.disabled}
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         {canClear && (
@@ -227,12 +236,11 @@ export function FormControl<T extends MaFormModel>({
     )
   } else if (component === 'Checkbox') {
     const {
-      clearable = true,
+      clearable: _clearable,
       onCheckedChange,
       placeholder,
       ...controlProps
     } = props as MaFormControlPropsMap['Checkbox']
-    const canClear = Boolean(clearable && !disabled && value)
     control = (
       <div className="flex items-center gap-1">
         <Checkbox
@@ -246,12 +254,15 @@ export function FormControl<T extends MaFormModel>({
             if (!details.isCanceled) setValue(checked)
           }}
         />
-        {canClear && <ClearButton onClick={() => setValue(false)} />}
       </div>
     )
   } else if (component === 'Switch') {
-    const { clearable = true, onCheckedChange, placeholder, ...controlProps } = props as MaFormControlPropsMap['Switch']
-    const canClear = Boolean(clearable && !disabled && value)
+    const {
+      clearable: _clearable,
+      onCheckedChange,
+      placeholder,
+      ...controlProps
+    } = props as MaFormControlPropsMap['Switch']
     control = (
       <div className="flex items-center gap-1">
         <Switch
@@ -265,12 +276,11 @@ export function FormControl<T extends MaFormModel>({
             if (!details.isCanceled) setValue(checked)
           }}
         />
-        {canClear && <ClearButton onClick={() => setValue(false)} />}
       </div>
     )
   } else if (component === 'Radio') {
     const {
-      clearable = true,
+      clearable: _clearable,
       options,
       items,
       itemProps,
@@ -278,7 +288,6 @@ export function FormControl<T extends MaFormModel>({
       onValueChange,
       ...rootProps
     } = props as MaFormControlPropsMap['Radio']
-    const canClear = Boolean(clearable && !disabled && value !== undefined && value !== null && value !== '')
     control = (
       <div className="flex items-center gap-1">
         <RadioGroup
@@ -304,7 +313,6 @@ export function FormControl<T extends MaFormModel>({
             </label>
           ))}
         </RadioGroup>
-        {canClear && <ClearButton onClick={() => setValue(undefined)} />}
       </div>
     )
   } else if (component === 'InputNumber') {
@@ -315,12 +323,11 @@ export function FormControl<T extends MaFormModel>({
       incrementProps,
       decrementProps,
       placeholder,
-      clearable = true,
+      clearable: _clearable,
       onValueChange,
       onChange,
       ...rootProps
     } = props as MaFormControlPropsMap['InputNumber']
-    const canClear = Boolean(clearable && !disabled && value !== undefined && value !== null && value !== '')
     control = (
       <NumberField
         {...rootProps}
@@ -343,7 +350,6 @@ export function FormControl<T extends MaFormModel>({
               onChange?.(event)
             }}
           />
-          {canClear && <ClearButton className="size-6 shrink-0" onClick={() => setValue(undefined)} />}
           {controls && <NumberFieldIncrement aria-label="增加" {...incrementProps} />}
         </NumberFieldGroup>
       </NumberField>
