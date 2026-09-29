@@ -29,7 +29,7 @@
     "src/components/reui/data-grid/data-grid-column-header.tsx": "391fecdf931190693c3951f45da93ec8e83071f33be1daf7039f07d3565486b7",
     "src/components/reui/data-grid/data-grid-column-visibility.tsx": "0c6b511390f17493ffa4fd2e2d7cc16ed50265f1b27b4af19fc977dd5ac46dd2",
     "src/components/reui/data-grid/data-grid-i18n.tsx": "26bd14c5f0e822f4cff8e13bf4c4990d2ad73c58d57f59fda34a9e69b7193eae",
-    "src/components/reui/data-grid/data-grid-pagination.tsx": "6c1846810b7fe2ef61475ba4b5aa2a42d309271d9baebbaea98f52eae7bae0d8",
+    "src/components/reui/data-grid/data-grid-pagination.tsx": "142db1f95cabcdd4b72fccd9ba6b410993dd539889e4a53aa1932ffc06d938d4",
     "src/components/reui/data-grid/data-grid-scroll-area.tsx": "898bc70717aa25015276987d2d401e586b937922c43e40b24665dd0415a6e1a6",
     "src/components/reui/data-grid/data-grid-table-dnd-rows.tsx": "2bffc6a5984cd62378eb631c5071213bd282f04aa50325c36aab3e67852c3ebe",
     "src/components/reui/data-grid/data-grid-table-dnd.tsx": "4216c75a0c5eb5fe5d7bd6af0425213e0b97dbd26e0df03ed52973980fb2daee",

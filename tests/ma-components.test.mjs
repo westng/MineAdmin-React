@@ -954,6 +954,89 @@ test('MaTable 隐藏分页器或未配置分页时展示全部本地数据，显
   assert.equal(view.container.querySelectorAll('tbody tr[data-row-id]').length, 10)
 })
 
+test('MaTable 指定页支持回车和按钮跳转，并保持分页回调与本地数据一致', async t => {
+  const changes = []
+  const pages = []
+  const view = await mount(t, MaTable, {
+    columns: [{ prop: 'id', label: '编号' }],
+    data: Array.from({ length: 95 }, (_, index) => ({ id: index + 1 })),
+    options: {
+      pagination: {
+        pageSize: 10,
+        onCurrentChange: page => pages.push(page),
+        onChange: (...args) => changes.push(args),
+      },
+    },
+  })
+  const input = view.container.querySelector('[aria-label="跳转页码"]')
+  await enterValue(input, '7')
+  await act(async () => input.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+  assert.equal(view.container.querySelector('tbody tr[data-row-id]').getAttribute('data-row-id'), '61')
+  assert.equal(input.value, '')
+  assert.equal(input.placeholder, '7')
+  await enterValue(input, '2')
+  await click(button(view.container, '跳转'))
+  assert.equal(view.container.querySelector('tbody tr[data-row-id]').getAttribute('data-row-id'), '11')
+  assert.deepEqual(pages, [7, 2])
+  assert.deepEqual(changes, [
+    [7, 10],
+    [2, 10],
+  ])
+})
+
+test('MaTable 指定页忽略无效输入、限制越界值，当前页不会重复触发回调', async t => {
+  const changes = []
+  const view = await mount(t, MaTable, {
+    columns: [{ prop: 'id', label: '编号' }],
+    data: Array.from({ length: 95 }, (_, index) => ({ id: index + 1 })),
+    options: { pagination: { pageSize: 10, onChange: (...args) => changes.push(args) } },
+  })
+  const input = view.container.querySelector('[aria-label="跳转页码"]')
+  for (const value of ['', 'abc', '1.5', '99999999999999999999']) {
+    await enterValue(input, value)
+    assert.equal(button(view.container, '跳转').disabled, true)
+    await act(async () => input.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+  }
+  assert.deepEqual(changes, [])
+  await enterValue(input, '999')
+  await click(button(view.container, '跳转'))
+  assert.equal(view.container.querySelector('tbody tr[data-row-id]').getAttribute('data-row-id'), '91')
+  assert.equal(view.container.querySelectorAll('tbody tr[data-row-id]').length, 5)
+  await enterValue(input, '-1')
+  await click(button(view.container, '跳转'))
+  await enterValue(input, '0')
+  await click(button(view.container, '跳转'))
+  await enterValue(input, '1')
+  await click(button(view.container, '跳转'))
+  assert.deepEqual(changes, [
+    [10, 10],
+    [1, 10],
+  ])
+})
+
+test('MaTable 指定页遵守禁用、加载和显隐配置，并按最新总页数跳转', async t => {
+  const changes = []
+  const pagination = { total: 50, pageSize: 10, onChange: (...args) => changes.push(args) }
+  const props = { columns: [{ prop: 'id', label: '编号' }], data: [{ id: 1 }] }
+  const view = await mount(t, MaTable, { ...props, options: { pagination } })
+  const input = view.container.querySelector('[aria-label="跳转页码"]')
+  await enterValue(input, '4')
+  for (const options of [{ pagination: { ...pagination, disabled: true } }, { pagination, loading: true }]) {
+    await view.render({ ...props, options })
+    assert.equal(input.disabled, true)
+    assert.equal(button(view.container, '跳转').disabled, true)
+    await act(async () => input.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+  }
+  assert.deepEqual(changes, [])
+  await view.render({ ...props, options: { pagination: { ...pagination, total: 20 } } })
+  await click(button(view.container, '跳转'))
+  assert.deepEqual(changes, [[2, 10]])
+  await view.render({ ...props, options: { pagination: { ...pagination, showQuickJumper: false } } })
+  assert.equal(view.container.querySelector('[aria-label="跳转页码"]'), null)
+  await view.render({ ...props, options: { pagination: { ...pagination, total: 0 } } })
+  assert.equal(view.container.querySelector('[aria-label="跳转页码"]'), null)
+})
+
 test('MaTable 将标签放在搜索区和工具栏之间', async t => {
   const view = await mount(t, MaTable, {
     columns: [{ prop: 'id', label: '编号' }],

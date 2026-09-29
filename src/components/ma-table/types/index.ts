@@ -105,6 +105,8 @@ export interface MaTablePagination {
   currentPage?: number
   pageSizes?: number[]
   hideOnSinglePage?: boolean
+  /** 多页时默认显示指定页跳转，设为 false 隐藏。 */
+  showQuickJumper?: boolean
   disabled?: boolean
   onSizeChange?: (value: number) => void
   onCurrentChange?: (value: number) => void

@@ -141,94 +141,88 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
     <div
       data-slot="data-grid-pagination"
       className={cn(
-        "flex grow flex-col flex-wrap items-center justify-between gap-2.5 py-2.5 sm:flex-row sm:py-0",
+        "flex w-full grow flex-col flex-wrap items-start justify-between gap-2.5 py-2.5 sm:w-auto sm:flex-row sm:items-center sm:py-0",
         mergedProps.className
       )}
     >
-      <div className="order-2 flex flex-wrap items-center space-x-2.5 pb-2.5 sm:order-1 sm:pb-0">
-        {isLoading ? (
-          mergedProps.sizesSkeleton
-        ) : (
-          <>
-            <div className="text-muted-foreground text-sm">
-              {mergedProps.rowsPerPageLabel}
-            </div>
-            <Select
-              value={`${pageSize}`}
-              onValueChange={(value) => {
-                const newPageSize = Number(value)
-                table.setPageSize(newPageSize)
-              }}
-            >
-              {/* w-fit with a min, never a fixed width: a fixed w-16 clipped
-                  the value "100" by 1px at nova's paddings, while fit-content
-                  grows the trigger for 3-digit sizes and the min keeps the
-                  1-2 digit ones from collapsing narrower than 64px. */}
-              <SelectTrigger
-                aria-label={mergedProps.rowsPerPageLabel}
-                className="w-fit min-w-16"
-                size="sm"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent
-                align="start"
-                alignItemWithTrigger={false}
-                className="min-w-(--anchor-width)"
-              >
-                {mergedProps.sizes?.map((size: number) => (
-                  <SelectItem key={size} value={`${size}`}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </>
-        )}
+      <div className="text-muted-foreground text-sm text-nowrap">
+        {isLoading ? mergedProps.infoSkeleton : paginationInfo}
       </div>
-      <div className="order-1 flex flex-col items-center justify-center gap-2.5 pt-2.5 sm:order-2 sm:flex-row sm:justify-end sm:pt-0">
-        {isLoading ? (
-          mergedProps.infoSkeleton
-        ) : (
-          <>
-            <div className="text-muted-foreground order-2 text-sm text-nowrap sm:order-1">
-              {paginationInfo}
-            </div>
-            {pageCount > 1 && (
-              <div className="order-1 flex items-center space-x-1">
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  className={btnArrowClasses}
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  <span className="sr-only">
-                    {mergedProps.previousPageLabel}
-                  </span>
-                  <ChevronLeftIcon className="size-4" />
-                </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
+        {!isLoading && pageCount > 1 && (
+          <div className="flex items-center space-x-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className={btnArrowClasses}
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <span className="sr-only">
+                {mergedProps.previousPageLabel}
+              </span>
+              <ChevronLeftIcon className="size-4" />
+            </Button>
 
-                {renderEllipsisPrevButton()}
+            {renderEllipsisPrevButton()}
 
-                {renderPageButtons()}
+            {renderPageButtons()}
 
-                {renderEllipsisNextButton()}
+            {renderEllipsisNextButton()}
 
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  className={btnArrowClasses}
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
-                  <span className="sr-only">{mergedProps.nextPageLabel}</span>
-                  <ChevronRightIcon className="size-4" />
-                </Button>
-              </div>
-            )}
-          </>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className={btnArrowClasses}
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <span className="sr-only">{mergedProps.nextPageLabel}</span>
+              <ChevronRightIcon className="size-4" />
+            </Button>
+          </div>
         )}
+        <div className="flex shrink-0 items-center gap-2.5">
+          {isLoading ? (
+            mergedProps.sizesSkeleton
+          ) : (
+            <>
+              <div className="text-muted-foreground text-sm">
+                {mergedProps.rowsPerPageLabel}
+              </div>
+              <Select
+                value={`${pageSize}`}
+                onValueChange={(value) => {
+                  const newPageSize = Number(value)
+                  table.setPageSize(newPageSize)
+                }}
+              >
+                {/* w-fit with a min, never a fixed width: a fixed w-16 clipped
+                    the value "100" by 1px at nova's paddings, while fit-content
+                    grows the trigger for 3-digit sizes and the min keeps the
+                    1-2 digit ones from collapsing narrower than 64px. */}
+                <SelectTrigger
+                  aria-label={mergedProps.rowsPerPageLabel}
+                  className="w-fit min-w-16"
+                  size="sm"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent
+                  align="start"
+                  alignItemWithTrigger={false}
+                  className="min-w-(--anchor-width)"
+                >
+                  {mergedProps.sizes?.map((size: number) => (
+                    <SelectItem key={size} value={`${size}`}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

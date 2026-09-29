@@ -113,6 +113,8 @@ export function UserTable() {
 | `options.renderTable(table)` | 在 DataGrid 上下文中使用 Dnd、Virtual 等表体变体                                                |
 | `ref.getTableInstance()`     | 当前 TanStack 实例，例如 `setColumnOrder`、`setColumnVisibility`、`setColumnSizing`             |
 
+多页时分页器默认提供指定页跳转，输入整数页码后点击“跳转”或按 Enter。越界页码限制在有效范围内，空值和非整数不触发跳转；跳转当前页不会重复触发回调。加载中或 `pagination.disabled` 时禁用跳转。可设置 `options.pagination.showQuickJumper: false` 隐藏；MaProTable 对应 `options.tableOptions.pagination.showQuickJumper`。兼容分页组件与当前 DataGrid 分页布局共用此跳转入口。
+
 ```tsx
 const options: MaTableOptions<UserRow> = {
   dataGridProps: {

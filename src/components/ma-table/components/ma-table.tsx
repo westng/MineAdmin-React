@@ -25,6 +25,7 @@ import { Separator } from '@/components/reui/primitives/separator'
 import { FrameFooter } from '@/components/reui/frame'
 import { MaTableToolbar } from './ma-table-toolbar'
 import { MaTableTabs } from './ma-table-tabs'
+import { MaTablePageJumper } from './ma-table-pagination'
 import { useMaTableSelection } from '../hooks/use-ma-table-selection'
 import { useMaTableSort } from '../hooks/use-ma-table-sort'
 import { useTableCellRenderers } from '../hooks/use-table-cell-renderers'
@@ -501,8 +502,16 @@ function MaTableInner<T extends MaModel>(
             {showPagination && !(pagination.hideOnSinglePage && pageCount <= 1) && (
               <>
                 <Separator />
-                <FrameFooter>
+                <FrameFooter className="flex-col gap-2.5 sm:flex-row sm:flex-wrap">
                   <DataGridPagination sizes={pagination.pageSizes ?? [10, 20, 50, 100]} {...options.paginationProps} />
+                  {pageCount > 1 && pagination.showQuickJumper !== false && (
+                    <MaTablePageJumper
+                      currentPage={currentPage}
+                      pageCount={pageCount}
+                      onPageChange={setCurrentPage}
+                      disabled={Boolean(options.loading || pagination.disabled)}
+                    />
+                  )}
                 </FrameFooter>
               </>
             )}

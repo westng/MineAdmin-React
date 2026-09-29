@@ -15,6 +15,7 @@
 
 ### 架构与修复
 
+- MaTable 和 MaProTable 分页器增加指定页跳转，支持回车、页码边界校验，以及 `showQuickJumper` 显隐配置。
 - Ma 组件按实现、类型、Hook、上下文和纯工具整理目录，通过公共入口共享能力；新增结构校验并同步类型检查与导出清单。
 - 新增 MaUpload、MaDownload、MaEmpty；MaForm 支持声明式 DictSelect 和 Upload，上传下载能力由调用方注入。
 - 修复 MaForm Select 清除按钮与下拉箭头的位置冲突，补充控件交互回归测试。

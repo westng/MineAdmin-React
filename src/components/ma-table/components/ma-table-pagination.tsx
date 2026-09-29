@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
+import { Input } from '@/components/reui/primitives/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/reui/primitives/select'
 import type { MaTablePagination } from '../types'
 
@@ -16,6 +18,51 @@ export interface MaTablePaginationProps {
 function getPageRange(currentPage: number, pageCount: number): { start: number; end: number } {
   const start = Math.floor((currentPage - 1) / 5) * 5 + 1
   return { start, end: Math.min(start + 4, pageCount) }
+}
+
+export function MaTablePageJumper({
+  currentPage,
+  pageCount,
+  onPageChange,
+  disabled = false,
+}: Pick<MaTablePaginationProps, 'currentPage' | 'pageCount' | 'onPageChange'> & { disabled?: boolean }) {
+  const [draft, setDraft] = useState('')
+  const value = Number(draft.trim())
+  const valid = /^-?\d+$/.test(draft.trim()) && Number.isSafeInteger(value)
+
+  const jump = () => {
+    if (disabled || !valid) return
+    const nextPage = Math.min(pageCount, Math.max(1, value))
+    setDraft('')
+    if (nextPage !== currentPage) onPageChange(nextPage)
+  }
+
+  return (
+    <div className="order-3 flex shrink-0 items-center gap-1.5 text-sm" role="group" aria-label="指定页跳转">
+      <span className="text-muted-foreground">前往</span>
+      <Input
+        className="h-7 w-16 px-2 text-center"
+        inputMode="numeric"
+        aria-label="跳转页码"
+        aria-invalid={draft !== '' && !valid}
+        title={`页码范围：1-${pageCount}`}
+        placeholder={String(currentPage)}
+        value={draft}
+        disabled={disabled}
+        onChange={event => setDraft(event.target.value)}
+        onKeyDown={event => {
+          if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+          event.preventDefault()
+          event.stopPropagation()
+          jump()
+        }}
+      />
+      <span className="text-muted-foreground">页</span>
+      <Button type="button" size="sm" variant="outline" disabled={disabled || !valid} onClick={jump}>
+        跳转
+      </Button>
+    </div>
+  )
 }
 
 export function MaTablePagination({
@@ -117,6 +164,14 @@ export function MaTablePagination({
               <ChevronRight className="size-4" aria-hidden="true" />
             </Button>
           </div>
+        )}
+        {pageCount > 1 && pagination.showQuickJumper !== false && (
+          <MaTablePageJumper
+            currentPage={currentPage}
+            pageCount={pageCount}
+            onPageChange={onPageChange}
+            disabled={pagination.disabled}
+          />
         )}
       </div>
     </div>
