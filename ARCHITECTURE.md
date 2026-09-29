@@ -63,6 +63,8 @@ Router、Shell、页面权限和个人资料组件通过框架 Hook 读取同一
 
 `scripts/check-source-structure.mjs` 拦截旧目录；依赖检查解析相对路径、别名和类型导入，禁止服务依赖 UI、纯 Store 依赖装配层、Provider 硬编码业务模块、通用 UI Hook 读取 Runtime，并检查值依赖循环。Ma/ReUI 组件闭包不能通过应用 Hook 间接依赖 Runtime。组件声明数据端口，Provider 注入实现；例如 `MaDictionaryContext` 和 `TableRequestContext`。
 
+Ma 组件统一采用公共入口与职责子目录，具体目录、类型归属和验证规则见 [Ma 组件工程规范](docs/MA_COMPONENTS.md)。
+
 ## 公共入口
 
 | 能力             | 入口                                                     | 说明                                                        |

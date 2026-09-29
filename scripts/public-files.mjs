@@ -55,8 +55,9 @@ export function isPublicFile(file) {
     return /^src\/(?:hooks|layouts|provider|router|services|store|types|utils)\//.test(file)
   }
   if (/^(examples|\.githooks|\.github)\//.test(file)) return true
-  if (/^docs\/(?:MIGRATION|EXTENSIONS|MENU_MIGRATION|ROUTING)\.md$/.test(file)) return true
+  if (/^docs\/(?:MIGRATION|EXTENSIONS|MENU_MIGRATION|ROUTING|MA_COMPONENTS)\.md$/.test(file)) return true
   if (/^scripts\/(?:check-[\w-]+|public-files|public-smoke|export-public|setup-git-hooks)\.mjs$/.test(file)) return true
+  if (/^scripts\/vite-source-structure-hmr\.(?:mjs|d\.mts)$/.test(file)) return true
   if (
     /^tests\/(?:framework-[\w-]+|component-boundaries|frontend-session|dashboard-slot|ma-components)\.(?:test\.mjs|types\.tsx)$/.test(
       file,

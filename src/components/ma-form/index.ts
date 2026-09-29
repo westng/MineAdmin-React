@@ -13,3 +13,5 @@ export type {
   MaFormRule,
   MaFormValidationResult,
 } from './types'
+
+export { readLabel as readFormLabel, resolveProp as resolveFormProp } from './utils/form-utils'

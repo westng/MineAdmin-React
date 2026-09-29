@@ -1,5 +1,5 @@
 import { QueryObserver, type QueryClient } from '@tanstack/react-query'
-import type { TableRequestSnapshot, TableRequestStore } from '@/components/ma-pro-table/utils/request-store'
+import type { TableRequestSnapshot, TableRequestStore } from '@/components/ma-pro-table'
 import { fetchResourceQuery } from '../../services/query/resource'
 
 /** All request-mode tables in an application share its Query cache and session ownership. */

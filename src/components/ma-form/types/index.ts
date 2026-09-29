@@ -11,6 +11,8 @@ export type MaFormComponentName =
   | 'InputNumber'
   | 'Textarea'
   | 'Select'
+  | 'DictSelect'
+  | 'Upload'
   | 'Checkbox'
   | 'Switch'
   | 'DatePicker'

@@ -1,4 +1,3 @@
-export { MaDateRangePicker, MaDateRangePickerField } from './ma-date-range-picker'
-export { defaultDateRangeShortcuts } from './shortcuts'
-export type { MaDateRangePickerProps } from './ma-date-range-picker'
-export type { MaDateRangeShortcut } from './shortcuts'
+export { MaDateRangePicker, MaDateRangePickerField } from './components/ma-date-range-picker'
+export { defaultDateRangeShortcuts } from './data/shortcuts'
+export type { MaDateRangePickerProps, MaDateRangeShortcut } from './types'

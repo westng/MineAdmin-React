@@ -1,4 +1,3 @@
-import { TableRequestContext, getIdleTableRequest, subscribeIdleTableRequest } from '../utils/request-store'
 import * as React from 'react'
 import { MoreHorizontal, RefreshCw } from 'lucide-react'
 import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame'
@@ -11,13 +10,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/reui/primitives/dropdown-menu'
 import { Separator } from '@/components/reui/primitives/separator'
-import { MaSearch } from '../../ma-search'
-import { MaTable } from '../../ma-table'
 import { cn } from '@/utils/cn'
 import { getPathValue } from '@/components/reui/utils/path'
 import { usePropState } from '@/components/reui/utils/use-prop-state'
+import { TableRequestContext, getIdleTableRequest, subscribeIdleTableRequest } from '../context/request-context'
+import { MaSearch } from '../../ma-search'
+import { MaTable } from '../../ma-table'
+import { MaEmpty } from '../../ma-empty'
 import { readResponseList, readResponseTotal, resolveText, resolveVisible } from '../utils/pro-table-utils'
-import { ProTableToolbarsContext } from '../utils/toolbars'
+import { ProTableToolbarsContext } from '../context/toolbars-context'
 import type {
   MaProTableApi,
   MaProTableColumns,
@@ -650,7 +651,10 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
           options={tableOptions}
           tabs={tabs}
           onSelectionChange={handleSelectionChange}
-          empty={empty}
+          empty={
+            empty ??
+            options.tableOptions?.dataGridProps?.emptyMessage ?? <MaEmpty title={options.tableOptions?.emptyText} />
+          }
           headerContent={
             error || showSearch ? (
               <>

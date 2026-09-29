@@ -55,6 +55,14 @@ const result = await build({
         'ma-drawer',
         'ma-remote-select',
         'ma-dict-select',
+        'ma-upload',
+        'ma-download',
+        'ma-empty',
+        'ma-access',
+        'ma-date-range-picker',
+        'ma-icon',
+        'ma-icon-picker',
+        'ma-tree-select',
       ].map(name => `export * from './src/components/${name}'`),
       "import { createAppRuntime } from './src/app/runtime/create-runtime'; export { RuntimeContext } from './src/provider/runtime/context'; export const testRuntime = createAppRuntime({ storage: window.localStorage }); export const useDictStore = testRuntime.dictionaries.store;",
     ].join('\n'),
@@ -65,6 +73,9 @@ const result = await build({
   platform: 'node',
   format: 'cjs',
   packages: 'external',
+  // Node does not transform Vite's asset glob; these tests use no custom SVG assets.
+  define: { 'import.meta.glob': '__testAssetGlob' },
+  banner: { js: 'const __testAssetGlob = () => ({})' },
 })
 const compiled = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(compiled, compiled.exports, require)
@@ -128,6 +139,388 @@ async function enterValue(input, value) {
 after(async () => {
   await dom.happyDOM.abort()
   dom.close()
+})
+
+async function mountEmpty(t, props) {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const render = nextProps => act(async () => root.render(createElement(compiled.exports.MaEmpty, nextProps)))
+  t.after(async () => {
+    await act(async () => root.unmount())
+    container.remove()
+  })
+  await render(props)
+  return { container, render }
+}
+
+test('迁移后的 MaAccess、MaIcon 公共入口保留权限回退与图标语义', async t => {
+  const access = await mount(t, compiled.exports.MaAccess, {
+    allowed: false,
+    children: '允许操作',
+    fallback: '只读',
+  })
+  assert.equal(access.container.textContent, '只读')
+  await access.render({ allowed: true, children: '允许操作', fallback: '只读' })
+  assert.equal(access.container.textContent, '允许操作')
+  const icon = await mount(t, compiled.exports.MaIcon, { name: '', label: '空图标' })
+  assert.equal(icon.container.querySelector('[role="img"]').getAttribute('aria-label'), '空图标')
+  await icon.render({ name: '' })
+  assert.equal(icon.container.firstElementChild.getAttribute('aria-hidden'), 'true')
+})
+
+test('迁移后的 MaDateRangePicker 公共入口保留格式化展示、清除与只读行为', async t => {
+  const changes = []
+  const props = {
+    value: ['2026-09-01', '2026-09-28'],
+    valueFormat: 'yyyy-MM-dd',
+    displayFormat: 'yyyy-MM-dd',
+    onChange: value => changes.push(value),
+  }
+  const view = await mount(t, compiled.exports.MaDateRangePicker, props)
+  assert.ok(view.container.textContent.includes('2026-09-01 — 2026-09-28'))
+  await click(button(view.container, '清除时间范围'))
+  assert.deepEqual(changes, [undefined])
+  await view.render({ ...props, readOnly: true })
+  assert.equal(button(view.container, '清除时间范围'), undefined)
+})
+
+test('MaEmpty 无 Provider 默认展示搜索插画，透传 ref 并关联独立标题和说明', async t => {
+  const ref = createRef()
+  const { container } = await mountEmpty(t, { ref, id: 'empty-files', description: '请先上传文件' })
+  const status = container.querySelector('[role="status"]')
+  const title = container.querySelector('[data-slot="empty-title"]')
+  const description = container.querySelector('[data-slot="empty-description"]')
+  assert.equal(ref.current, status)
+  assert.equal(status.id, 'empty-files')
+  assert.equal(status.dataset.type, 'search')
+  assert.equal(status.dataset.size, 'default')
+  assert.ok(container.querySelector('[data-slot="ma-empty-search-illustration"]'))
+  assert.equal(container.querySelector('[data-slot="empty-icon"]').getAttribute('aria-hidden'), 'true')
+  assert.equal(title.textContent, '暂无数据')
+  assert.equal(status.getAttribute('aria-labelledby'), title.id)
+  assert.equal(status.getAttribute('aria-describedby'), description.id)
+  assert.equal(description.textContent, '请先上传文件')
+  assert.equal(container.querySelector('[data-slot="empty-content"]'), null)
+
+  const other = await mountEmpty(t, {})
+  const otherTitle = other.container.querySelector('[data-slot="empty-title"]')
+  assert.notEqual(title.id, otherTitle.id)
+  assert.equal(other.container.querySelector('[role="status"]').hasAttribute('aria-describedby'), false)
+})
+
+test('MaEmpty 切换类型或自定义插画，隐藏空插槽但保留数字零', async t => {
+  const { container, render } = await mountEmpty(t, { type: 'simple', size: 'sm' })
+  assert.equal(container.querySelector('[data-slot="ma-empty-search-illustration"]'), null)
+  assert.ok(container.querySelector('svg'))
+  assert.equal(container.querySelector('[data-slot="empty-icon"]').dataset.variant, 'icon')
+  assert.equal(container.querySelector('[role="status"]').dataset.size, 'sm')
+
+  await render({ type: 'simple', image: createElement('span', null, '自定义插画') })
+  assert.equal(container.querySelector('svg'), null)
+  assert.equal(container.querySelector('[data-slot="empty-icon"]').textContent, '自定义插画')
+  assert.equal(container.querySelector('[data-slot="empty-icon"]').dataset.variant, 'default')
+
+  for (const empty of [null, false, true, '']) {
+    await render({ image: empty, title: empty, description: empty, actions: empty, children: empty })
+    assert.equal(container.querySelector('[data-slot="empty-header"]'), null)
+    assert.equal(container.querySelector('[data-slot="empty-content"]'), null)
+    assert.equal(container.querySelector('[role="status"]').hasAttribute('aria-labelledby'), false)
+    assert.equal(container.querySelector('[role="status"]').hasAttribute('aria-describedby'), false)
+  }
+  await render({ image: null, title: 0, description: 0, actions: 0, children: 0 })
+  assert.equal(container.querySelector('[data-slot="empty-icon"]'), null)
+  assert.equal(container.querySelector('[data-slot="empty-title"]').textContent, '0')
+  assert.equal(container.querySelector('[data-slot="empty-description"]').textContent, '0')
+  assert.equal(container.querySelector('[data-slot="empty-content"]').textContent, '00')
+})
+
+test('MaEmpty 操作和补充内容保留交互，根容器与各插槽样式可覆盖', async t => {
+  let clicks = 0
+  const { container } = await mountEmpty(t, {
+    title: createElement('strong', null, '未找到结果'),
+    description: '调整筛选后重试',
+    actions: createElement('button', { type: 'button', onClick: () => clicks++ }, '重试'),
+    children: createElement('a', { href: '/help' }, '查看帮助'),
+    className: 'p-0 test-root',
+    classNames: {
+      header: 'test-header',
+      image: 'test-image',
+      title: 'test-title',
+      description: 'test-description',
+      content: 'test-content',
+      actions: 'test-actions',
+    },
+    'data-testid': 'empty-results',
+  })
+  assert.equal(container.querySelector('[role="status"]').getAttribute('data-testid'), 'empty-results')
+  assert.equal(container.querySelector('.test-title strong').textContent, '未找到结果')
+  for (const slot of ['root', 'header', 'image', 'title', 'description', 'content', 'actions']) {
+    assert.ok(container.querySelector(`.test-${slot}`))
+  }
+  assert.ok(container.querySelector('.test-root').classList.contains('p-0'))
+  assert.equal(container.querySelector('.test-root').classList.contains('py-12'), false)
+  assert.equal(container.querySelector('.test-content').firstElementChild.classList.contains('test-actions'), true)
+  assert.equal(container.querySelector('.test-content').lastElementChild.getAttribute('href'), '/help')
+  await click(button(container, '重试'))
+  assert.equal(clicks, 1)
+})
+
+test('MaEmpty 尊重显式 ARIA 命名和角色，更新文案时不遗留无效关联', async t => {
+  const { container, render } = await mountEmpty(t, { 'aria-label': '搜索结果为空', role: 'region' })
+  const region = container.querySelector('[role="region"]')
+  assert.equal(region.getAttribute('aria-label'), '搜索结果为空')
+  assert.equal(region.hasAttribute('aria-labelledby'), false)
+
+  await render({ 'aria-labelledby': 'external-title', 'aria-describedby': 'external-description' })
+  const status = container.querySelector('[role="status"]')
+  assert.equal(status.getAttribute('aria-labelledby'), 'external-title')
+  assert.equal(status.getAttribute('aria-describedby'), 'external-description')
+
+  await render({ title: null, description: '只有说明' })
+  assert.equal(status.hasAttribute('aria-labelledby'), false)
+  assert.equal(status.getAttribute('aria-describedby'), container.querySelector('[data-slot="empty-description"]').id)
+  await render({ title: null })
+  assert.equal(status.hasAttribute('aria-describedby'), false)
+})
+
+function captureDownloads(t) {
+  const links = []
+  const blobs = []
+  const revoked = []
+  const releases = []
+  t.mock.method(dom.HTMLAnchorElement.prototype, 'click', function () {
+    links.push({ url: this.href, filename: this.download, connected: this.isConnected })
+  })
+  t.mock.method(URL, 'createObjectURL', blob => {
+    blobs.push(blob)
+    return `blob:http://localhost/download-${blobs.length}`
+  })
+  t.mock.method(URL, 'revokeObjectURL', url => revoked.push(url))
+  const schedule = globalThis.setTimeout
+  t.mock.method(globalThis, 'setTimeout', (callback, delay, ...args) => {
+    if (delay === 60_000) {
+      releases.push(callback)
+      return 0
+    }
+    return schedule(callback, delay, ...args)
+  })
+  return { links, blobs, revoked, releases }
+}
+
+async function mountDownload(t, props) {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const render = async (nextProps, mode = 'visible') => {
+    await act(async () =>
+      root.render(createElement(Activity, { mode }, createElement(compiled.exports.MaDownload, nextProps))),
+    )
+  }
+  t.after(async () => {
+    await act(async () => root.unmount())
+    container.remove()
+  })
+  await render(props)
+  return { container, render, clear: () => act(async () => root.render(null)) }
+}
+
+test('MaDownload 无 Provider 可下载直链，保留按钮属性且不会提交表单', async t => {
+  const downloads = captureDownloads(t)
+  const ref = createRef()
+  let successes = 0
+  const view = await mountDownload(t, {
+    url: '/files/%E6%A8%A1%E6%9D%BF.xlsx?signature=test',
+    ref,
+    variant: 'link',
+    'aria-label': '下载模板',
+    onSuccess: () => successes++,
+  })
+  assert.equal(ref.current, view.container.querySelector('button'))
+  assert.equal(ref.current.type, 'button')
+  assert.equal(ref.current.getAttribute('aria-label'), '下载模板')
+  await click(ref.current)
+  assert.deepEqual(downloads.links, [
+    { url: 'http://localhost/files/%E6%A8%A1%E6%9D%BF.xlsx?signature=test', filename: '模板.xlsx', connected: true },
+  ])
+  assert.equal(successes, 1)
+  assert.equal(document.querySelector('a[download]'), null)
+  assert.equal(downloads.blobs.length, 0)
+  await view.render({ url: '/next', disabled: true })
+  await click(view.container.querySelector('button'))
+  await view.render({ url: '/next', onClick: event => event.preventDefault() })
+  await click(view.container.querySelector('button'))
+  assert.equal(downloads.links.length, 1)
+})
+
+test('MaDownload Blob 和 File 文件名按优先级解析，释放自有 URL 并移除临时链接', async t => {
+  const downloads = captureDownloads(t)
+  const file = new File(['content'], '原始.txt')
+  const view = await mountDownload(t, { blob: file })
+  await click(view.container.querySelector('button'))
+  await view.render({ request: async () => ({ blob: file, filename: '服务端.txt' }) })
+  await click(view.container.querySelector('button'))
+  await view.render({ request: async () => ({ blob: file, filename: '服务端.txt' }), filename: '../显式\n.txt' })
+  await click(view.container.querySelector('button'))
+  await view.render({ blob: new Blob([]) })
+  await click(view.container.querySelector('button'))
+  assert.deepEqual(
+    downloads.links.map(link => link.filename),
+    ['原始.txt', '服务端.txt', '.._显式_.txt', 'download'],
+  )
+  assert.equal(downloads.blobs[0], file)
+  assert.equal(document.querySelector('a[download]'), null)
+  assert.deepEqual(downloads.revoked, [])
+  await view.clear()
+  assert.deepEqual(downloads.revoked, [])
+  downloads.releases.forEach(release => release())
+  assert.deepEqual(
+    downloads.revoked,
+    downloads.links.map(link => link.url),
+  )
+})
+
+test('MaDownload 异步期间阻止重复请求并显示 loading，完成后恢复按钮', async t => {
+  const downloads = captureDownloads(t)
+  const task = deferred()
+  const states = []
+  let requests = 0
+  const view = await mountDownload(t, {
+    request: ({ signal }) => {
+      assert.equal(signal.aborted, false)
+      requests++
+      return task.promise
+    },
+    onDownloadingChange: value => states.push(value),
+    children: '导出',
+    loadingText: '生成文件…',
+  })
+  const trigger = view.container.querySelector('button')
+  await act(async () => {
+    trigger.click()
+    trigger.click()
+  })
+  assert.equal(requests, 1)
+  assert.equal(trigger.disabled, true)
+  assert.equal(trigger.getAttribute('aria-busy'), 'true')
+  assert.match(trigger.textContent, /生成文件/)
+  await act(async () => task.resolve(new Blob(['report'])))
+  assert.equal(downloads.links.length, 1)
+  assert.equal(trigger.disabled, false)
+  assert.equal(trigger.textContent, '导出')
+  assert.equal(trigger.getAttribute('aria-busy'), 'false')
+  assert.deepEqual(states, [true, false])
+})
+
+test('MaDownload 请求失败显示关联错误，重试清理错误并使用新来源', async t => {
+  const downloads = captureDownloads(t)
+  const errors = []
+  let successes = 0
+  const view = await mountDownload(t, {
+    request: async () => {
+      throw new Error('无下载权限')
+    },
+    'aria-describedby': 'download-help',
+    onError: error => errors.push(error),
+    onSuccess: () => successes++,
+  })
+  await click(view.container.querySelector('button'))
+  const alert = view.container.querySelector('[role="alert"]')
+  assert.equal(alert.textContent, '无下载权限')
+  assert.equal(view.container.querySelector('button').getAttribute('aria-describedby'), `download-help ${alert.id}`)
+  assert.equal(errors[0].message, '无下载权限')
+  assert.equal(successes, 0)
+  await view.render({ url: '/retry.txt', onSuccess: () => successes++ })
+  await click(view.container.querySelector('button'))
+  assert.equal(view.container.querySelector('[role="alert"]'), null)
+  assert.equal(downloads.links[0].filename, 'retry.txt')
+  assert.equal(successes, 1)
+})
+
+test('MaDownload 拒绝危险协议和非 Blob 请求结果，允许有效直链重试', async t => {
+  const downloads = captureDownloads(t)
+  const view = await mountDownload(t, { url: 'javascript:alert(1)' })
+  for (const props of [
+    { url: 'javascript:alert(1)' },
+    { url: 'data:text/html,test' },
+    { url: ' ' },
+    { request: async () => ({ code: 200 }) },
+  ]) {
+    await view.render(props)
+    await click(view.container.querySelector('button'))
+    assert.ok(view.container.querySelector('[role="alert"]'))
+  }
+  assert.equal(downloads.links.length, 0)
+  assert.equal(downloads.blobs.length, 0)
+  await view.render({ url: 'blob:http://localhost/external', filename: '外部.txt' })
+  await click(view.container.querySelector('button'))
+  assert.equal(downloads.links[0].filename, '外部.txt')
+  assert.equal(downloads.releases.length, 0)
+})
+
+test('MaDownload 卸载取消请求，忽略不遵守取消信号的晚到响应', async t => {
+  const downloads = captureDownloads(t)
+  const task = deferred()
+  const states = []
+  let signal
+  let callbacks = 0
+  const view = await mountDownload(t, {
+    request: options => {
+      signal = options.signal
+      return task.promise
+    },
+    onDownloadingChange: value => states.push(value),
+    onError: () => callbacks++,
+    onSuccess: () => callbacks++,
+  })
+  await click(view.container.querySelector('button'))
+  await view.clear()
+  assert.equal(signal.aborted, true)
+  await act(async () => task.resolve(new Blob(['late'])))
+  assert.equal(downloads.links.length, 0)
+  assert.equal(callbacks, 0)
+  assert.deepEqual(states, [true, false])
+})
+
+test('MaDownload Activity 隐藏取消旧请求，恢复后可下载且不受旧请求结束影响', async t => {
+  const downloads = captureDownloads(t)
+  const oldTask = deferred()
+  const newTask = deferred()
+  const states = []
+  const calls = []
+  const props = {
+    request: ({ signal }) => {
+      calls.push(signal)
+      return calls.length === 1 ? oldTask.promise : newTask.promise
+    },
+    onDownloadingChange: value => states.push(value),
+  }
+  const view = await mountDownload(t, props)
+  await click(view.container.querySelector('button'))
+  await view.render(props, 'hidden')
+  assert.equal(calls[0].aborted, true)
+  await view.render(props)
+  assert.equal(view.container.querySelector('button').disabled, false)
+  await click(view.container.querySelector('button'))
+  await act(async () => oldTask.reject(new Error('late error')))
+  assert.equal(view.container.querySelector('button').disabled, true)
+  assert.equal(view.container.querySelector('[role="alert"]'), null)
+  await act(async () => newTask.resolve(new Blob(['current'])))
+  assert.equal(downloads.links.length, 1)
+  assert.deepEqual(states, [true, false, true, false])
+})
+
+test('MaDownload 触发浏览器下载失败时立即释放资源并报告失败', async t => {
+  const downloads = captureDownloads(t)
+  t.mock.method(dom.HTMLAnchorElement.prototype, 'click', () => {
+    throw new Error('download blocked')
+  })
+  const view = await mountDownload(t, { blob: new Blob(['content']) })
+  await click(view.container.querySelector('button'))
+  assert.equal(view.container.querySelector('[role="alert"]').textContent, 'download blocked')
+  assert.deepEqual(downloads.revoked, ['blob:http://localhost/download-1'])
+  assert.equal(downloads.releases.length, 0)
+  assert.equal(document.querySelector('a[download]'), null)
 })
 
 test('MaForm 渲染字段 Label，并保留控件无障碍名称和配置同步', async t => {
@@ -784,6 +1177,40 @@ test('MaProTable 新的请求配置优先，过期响应不能覆盖最新数据
   assert.doesNotMatch(view.container.textContent, /旧数据/)
 })
 
+test('MaProTable 空数据默认使用 MaEmpty，加载和有数据时不显示空状态', async t => {
+  const schema = { tableColumns: [{ prop: 'id', label: '编号' }] }
+  const options = { tableOptions: { data: [], loadingMode: 'spinner' } }
+  const view = await mount(t, MaProTable, { schema, options })
+  const empty = () => view.container.querySelector('[data-slot="ma-empty-search-illustration"]')
+  assert.ok(empty())
+  assert.equal(view.container.querySelector('[data-slot="empty-title"]').textContent, '暂无数据')
+
+  await view.render({ schema, options, loading: true })
+  assert.equal(empty(), null)
+  await view.render({ schema, options: { tableOptions: { data: [{ id: '已有记录' }] } } })
+  assert.equal(empty(), null)
+  assert.match(view.container.textContent, /已有记录/)
+  await view.render({ schema, options })
+  assert.ok(empty())
+})
+
+test('MaProTable 保留空状态文案和自定义内容的覆盖优先级', async t => {
+  const schema = { tableColumns: [{ prop: 'id', label: '编号' }] }
+  const tableOptions = { data: [], emptyText: '没有匹配记录' }
+  const view = await mount(t, MaProTable, { schema, options: { tableOptions } })
+  assert.equal(view.container.querySelector('[data-slot="empty-title"]').textContent, '没有匹配记录')
+
+  const options = {
+    tableOptions: { ...tableOptions, dataGridProps: { emptyMessage: createElement('span', null, '自定义网格空态') } },
+  }
+  await view.render({ schema, options })
+  assert.equal(view.container.querySelector('[data-slot="ma-empty-search-illustration"]'), null)
+  assert.match(view.container.textContent, /自定义网格空态/)
+  await view.render({ schema, options, empty: createElement('span', null, '自定义表格空态') })
+  assert.match(view.container.textContent, /自定义表格空态/)
+  assert.doesNotMatch(view.container.textContent, /自定义网格空态/)
+})
+
 test('MaProTable 的 tableOptions.data 与分页回调可动态更新', async t => {
   const ref = createRef()
   const events = []
@@ -1389,6 +1816,215 @@ test('MaDictSelect 从字典读取原始值并默认支持清除', async t => {
   await click(view.container.querySelector('[aria-label="清除"]'))
   assert.deepEqual(changes, [1, null])
   await act(async () => useDictStore.getState().remove(dictName))
+})
+
+test('MaForm 声明式 DictSelect 和 Upload 回填模型，公共控件不需要应用上传接口', async t => {
+  const dictName = 'test-form-dictionary-upload'
+  useDictStore.getState().push(dictName, [{ label: '抖音', value: 'DY' }], true)
+  t.after(async () => {
+    await act(async () => useDictStore.getState().remove(dictName))
+  })
+  const values = []
+  const pending = []
+  const uploaded = []
+  function FormFixture() {
+    const [model, setModel] = useState({ platform: null, avatar: '' })
+    return createElement(MaForm, {
+      modelValue: model,
+      onModelValueChange: next => {
+        setModel(next)
+        values.push(next)
+      },
+      items: [
+        { label: '平台', prop: 'platform', render: 'DictSelect', renderProps: { dictName } },
+        {
+          label: '头像',
+          prop: 'avatar',
+          render: 'Upload',
+          renderProps: {
+            listType: 'picture',
+            label: '图片',
+            accept: 'image/*',
+            request: async (file, options) => {
+              uploaded.push({ file, options })
+              return 'https://images.example.test/uploaded.png'
+            },
+            onUploadingChange: next => pending.push(next),
+          },
+        },
+      ],
+    })
+  }
+  const view = await mount(t, FormFixture, {})
+  const trigger = view.container.querySelector('[data-slot="select-trigger"]')
+  assert.equal(trigger.id, 'platform')
+  await click(trigger)
+  await click([...document.querySelectorAll('[role="option"]')].find(node => node.textContent.includes('抖音')))
+  assert.equal(values.at(-1).platform, 'DY')
+  const input = view.container.querySelector('input[type="file"]')
+  const file = new File(['image'], 'avatar.png', { type: 'image/png' })
+  Object.defineProperty(input, 'files', { configurable: true, value: [file] })
+  await act(async () => input.dispatchEvent(new dom.Event('change', { bubbles: true })))
+  assert.equal(uploaded[0].file, file)
+  assert.equal(uploaded[0].options.signal.aborted, false)
+  assert.equal(values.at(-1).avatar, 'https://images.example.test/uploaded.png')
+  assert.deepEqual(pending, [true, false])
+  assert.equal(view.container.querySelector('img').style.width, '40px')
+  await click(view.container.querySelector('[aria-label="移除图片"]'))
+  assert.equal(values.at(-1).avatar, '')
+  await click(view.container.querySelector('[aria-label="清除"]'))
+  assert.equal(values.at(-1).platform, null)
+})
+
+test('MaUpload 无 Provider 时限制图片并取消卸载后的回填', async t => {
+  const task = deferred()
+  const changes = []
+  const calls = []
+  function Standalone({ visible = true }) {
+    return visible
+      ? createElement(compiled.exports.MaUpload, {
+          value: 'https://images.example.test/old.png',
+          accept: 'image/*',
+          listType: 'picture',
+          maxSize: 4,
+          onChange: next => changes.push(next),
+          request: (file, options) => {
+            calls.push(options)
+            return task.promise
+          },
+        })
+      : null
+  }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => {
+    await act(async () => root.unmount())
+    host.remove()
+  })
+  await act(async () => root.render(createElement(Standalone)))
+  const input = host.querySelector('input[type="file"]')
+  const choose = async file => {
+    Object.defineProperty(input, 'files', { configurable: true, value: [file] })
+    await act(async () => input.dispatchEvent(new dom.Event('change', { bubbles: true })))
+  }
+  await choose(new File(['a'], 'a.txt', { type: 'text/plain' }))
+  await choose(new File(['12345'], 'a.png', { type: 'image/png' }))
+  assert.equal(calls.length, 0)
+  await choose(new File(['a'], 'a.png', { type: 'image/png' }))
+  assert.equal(calls.length, 1)
+  await act(async () => root.render(createElement(Standalone, { visible: false })))
+  assert.equal(calls[0].signal.aborted, true)
+  await act(async () => task.resolve('https://images.example.test/late.png'))
+  assert.deepEqual(changes, [])
+})
+
+test('MaUpload 默认支持普通文件，显示文件名并可替换、移除', async t => {
+  const values = []
+  const files = []
+  const view = await mount(t, compiled.exports.MaUpload, {
+    request: async file => {
+      files.push(file)
+      return `https://files.example.test/${file.name}`
+    },
+    onChange: value => values.push(value),
+  })
+  const input = view.container.querySelector('input[type="file"]')
+  assert.equal(input.multiple, false)
+  const choose = async file => {
+    Object.defineProperty(input, 'files', { configurable: true, value: [file] })
+    await act(async () => input.dispatchEvent(new dom.Event('change', { bubbles: true })))
+  }
+  await choose(new File(['pdf'], 'report.pdf', { type: 'application/pdf' }))
+  assert.equal(files.length, 1)
+  assert.match(view.container.textContent, /report.pdf/)
+  assert.equal(view.container.querySelector('img'), null)
+  await choose(new File(['zip'], 'archive.zip', { type: 'application/zip' }))
+  assert.equal(view.container.querySelectorAll('[role="listitem"]').length, 1)
+  assert.doesNotMatch(view.container.textContent, /report.pdf/)
+  await click(view.container.querySelector('[aria-label="移除archive.zip"]'))
+  assert.equal(values.at(-1), '')
+})
+
+test('MaForm 多文件 Upload 以数组回填，支持数量限制和逐项移除', async t => {
+  const values = []
+  let requests = 0
+  function MultipleUploadForm() {
+    const [model, setModel] = useState({ files: ['https://files.example.test/existing.pdf'] })
+    return createElement(MaForm, {
+      modelValue: model,
+      onModelValueChange: value => {
+        values.push(value)
+        setModel(value)
+      },
+      items: [
+        {
+          prop: 'files',
+          label: '附件',
+          render: 'Upload',
+          renderProps: {
+            multiple: true,
+            maxCount: 3,
+            accept: '.pdf,.zip',
+            request: async file => {
+              requests++
+              return `https://files.example.test/${file.name}`
+            },
+          },
+        },
+      ],
+    })
+  }
+  const view = await mount(t, MultipleUploadForm, {})
+  const input = view.container.querySelector('input[type="file"]')
+  assert.equal(input.multiple, true)
+  const choose = async names => {
+    Object.defineProperty(input, 'files', { configurable: true, value: names.map(name => new File(['data'], name)) })
+    await act(async () => input.dispatchEvent(new dom.Event('change', { bubbles: true })))
+  }
+  await choose(['a.pdf', 'b.zip', 'c.pdf'])
+  assert.equal(requests, 0)
+  assert.match(view.container.textContent, /最多上传 3 个文件/)
+  await choose(['a.pdf', 'b.zip'])
+  assert.deepEqual(values.at(-1).files, [
+    'https://files.example.test/existing.pdf',
+    'https://files.example.test/a.pdf',
+    'https://files.example.test/b.zip',
+  ])
+  assert.equal(input.disabled, true)
+  await click(view.container.querySelector('[aria-label="移除a.pdf"]'))
+  assert.deepEqual(values.at(-1).files, ['https://files.example.test/existing.pdf', 'https://files.example.test/b.zip'])
+  assert.equal(input.disabled, false)
+})
+
+test('多文件上传失败保留已有和已成功文件，拖放也执行类型校验', async t => {
+  const values = []
+  const pending = []
+  let calls = 0
+  const view = await mount(t, compiled.exports.MaUpload, {
+    multiple: true,
+    defaultValue: ['https://files.example.test/existing.pdf'],
+    accept: '.pdf',
+    onChange: value => values.push(value),
+    onUploadingChange: value => pending.push(value),
+    request: async file => {
+      calls++
+      if (file.name === 'fail.pdf') throw new Error('上传失败')
+      return `https://files.example.test/${file.name}`
+    },
+  })
+  const drop = async names => {
+    const event = new dom.Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'dataTransfer', { value: { files: names.map(name => new File(['data'], name)) } })
+    await act(async () => view.container.firstElementChild.dispatchEvent(event))
+  }
+  await drop(['forbidden.exe'])
+  assert.equal(calls, 0)
+  await drop(['ok.pdf', 'fail.pdf', 'not-started.pdf'])
+  assert.equal(calls, 2)
+  assert.deepEqual(values.at(-1), ['https://files.example.test/existing.pdf', 'https://files.example.test/ok.pdf'])
+  assert.match(view.container.textContent, /上传失败/)
+  assert.equal(pending.at(-1), false)
 })
 
 const { useMaFormDialog, useMaConfirm } = compiled.exports

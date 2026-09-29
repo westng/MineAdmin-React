@@ -109,7 +109,7 @@
     "src/components/reui/primitives/portal-container.tsx": "6367e7b3c83cb235d45a3cb06e7c3d4ddd7f3d1a20dfba478dc42e9fa66ea012",
     "src/components/reui/primitives/radio-group.tsx": "bae8b0581e72ee09bd988cbc115827ba20d0ec74cf0c8825c8f60db3e0f02b34",
     "src/components/reui/primitives/scroll-area.tsx": "5a15a7abddcaaf5d31496523b07e580954086f7910a1e36dd1e29145967472b2",
-    "src/components/reui/primitives/select.tsx": "de70b1868a48cc6f8adabf6f2b0a9653fe9e2d7d94b4ed7172da30a9a6dda335",
+    "src/components/reui/primitives/select.tsx": "97912eaea1dae0dce23bdead9703f79a74ade66cc57fea660edfaad44225f6de",
     "src/components/reui/primitives/separator.tsx": "562542c68de5e003ac0d20cd052b53e914d4dcf1a684aa388ef74d07de3cff3d",
     "src/components/reui/primitives/sheet.tsx": "e43b12bf960fde50e2fcacf21a13167b8a2902d672b773f577026a1618482eb2",
     "src/components/reui/primitives/sidebar.tsx": "cd6bd076dc24909eea92c86061dd9ca5e91b1e2e4b2eb1fb7e3df4fc874dd0cb",

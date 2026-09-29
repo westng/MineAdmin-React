@@ -1,11 +1,11 @@
-export { MaDialog } from './ma-dialog'
-export { ConfirmDialog } from './confirm-dialog'
-export type { ConfirmDialogProps } from './confirm-dialog'
-export { useMaDialog } from './use-ma-dialog'
-export { useMaFormDialog } from './use-ma-form-dialog'
-export type { UseMaFormDialogOptions } from './use-ma-form-dialog'
-export { useMaConfirm } from './use-ma-confirm'
-export type { MaConfirmOptions } from './use-ma-confirm'
+export { MaDialog } from './components/ma-dialog'
+export { ConfirmDialog } from './components/confirm-dialog'
+export type { ConfirmDialogProps } from './types'
+export { useMaDialog } from './hooks/use-ma-dialog'
+export { useMaFormDialog } from './hooks/use-ma-form-dialog'
+export type { UseMaFormDialogOptions } from './types'
+export { useMaConfirm } from './hooks/use-ma-confirm'
+export type { MaConfirmOptions } from './types'
 export type {
   DialogRootActions,
   MaDialogAction,

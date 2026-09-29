@@ -2,6 +2,12 @@ import { createRef } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { MaDialog, useMaFormDialog, type MaDialogProps } from '../src/components/ma-dialog'
 import { MaDrawer } from '../src/components/ma-drawer'
+import { MaDownload, type MaDownloadRequest } from '../src/components/ma-download'
+import { MaEmpty, type MaEmptyProps } from '../src/components/ma-empty'
+import { MaAccess, type MaAccessProps } from '../src/components/ma-access'
+import { MaIcon, type MaIconProps } from '../src/components/ma-icon'
+import { MaDateRangePicker, type MaDateRangePickerProps } from '../src/components/ma-date-range-picker'
+import { MaTreeSelect, type MaTreeSelectProps } from '../src/components/ma-tree-select'
 import { MaForm, type MaFormItem } from '../src/components/ma-form'
 import type { MaTableExpose, MaTableOptions } from '../src/components/ma-table'
 import { MaProTable, type MaProTableExpose } from '../src/components/ma-pro-table'
@@ -11,6 +17,73 @@ import { SheetTrigger } from '../src/components/reui/primitives/sheet'
 type Row = { id: number; name: string }
 type Payload = { title: string }
 type SearchFilters = { keyword: string; ids: number[] }
+const accessProps: MaAccessProps = { allowed: true, children: '可见内容' }
+const iconProps: MaIconProps = { name: 'lucide:search', label: '搜索' }
+const dateRangeProps: MaDateRangePickerProps = { value: [new Date(), new Date()], valueFormat: 'date' }
+const treeSelectProps: MaTreeSelectProps = { multiple: true, items: [], value: ['1'], max: 2 }
+export const reorganizedComponents = [
+  <MaAccess key="access" {...accessProps} />,
+  <MaIcon key="icon" {...iconProps} />,
+  <MaDateRangePicker key="date" {...dateRangeProps} />,
+  <MaTreeSelect key="tree" {...treeSelectProps} />,
+]
+// @ts-expect-error Multiple selection cannot accept a scalar value.
+export const invalidTreeMultiple = <MaTreeSelect multiple items={[]} value="1" />
+// @ts-expect-error Single selection cannot configure a multiple selection limit.
+export const invalidTreeSingle = <MaTreeSelect items={[]} max={2} />
+const emptyProps: MaEmptyProps = { type: 'search', size: 'sm', title: <strong>未找到结果</strong> }
+export const emptyStates = [
+  <MaEmpty key="default" />,
+  <MaEmpty key="search" {...emptyProps} actions={<button type="button">重试</button>} />,
+  <MaEmpty
+    key="simple"
+    type="simple"
+    image={null}
+    title={null}
+    description="暂无记录"
+    ref={createRef<HTMLDivElement>()}
+  />,
+]
+// @ts-expect-error Only registered built-in illustration types are supported.
+export const unsupportedEmptyType = <MaEmpty type="unknown" />
+// @ts-expect-error Slot class names must use the documented slot keys.
+export const unsupportedEmptySlot = <MaEmpty classNames={{ unknown: 'p-0' }} />
+// @ts-expect-error Only documented size presets are supported.
+export const unsupportedEmptySize = <MaEmpty size="lg" />
+const downloadRequest: MaDownloadRequest = async ({ signal }) => ({
+  blob: new Blob([signal.aborted ? '' : 'report']),
+  filename: 'report.txt',
+})
+export const downloadControls = [
+  <MaDownload key="url" url="/files/report.pdf" filename="报告.pdf" variant="link" />,
+  <MaDownload key="blob" blob={new Blob(['report'])} filename="report.txt" />,
+  <MaDownload key="request" request={downloadRequest} onError={error => error.message.toUpperCase()} />,
+]
+// @ts-expect-error A download requires exactly one source.
+export const missingDownloadSource = <MaDownload />
+// @ts-expect-error URL and request sources are mutually exclusive.
+export const conflictingDownloadSources = <MaDownload url="/report" request={downloadRequest} />
+// @ts-expect-error Requests must return binary content, not an API JSON envelope.
+export const invalidDownloadResponse = <MaDownload request={async () => ({ code: 200 })} />
+export const multiFileField: MaFormItem<{ files: string[] }> = {
+  prop: 'files',
+  render: 'Upload',
+  renderProps: {
+    multiple: true,
+    accept: '.pdf,.zip',
+    maxCount: 5,
+    request: async file => `/files/${file.name}`,
+    onChange: urls => urls.forEach(url => url.toUpperCase()),
+  },
+}
+export const uploadAndDictionaryFields: MaFormItem<{ avatar: string; platform: string }>[] = [
+  {
+    prop: 'avatar',
+    render: 'Upload',
+    renderProps: { request: async (_file, { signal }) => (signal.aborted ? '' : '/avatar.png') },
+  },
+  { prop: 'platform', render: 'DictSelect', renderProps: { dictName: 'PLATFORM', clearable: true } },
+]
 const filteredTableRef = createRef<MaProTableExpose<Row, SearchFilters>>()
 export const filteredTable = (
   <MaProTable<Row, SearchFilters>

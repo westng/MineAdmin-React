@@ -1,5 +1,5 @@
 import { useContext, useSyncExternalStore } from 'react'
-import { TableCellRenderersContext } from '../utils/cell-renderers'
+import { TableCellRenderersContext } from '../context/cell-renderers-context'
 
 export function useTableCellRenderers() {
   const registry = useContext(TableCellRenderersContext)

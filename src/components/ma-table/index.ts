@@ -1,12 +1,12 @@
+export { createTableCellRenderers } from './utils/cell-renderers'
 export { MaTable } from './components/ma-table'
 export { MaTableToolbar } from './components/ma-table-toolbar'
 export {
-  createTableCellRenderers,
   TableCellRenderersContext,
   getTableCellRenderers,
   registerTableCellRenderer,
   removeTableCellRenderer,
-} from './utils/cell-renderers'
+} from './context/cell-renderers-context'
 export type {
   MaTableCellContext,
   MaTableCellRenderer,
@@ -29,4 +29,4 @@ export type {
   PaginationProps,
   TableColumnType,
 } from './types'
-export type { MaTableToolbarProps } from './components/ma-table-toolbar'
+export type { MaTableToolbarProps } from './types'

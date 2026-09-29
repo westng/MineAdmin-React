@@ -1,16 +1,12 @@
+export { createProTableToolbars } from './utils/toolbars'
 export { MaProTable } from './components/ma-pro-table'
 export {
-  createProTableToolbars,
   ProTableToolbarsContext,
   getProTableToolbars,
   registerProTableToolbar,
   removeProTableToolbar,
-} from './utils/toolbars'
-export {
-  getTableCellRenderers,
-  registerTableCellRenderer,
-  removeTableCellRenderer,
-} from '../ma-table/utils/cell-renderers'
+} from './context/toolbars-context'
+export { getTableCellRenderers, registerTableCellRenderer, removeTableCellRenderer } from '../ma-table'
 export type {
   MaProTableApi,
   MaProTableColumns,
@@ -29,3 +25,6 @@ export type {
   MaTableTabsConfig,
   MaTableTabValue,
 } from './types'
+
+export { TableRequestContext } from './context/request-context'
+export type { TableRequestSnapshot, TableRequestStore, TableResourceQuery } from './types'

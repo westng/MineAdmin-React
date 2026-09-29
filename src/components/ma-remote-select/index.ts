@@ -1,10 +1,11 @@
-export { MaRemoteSelect } from './ma-remote-select'
-export { MaRemoteSelectProvider } from './request-provider'
+export { MaRemoteSelect } from './components/ma-remote-select'
+export { MaRemoteSelectProvider } from './components/ma-remote-select-provider'
 export type {
   MaRemoteSelectEcho,
   MaRemoteSelectFieldNames,
   MaRemoteSelectPage,
   MaRemoteSelectProps,
+  MaRemoteSelectProviderProps,
   MaRemoteSelectRequest,
   MaRemoteSelectRequestConfig,
   MaRemoteSelectResponseMap,

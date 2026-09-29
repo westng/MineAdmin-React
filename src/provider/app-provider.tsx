@@ -1,4 +1,4 @@
-import { TableRequestContext } from '@/components/ma-pro-table/utils/request-store'
+import { TableRequestContext } from '@/components/ma-pro-table'
 import { createTableRequestStore } from './query/table-adapter'
 import { TableCellRenderersContext } from '@/components/ma-table'
 import { ProTableToolbarsContext } from '@/components/ma-pro-table'

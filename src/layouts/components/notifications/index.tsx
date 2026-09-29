@@ -12,7 +12,6 @@ export function NotificationsButton({ className }: { className?: string }) {
   return (
     <Button
       variant="outline"
-      size="icon-sm"
       className={className}
       aria-label={t('通知')}
       aria-haspopup="dialog"
@@ -20,7 +19,7 @@ export function NotificationsButton({ className }: { className?: string }) {
       data-slot="notifications-trigger"
       onClick={() => setNotificationsOpen(true)}
     >
-      <Bell className="size-4" />
+      <Bell />
     </Button>
   )
 }

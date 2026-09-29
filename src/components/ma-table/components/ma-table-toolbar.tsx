@@ -1,13 +1,6 @@
 import * as React from 'react'
 import { cn } from '@/utils/cn'
-
-export interface MaTableToolbarProps {
-  left?: React.ReactNode
-  center?: React.ReactNode
-  right?: React.ReactNode
-  className?: string
-  ariaLabel?: string
-}
+import type { MaTableToolbarProps } from '../types'
 
 function hasToolbarContent(node: React.ReactNode): boolean {
   if (node == null || typeof node === 'boolean') return false

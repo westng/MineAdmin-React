@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { MaDictSelect } from '@/components/ma-dict-select'
+import { MaUpload } from '@/components/ma-upload'
 import { XIcon } from 'lucide-react'
 import { Checkbox } from '@/components/reui/primitives/checkbox'
 import { Input } from '@/components/reui/primitives/input'
@@ -101,7 +103,7 @@ function ClearButton({
       onPointerDown={onPointerDown}
       onClick={onClick}
     >
-      <XIcon className="size-3.5" aria-hidden="true" />
+      <XIcon className="size-3" aria-hidden="true" />
     </button>
   )
 }
@@ -147,7 +149,48 @@ export function FormControl<T extends MaFormModel>({
   const { prefix, suffix, ...props } = rawProps as MaFormControlPropsMap[MaFormComponentName]
   delete props.invalid
   let control: React.ReactElement
-  if (component === 'Select') {
+  if (component === 'DictSelect') {
+    const { onChange, triggerProps, ...dictProps } = props as MaFormControlPropsMap['DictSelect']
+    control = (
+      <MaDictSelect
+        {...dictProps}
+        value={value == null || value === '' ? null : String(value)}
+        disabled={disabled}
+        triggerProps={{ ...triggerProps, ...accessibility }}
+        onChange={next => {
+          onChange?.(next)
+          setValue(next)
+        }}
+      />
+    )
+  } else if (component === 'Upload') {
+    const upload = props as MaFormControlPropsMap['Upload']
+    control = upload.multiple ? (
+      <MaUpload
+        {...upload}
+        {...accessibility}
+        multiple
+        value={Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []}
+        disabled={disabled}
+        onChange={next => {
+          upload.onChange?.(next)
+          setValue(next)
+        }}
+      />
+    ) : (
+      <MaUpload
+        {...upload}
+        {...accessibility}
+        multiple={false}
+        value={typeof value === 'string' ? value : ''}
+        disabled={disabled}
+        onChange={next => {
+          upload.onChange?.(next)
+          setValue(next)
+        }}
+      />
+    )
+  } else if (component === 'Select') {
     const {
       options,
       items,

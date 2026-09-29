@@ -1,6 +1,7 @@
 import type * as React from 'react'
-import type { MaFormOptions } from '../../ma-form/types'
-import type { MaSearchItem, MaSearchExpose, MaSearchOptions } from '../../ma-search/types'
+import type { MaModel } from '@/components/reui/utils/types'
+import type { MaFormOptions } from '../../ma-form'
+import type { MaSearchItem, MaSearchExpose, MaSearchOptions } from '../../ma-search'
 import type {
   MaTableCellContext,
   MaTableColumn,
@@ -8,9 +9,8 @@ import type {
   MaTableOptions,
   MaTablePagination,
   MaTableTabsConfig,
-} from '../../ma-table/types'
-import type { MaModel } from '@/components/reui/utils/types'
-import type { TableResourceQuery } from '../utils/request-store'
+} from '../../ma-table'
+import type { TableResourceQuery } from './request'
 
 export type MaProTableModel = MaModel
 
@@ -149,5 +149,7 @@ export interface MaProTableExpose<T extends MaProTableModel = MaProTableModel, S
 export type { MaFormOptions }
 export type { MaSearchExpose, MaSearchItem, MaSearchOptions }
 export type { MaTableCellContext, MaTableColumn, MaTableExpose, MaTableOptions, MaTablePagination }
-export type { MaTableCellRenderer, MaTableCellRenderProps, MaTableCellRenderTo } from '../../ma-table/types'
-export type { MaTableTabItem, MaTableTabsConfig, MaTableTabValue } from '../../ma-table/types'
+export type { MaTableCellRenderer, MaTableCellRenderProps, MaTableCellRenderTo } from '../../ma-table'
+export type { MaTableTabItem, MaTableTabsConfig, MaTableTabValue } from '../../ma-table'
+
+export type { TableRequestSnapshot, TableRequestStore, TableResourceQuery } from './request'

@@ -189,3 +189,11 @@ export interface MaTableProps<T extends MaTableModel = MaTableModel> {
 export type MaTableColumns<T extends MaTableModel = MaTableModel> = MaTableColumn<T>
 export type PaginationProps = MaTablePagination
 export type TableColumnType = MaTableColumnType
+
+export interface MaTableToolbarProps {
+  left?: React.ReactNode
+  center?: React.ReactNode
+  right?: React.ReactNode
+  className?: string
+  ariaLabel?: string
+}

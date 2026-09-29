@@ -44,3 +44,18 @@ URL、请求方法、固定参数、请求体、回显配置、字段映射或�
 ```
 
 非标准请求或响应结构使用 `request`、`responseMap` 作为单点扩展，不需要修改组件内部约定。
+
+## 工程结构
+
+根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
+
+| 目录 | 职责 | 文件 |
+| --- | --- | --- |
+| `components/` | 展示组件 | ma-remote-select-provider.tsx, ma-remote-select.tsx |
+| `context/` | React 接入 | request-context.ts |
+| `data/` | 默认配置与目录数据 | defaults.ts |
+| `hooks/` | 状态与生命周期 | use-remote-select-request.ts, use-remote-select.ts |
+| `types/` | 公共及内部类型 | index.ts, internal.ts |
+| `utils/` | 转换与状态工厂 | remote-select-utils.ts |
+
+使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

@@ -21,3 +21,16 @@ import { MaIcon } from '@/components/ma-icon'
 API 依据：[shadcn Base UI Input Group](https://ui.shadcn.com/docs/components/base/input-group)、[Base UI Dialog](https://base-ui.com/react/components/dialog)、[Iconify loadIcons](https://iconify.design/docs/icon-components/react/load-icons.html)。
 
 分类方向在面板内使用官方 `TabsPrimitive.Root`：当前安装的 `components/reui/primitives/tabs.tsx` 未向 Root 传递 `orientation`，且其方向样式匹配 `data-vertical` / `data-horizontal`，而当前 Base UI 实际输出 `data-orientation`。面板保留官方 TabsList、TabsTrigger、TabsContent，局部按真实属性配置方向、尺寸和滚动，桌面显示左侧纵向列表，窄屏显示横向分类；无需修改全局 registry 源码。参见 [Base UI Tabs API](https://base-ui.com/react/components/tabs)。
+
+## 工程结构
+
+根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
+
+| 目录 | 职责 | 文件 |
+| --- | --- | --- |
+| `components/` | 展示组件 | icon-option.tsx, ma-icon-panel.tsx, ma-icon-picker.tsx |
+| `data/` | 默认配置与目录数据 | icon-collections.ts |
+| `types/` | 公共及内部类型 | index.ts |
+| `utils/` | 转换与状态工厂 | icon-value.ts |
+
+使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

@@ -1,4 +1,6 @@
 import type * as React from 'react'
+import type { MaDictSelectProps } from '@/components/ma-dict-select'
+import type { MaUploadSingleProps, MaUploadMultipleProps } from '@/components/ma-upload'
 import type { Select as SelectPrimitive } from '@base-ui/react/select'
 import type { RadioGroup as RadioGroupPrimitive } from '@base-ui/react/radio-group'
 import type { Input } from '@/components/reui/primitives/input'
@@ -141,6 +143,12 @@ export interface MaFormControlPropsMap {
   Password: MaFormInputProps
   Textarea: MaFormTextareaProps
   Select: MaFormSelectProps
+  DictSelect: Omit<MaDictSelectProps, 'value' | 'defaultValue'> &
+    MaFormControlDecoration & { id?: string; 'aria-label'?: string }
+  Upload: (
+    Omit<MaUploadSingleProps, 'value' | 'defaultValue'> | Omit<MaUploadMultipleProps, 'value' | 'defaultValue'>
+  ) &
+    MaFormControlDecoration
   Checkbox: MaFormCheckboxProps
   Switch: MaFormSwitchProps
   Radio: MaFormRadioProps

@@ -24,7 +24,6 @@ export function checkComponentBoundaries(root = projectRoot) {
   const permittedLeaves = new Set([
     'src/utils/cn.ts',
     'src/utils/icons.ts',
-    'src/components/ma-icon/use-icon.ts',
     'src/hooks/ui/use-mobile.ts',
     'src/assets/icons/catalog.json',
   ])

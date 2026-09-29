@@ -1,10 +1,9 @@
 import * as React from 'react'
 import { ChevronDown, ChevronUp, RotateCcw, Search as SearchIcon } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
-import { MaForm } from '../../ma-form'
-import { readLabel, resolveProp } from '../../ma-form/utils/form-utils'
 import { cn } from '@/utils/cn'
 import { usePropState } from '@/components/reui/utils/use-prop-state'
+import { MaForm, readFormLabel as readLabel, resolveFormProp as resolveProp } from '../../ma-form'
 import { readText } from '../utils/search-utils'
 import type {
   MaFormExpose,

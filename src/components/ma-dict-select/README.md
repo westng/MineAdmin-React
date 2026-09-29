@@ -17,6 +17,8 @@ import { MaDictSelect } from '@/components/ma-dict-select'
 
 字典项存在 `i18n` 时，组件会使用当前语言翻译；没有注册字典或字典为空时，选择项为空。`clearable` 默认为 `true`，清除单选值会回写 `null`，设置为 `false` 可关闭清除按钮。
 
+默认使用普通下拉菜单：左侧对齐触发器、优先在下方展开，不将选中项与触发器重叠对齐。菜单高度最多为 `15rem`，并受视口可用高度限制，超出后滚动；选项较多时不会延展为大列表。可通过 `contentProps` 覆盖定位与样式。
+
 也可以作为 `MaForm` 的自定义组件使用：
 
 ```tsx
@@ -27,3 +29,15 @@ import { MaDictSelect } from '@/components/ma-dict-select'
   renderProps: { dictName: 'system-status' },
 }
 ```
+
+## 工程结构
+
+根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
+
+| 目录 | 职责 | 文件 |
+| --- | --- | --- |
+| `components/` | 展示组件 | ma-dict-select.tsx |
+| `context/` | React 接入 | dictionary-context.ts |
+| `types/` | 公共及内部类型 | index.ts |
+
+使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

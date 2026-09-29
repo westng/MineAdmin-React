@@ -281,3 +281,17 @@ tableRef.current?.clearSelection()
 ## 相关链接
 
 - [MineAdmin MaTable 官方文档](https://doc.mineadmin.com/libs/ma-table/latest/)
+
+## 工程结构
+
+根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
+
+| 目录 | 职责 | 文件 |
+| --- | --- | --- |
+| `components/` | 展示组件 | ma-table-body.tsx, ma-table-cell-overflow-popover.tsx, ma-table-header.tsx, ma-table-pagination.tsx, ma-table-tabs.tsx, ma-table-toolbar.tsx, ma-table.tsx |
+| `context/` | React 接入 | cell-renderers-context.ts |
+| `hooks/` | 状态与生命周期 | use-ma-table-selection.ts, use-ma-table-sort.ts, use-table-cell-renderers.ts |
+| `types/` | 公共及内部类型 | index.ts |
+| `utils/` | 转换与状态工厂 | cell-renderers.ts, render-cell.ts, table-utils.ts |
+
+使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

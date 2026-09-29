@@ -97,6 +97,8 @@ MaProTable
 
 当没有显式中间和右侧内容时，组件会把默认刷新按钮放在右侧；显式提供 `toolbarRight` 后不会额外注入刷新按钮。
 
+无数据时默认显示 `MaEmpty` 插画及“暂无数据”标题；`options.tableOptions.emptyText` 可修改标题。自定义内容按 `empty`、`options.tableOptions.dataGridProps.emptyMessage` 的优先级覆盖默认空状态。加载态仍沿用表格配置。
+
 ## MaProTableSchema
 
 | 字段           | 说明                                          | 类型                     |
@@ -364,3 +366,16 @@ await tableRef.current?.refresh()
 列表与导出共享 `requestOptions.paramsTransform(params)`。API 包装中存在 trim、空值剔除或业务字段改名时，将同一纯函数配置在这里，避免列表与导出范围不一致。不要在转换函数中改变分页键；自定义分页键由 `requestPage.pageName/sizeName` 声明。接口函数只负责请求及响应解析。
 
 `getRequestParams()` 返回当前固定参数和已提交筛选；搜索框尚未提交的编辑值不会影响导出。默认筛选、`onSearchSubmit` 和 `onSearchReset` 返回的参数都会进入此契约。
+
+## 工程结构
+
+根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
+
+| 目录 | 职责 | 文件 |
+| --- | --- | --- |
+| `components/` | 展示组件 | ma-pro-table.tsx |
+| `context/` | React 接入 | request-context.ts, toolbars-context.ts |
+| `types/` | 公共及内部类型 | index.ts, request.ts |
+| `utils/` | 转换与状态工厂 | pro-table-utils.ts, toolbars.ts |
+
+使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

@@ -1,6 +1,6 @@
 import { dashboardPage } from '@/router/dashboard'
-import { createTableCellRenderers } from '@/components/ma-table/utils/cell-renderers'
-import { createProTableToolbars } from '@/components/ma-pro-table/utils/toolbars'
+import { createTableCellRenderers } from '@/components/ma-table'
+import { createProTableToolbars } from '@/components/ma-pro-table'
 import { createDashboardSlots } from '@/provider/extensions/dashboard'
 import { createLoginPageConfigurations } from '@/provider/extensions/login-page'
 import { createIframePolicy } from '@/layouts/components/iframe/policy'

@@ -139,3 +139,15 @@ function remove(row: User) {
 确认操作运行期间不能重复提交或关闭；失败保持弹窗，成功关闭。多个删除、重置等入口可以共用这个 Hook，无需分别维护确认弹窗状态。
 
 业务接入示例见 [UserFormDialog](../../modules/base/user/views/components/UserFormDialog.tsx) 和 [UserRoleDialog](../../modules/base/user/views/components/UserRoleDialog.tsx)。它们保留数据转换与权限契约，公共 Hook 只负责交互流程。
+
+## 工程结构
+
+根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
+
+| 目录 | 职责 | 文件 |
+| --- | --- | --- |
+| `components/` | 展示组件 | confirm-dialog.tsx, ma-dialog.tsx |
+| `hooks/` | 状态与生命周期 | use-ma-confirm.ts, use-ma-dialog.ts, use-ma-form-dialog.ts |
+| `types/` | 公共及内部类型 | index.ts |
+
+使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

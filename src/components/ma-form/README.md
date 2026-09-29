@@ -6,6 +6,8 @@
 
 ## 快速开始
 
+普通下拉直接使用 `render: 'Select'` 和 `renderProps.options`；字典字段使用 `render: 'DictSelect'` 和 `renderProps.dictName`；通用文件上传使用 `render: 'Upload'` 和 `renderProps.request(file, { signal })`。上传函数返回文件 URL；默认模型为单个 URL，`multiple: true` 时为 URL 数组。文件类型、大小、数量和图片预览通过 `accept`、`maxSize`、`maxCount`、`listType` 配置。上传接口由调用方接入，通用组件不依赖业务模块。`renderProps.onUploadingChange` 可用于上传期间禁用表单保存。无需为这些字段另建页面专属包装组件。
+
 ```tsx
 import { useRef, useState } from 'react'
 import { Button } from '@/components/reui/primitives/button'
@@ -268,3 +270,5 @@ formRef.current?.clearValidate(['account'])
 ## 相关链接
 
 - [MineAdmin MaForm 官方文档](https://doc.mineadmin.com/libs/ma-form/latest/)
+
+跨组件字段适配可从公共入口导入 `readFormLabel`、`resolveFormProp`，分别读取字段标签与解析动态字段属性；实现保留在 `utils/form-utils.ts`。

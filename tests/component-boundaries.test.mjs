@@ -1,11 +1,57 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, renameSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 import { checkComponentBoundaries } from '../scripts/check-component-boundaries.mjs'
 import { isPublicFile, listPublicFiles } from '../scripts/public-files.mjs'
 import { checkSourceStructure } from '../scripts/check-source-structure.mjs'
+import { checkMaStructure } from '../scripts/check-ma-structure.mjs'
+
+test('Ma layout enforces public entries, type ownership and imports from ignored plugins', t => {
+  assert.deepEqual(checkMaStructure(), [])
+  const root = mkdtempSync(path.join(os.tmpdir(), 'ma-layout-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const write = (file, source) => {
+    mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
+    writeFileSync(path.join(root, file), source)
+  }
+  const base = 'src/components/ma-example'
+  write(`${base}/index.ts`, "export { Example } from './components/example'\nexport type { Props } from './types'")
+  write(
+    `${base}/components/example.tsx`,
+    "import type { Props } from '../types'; export function Example(props: Props) { return props.title }",
+  )
+  write(`${base}/types/index.ts`, 'export interface Props { title: string }')
+  write(`${base}/README.md`, '# Example')
+  write('.gitignore', 'src/plugins/')
+  write('src/plugins/example/index.ts', "export { Example } from '@/components/ma-example'")
+  assert.deepEqual(checkMaStructure(root), [])
+
+  renameSync(path.join(root, base, 'index.ts'), path.join(root, base, 'index.tsx'))
+  assert.deepEqual(checkMaStructure(root), [])
+  renameSync(path.join(root, base, 'index.tsx'), path.join(root, base, 'index.ts'))
+
+  write(`${base}/use-example.ts`, 'export function useExample() {}')
+  write(`${base}/index.ts`, "export const example = 1; export type { Props } from './components/example'")
+  write('src/plugins/example/index.ts', "export { Example } from '@/components/ma-example/components/example'")
+  mkdirSync(path.join(root, 'src/components/ma-missing'), { recursive: true })
+  const failures = checkMaStructure(root)
+  for (const reason of [
+    'misplaced',
+    'only re-export',
+    'public types',
+    'src/plugins/example',
+    'missing index.ts',
+    'missing types/index.ts',
+    'missing README.md',
+    'missing components',
+  ])
+    assert.ok(
+      failures.some(failure => failure.includes(reason)),
+      reason,
+    )
+})
 
 test('source layout rejects retired entry points and misplaced private components', t => {
   assert.deepEqual(checkSourceStructure(), [])

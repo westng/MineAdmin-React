@@ -1,6 +1,6 @@
 import type * as React from 'react'
-import type { MaFormExpose, MaFormItem, MaFormOptions } from '../../ma-form/types'
 import type { MaModel } from '@/components/reui/utils/types'
+import type { MaFormExpose, MaFormItem, MaFormOptions } from '../../ma-form'
 
 export type MaSearchModel = MaModel
 

@@ -1,4 +1,3 @@
-import { createContext } from 'react'
 import type { MaProTableToolbar } from '../types'
 
 export function createProTableToolbars() {
@@ -48,11 +47,3 @@ export function createProTableToolbars() {
     remove: removeProTableToolbar,
   }
 }
-
-const standalone = createProTableToolbars()
-/** Standalone compatibility only. Application plugins must register on their runtime. */
-export const ProTableToolbarsContext = createContext(standalone)
-export const getProTableToolbars = standalone.get
-export const subscribeProTableToolbars = standalone.subscribe
-export const registerProTableToolbar = standalone.register
-export const removeProTableToolbar = standalone.remove

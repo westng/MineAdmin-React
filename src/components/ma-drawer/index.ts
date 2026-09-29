@@ -1,5 +1,5 @@
-export { MaDrawer } from './ma-drawer'
-export { useMaDrawer } from './use-ma-drawer'
+export { MaDrawer } from './components/ma-drawer'
+export { useMaDrawer } from './hooks/use-ma-drawer'
 export type {
   DialogRootActions,
   MaDrawerAction,

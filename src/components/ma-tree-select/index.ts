@@ -1,2 +1,2 @@
-export { MaTreeSelect } from './ma-tree-select'
-export type { MaTreeSelectMultipleProps, MaTreeSelectProps, MaTreeSelectSingleProps } from './ma-tree-select'
+export { MaTreeSelect } from './components/ma-tree-select'
+export type { MaTreeSelectMultipleProps, MaTreeSelectProps, MaTreeSelectSingleProps } from './types'

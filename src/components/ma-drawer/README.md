@@ -54,3 +54,15 @@ Sheet 使用 Base UI Dialog 原语。`MaDrawerProps<Payload>` 保留 Root 的所
 `onOpenChange(open, eventDetails)` 提供真实关闭原因并支持 `cancel()`；确认、取消和外部 `actionsRef.close()` 也走同一事件链。只接受布尔值的旧回调保持兼容。
 
 顶层 `initialFocus/finalFocus` 优先于 Popup 同名设置。`popupProps.style` 支持状态函数；`width` 仅在明确传入时覆盖其中的 `width`，其余样式保留。`showCloseButton: false` 关闭内置关闭按钮，`closeProps.render/children` 可替换按钮内容。`footerAlign` 支持 `left/center/right`。
+
+## 工程结构
+
+根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
+
+| 目录 | 职责 | 文件 |
+| --- | --- | --- |
+| `components/` | 展示组件 | ma-drawer.tsx |
+| `hooks/` | 状态与生命周期 | use-ma-drawer.ts |
+| `types/` | 公共及内部类型 | index.ts |
+
+使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

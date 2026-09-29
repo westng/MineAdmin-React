@@ -40,7 +40,7 @@
 | 认证与权限 | 会话恢复、Token 刷新、账号切换隔离，以及路由和组件访问控制                 |
 | 动态路由   | 统一静态、菜单和插件路由，按 modules/plugins 文件路径自动解析页面          |
 | 页面布局   | 经典布局、分栏导航、混合导航三种布局；当前开放经典布局和分栏导航           |
-| 业务组件   | MaForm、MaSearch、MaTable、MaProTable、MaDialog、MaDrawer                  |
+| 业务组件   | MaForm、MaSearch、MaTable、MaProTable、MaDialog、MaDrawer、MaUpload、MaDownload        |
 | UI 与主题  | ReUI、shadcn/ui 风格原语、Tailwind CSS、明暗主题和主题色                   |
 | 数据访问   | Axios 请求层、TanStack Query 缓存，以及按会话隔离的请求生命周期            |
 | 应用扩展   | 插件能力注册、Dashboard 区域、登录方式、工具栏和 Shell 插槽                |
@@ -100,6 +100,8 @@ pnpm run dev
 
 开发服务器会自动打开页面；只想启动服务时可使用 `pnpm exec vite --open false`。前端不会自动启动后端。
 
+开发时普通内容编辑继续使用 HMR / React Fast Refresh。`src/` 内 JavaScript、TypeScript 源文件新增、删除或改名时，会合并连续事件并自动重启 Vite，以清除旧模块路径；支持 `index.ts` 与 `index.tsx` 双向迁移，无需手动加 `--force`。结构变更会刷新页面，未保存的页面临时状态可能丢失。声明文件、文档和样式文件不触发这项额外重启；生产构建不启用此机制。
+
 ### 环境配置
 
 | 变量                      | `.env.example` 示例值   | 用途                                    |
@@ -145,7 +147,9 @@ BioTech 与 MineAdmin-React 均为开源项目。BioTech 收录完整应用及�
 
 ### 组件文档
 
-[MaForm](src/components/ma-form/README.md) · [MaSearch](src/components/ma-search/README.md) · [MaTable](src/components/ma-table/README.md) · [MaProTable](src/components/ma-pro-table/README.md) · [MaDialog](src/components/ma-dialog/README.md) · [MaDrawer](src/components/ma-drawer/README.md) · [MaDictSelect](src/components/ma-dict-select/README.md) · [MaRemoteSelect](src/components/ma-remote-select/README.md) · [MaIconPicker](src/components/ma-icon-picker/README.md) · [ReUI](src/components/reui/README.md)
+[Ma 组件工程规范](docs/MA_COMPONENTS.md)：公共入口、职责目录和自动化结构检查。
+
+[MaForm](src/components/ma-form/README.md) · [MaSearch](src/components/ma-search/README.md) · [MaTable](src/components/ma-table/README.md) · [MaProTable](src/components/ma-pro-table/README.md) · [MaDialog](src/components/ma-dialog/README.md) · [MaDrawer](src/components/ma-drawer/README.md) · [MaDictSelect](src/components/ma-dict-select/README.md) · [MaRemoteSelect](src/components/ma-remote-select/README.md) · [MaDownload](src/components/ma-download/README.md) · [MaEmpty](src/components/ma-empty/README.md) · [MaIconPicker](src/components/ma-icon-picker/README.md) · [MaAccess](src/components/ma-access/README.md) · [MaDateRangePicker](src/components/ma-date-range-picker/README.md) · [MaIcon](src/components/ma-icon/README.md) · [MaTreeSelect](src/components/ma-tree-select/README.md) · [MaUpload](src/components/ma-upload/README.md) · [ReUI](src/components/reui/README.md)
 
 通用 UI 原语位于 `src/components/reui/primitives/`，[components.json](components.json) 中的 shadcn 配置也指向这个目录。业务页面优先复用已有 Ma 组件。
 
@@ -159,8 +163,8 @@ BioTech 与 MineAdmin-React 均为开源项目。BioTech 收录完整应用及�
 | `pnpm run check`                          | 依次运行 TypeScript、ESLint、Prettier              |
 | `pnpm run typecheck`                      | 项目 TypeScript 检查                               |
 | `pnpm run lint` / `pnpm run format:check` | 全量 Lint / 配置范围内的格式检查                   |
-| `pnpm run check:ma`                       | 组件类型检查、Ma Lint、Ma 行为测试                 |
-| `pnpm run check:boundaries`               | 物理目录、公共组件依赖闭包、Core 依赖检查          |
+| `pnpm run check:ma`                       | Ma 结构、类型检查、Lint 与行为测试                |
+| `pnpm run check:boundaries`               | 目录、Ma 结构与入口、组件闭包、Core 依赖检查       |
 | `pnpm run test:framework`                 | 框架 DOM、路由、会话、边界及 Dashboard 测试        |
 | `pnpm run check:framework`                | `check:boundaries` + `check:ma` + `test:framework` |
 | `pnpm run check:bootstrap`                | 使用合成存储并阻断网络的启动装配检查               |
