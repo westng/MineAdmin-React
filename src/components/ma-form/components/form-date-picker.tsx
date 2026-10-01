@@ -108,7 +108,7 @@ export function FormDatePicker({
 
   return (
     <Popover {...popoverProps} actionsRef={actionsRef}>
-      <div className="relative w-full">
+      <div className="relative w-full min-w-0">
         <PopoverTrigger
           render={
             <Button
@@ -118,7 +118,7 @@ export function FormDatePicker({
               id={id}
               disabled={isDisabled}
               className={cn(
-                'w-full justify-start font-normal',
+                'w-full min-w-0 justify-start font-normal',
                 canClear && 'pe-8',
                 !display && 'text-muted-foreground',
                 className,
@@ -129,7 +129,9 @@ export function FormDatePicker({
               aria-describedby={props['aria-describedby']}
             >
               <CalendarIcon aria-hidden="true" />
-              {display || placeholder}
+              <span className="min-w-0 flex-1 truncate text-start" title={display || placeholder}>
+                {display || placeholder}
+              </span>
             </Button>
           }
         />

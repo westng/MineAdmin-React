@@ -58,7 +58,7 @@ export function MaDateRangePicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <div className="relative w-full">
+      <div className="relative w-full min-w-0">
         <PopoverTrigger
           render={
             <Button
@@ -68,7 +68,7 @@ export function MaDateRangePicker({
               id={id}
               disabled={disabled || readOnly || triggerProps?.disabled}
               className={cn(
-                'w-full justify-start pe-9 font-normal',
+                'w-full min-w-0 justify-start pe-9 font-normal',
                 !display && 'text-muted-foreground',
                 className,
                 triggerProps?.className,
@@ -80,7 +80,9 @@ export function MaDateRangePicker({
           }
         >
           <CalendarIcon aria-hidden="true" />
-          {display || placeholder}
+          <span className="min-w-0 flex-1 truncate text-start" title={display || placeholder}>
+            {display || placeholder}
+          </span>
         </PopoverTrigger>
         {display && !disabled && !readOnly && (
           <Button
