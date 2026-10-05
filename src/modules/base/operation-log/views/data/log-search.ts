@@ -1,3 +1,4 @@
+import { isValid, parse } from 'date-fns'
 import { createTextTranslator } from '@/services/i18n/translator'
 import type { LoginLogParams, OperationLogParams } from '../../api/log'
 import type { AppRuntime } from '@/provider/runtime/types'
@@ -6,23 +7,21 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
   function searchText(value: unknown) {
     return typeof value === 'string' ? value.trim() || undefined : undefined
   }
-  function timeRange(params: Record<string, unknown>): [string, string] | undefined {
-    const start = searchText(params.start_time)
-    const end = searchText(params.end_time)
+  function timeRange(value: unknown): [string, string] | undefined {
+    if (value == null) return undefined
+    if (!Array.isArray(value)) throw new Error(tx('请选择有效的时间范围'))
+    const start = searchText(value[0])
+    const end = searchText(value[1])
     if (!start && !end) return undefined
     if (!start || !end) throw new Error(tx('请选择完整的开始时间和结束时间'))
-    const pattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/
-    if (
-      !pattern.test(start) ||
-      !pattern.test(end) ||
-      !Number.isFinite(Date.parse(start)) ||
-      !Number.isFinite(Date.parse(end))
-    ) {
+    const pattern = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
+    const startDate = parse(start, 'yyyy-MM-dd HH:mm:ss', new Date())
+    const endDate = parse(end, 'yyyy-MM-dd HH:mm:ss', new Date())
+    if (!pattern.test(start) || !pattern.test(end) || !isValid(startDate) || !isValid(endDate)) {
       throw new Error(tx('请选择有效的时间范围'))
     }
-    if (Date.parse(start) > Date.parse(end)) throw new Error(tx('开始时间不能晚于结束时间'))
-    const toServerTime = (value: string) => `${value.replace('T', ' ')}${value.length === 16 ? ':00' : ''}`
-    return [toServerTime(start), toServerTime(end)]
+    if (startDate > endDate) throw new Error(tx('开始时间不能晚于结束时间'))
+    return [start, end]
   }
   function commonParams(params: Record<string, unknown>) {
     return {
@@ -39,7 +38,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
       os: searchText(params.os),
       browser: searchText(params.browser),
       status: status === 1 || status === 2 ? status : undefined,
-      login_time: timeRange(params),
+      login_time: timeRange(params.login_time),
     }
   }
   function toOperationLogParams(params: Record<string, unknown>): OperationLogParams {
@@ -48,7 +47,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
       method: searchText(params.method),
       router: searchText(params.router),
       service_name: searchText(params.service_name),
-      created_at: timeRange(params),
+      created_at: timeRange(params.created_at),
     }
   }
   function logErrorMessage(error: unknown, fallback: string) {
