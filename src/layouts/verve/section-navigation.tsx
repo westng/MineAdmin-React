@@ -1,7 +1,6 @@
 import { useRef } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { NavLink, matchPath } from 'react-router-dom'
-import { MaIcon } from '@/components/ma-icon'
 import { useSidebar } from '@/components/reui/primitives/sidebar'
 import { useShell } from '@/layouts/hooks/use-shell'
 import { useTranslate } from '@/hooks/i18n/use-translator'
@@ -18,13 +17,7 @@ function MenuBranch({ menu, pathname, onNavigate }: { menu: MenuVo; pathname: st
   const path = getMenuPath(menu)
   const children = (menu.children ?? []).filter(isVisibleMenu)
   const label = getMenuLabel(menu)
-  const icon = menu.icon || menu.meta?.icon
-  const content = (
-    <>
-      <MaIcon name={icon || 'lucide:circle-dot'} className="size-3.5 shrink-0" />
-      <span className="truncate">{label}</span>
-    </>
-  )
+  const content = <span className="truncate">{label}</span>
   if (children.length) {
     return (
       <details

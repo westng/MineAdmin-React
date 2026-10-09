@@ -7,7 +7,7 @@ import type { AppRuntime } from '@/provider/runtime/types'
 export interface RoleTableColumnActions {
   hasAuth: (permission: string | string[]) => boolean
   onEdit: (row: RoleVo) => void
-  onPermissions: (row: RoleVo) => Promise<void>
+  onPermissions: (row: RoleVo) => void
   onDelete: (ids: number[]) => Promise<void>
 }
 export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
@@ -51,7 +51,8 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
         prop: 'status',
         label: tx('状态'),
         cellRender: ({ row }) => (
-          <Badge variant={row.status === 1 ? 'default' : 'secondary'}>
+          <Badge variant={row.status === 1 ? 'success-light' : row.status === 2 ? 'destructive-light' : 'secondary'}>
+            <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
             {row.status === 1 ? tx('启用') : row.status === 2 ? tx('禁用') : tx('未知')}
           </Badge>
         ),

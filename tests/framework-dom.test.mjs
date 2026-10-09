@@ -75,6 +75,7 @@ const result = await build({
   export { default as AccountSettingsPage } from './src/modules/base/account-settings/views/index'
   export { default as AppLayout } from './src/layouts'
   export { default as RolePage } from './src/modules/base/role/views'
+  export { RolePermissionsDialog } from './src/modules/base/role/views/components/RolePermissionsDialog'
   export { default as DepartmentPage } from './src/modules/base/department/views'
   export { DepartmentPositionsDialog } from './src/modules/base/department/views/components/DepartmentPositionsDialog'
   export { DepartmentLeadersDialog } from './src/modules/base/department/views/components/DepartmentLeadersDialog'
@@ -1073,6 +1074,98 @@ test('权限回调使用注入会话，并在延迟操作时重新检查当前�
   assert.equal(delayed('edit'), false)
 })
 
+test('角色权限 dialog uses standard actions, preserves filtered selections and supports read-only access', async t => {
+  const app = core.createAppRuntime({ storage: localStorage, prefix: 'role_permissions_dialog_' })
+  app.session.setState({ token: 'synthetic', initialized: true, permissions: ['*'], roles: [] })
+  const handle = React.createRef()
+  const role = { id: 7, name: '审计角色' }
+  const menus = [
+    {
+      id: 1,
+      name: 'audit',
+      meta: { title: '审计菜单' },
+      children: [
+        { id: 2, parent_id: 1, name: 'audit:view', meta: { title: '查看审计' } },
+        { id: 3, parent_id: 1, name: 'audit:export', meta: { title: '导出审计' } },
+      ],
+    },
+  ]
+  let granted = ['audit:view']
+  const writes = []
+  let finishSave
+  app.http.defaults.adapter = async config => {
+    let data = null
+    if (config.method === 'get' && config.url === '/admin/menu/list') data = menus
+    else if (config.method === 'get' && config.url === '/admin/role/7/permissions')
+      data = granted.map(name => ({ id: name === 'audit:view' ? 2 : 3, name }))
+    else if (config.method === 'put' && config.url === '/admin/role/7/permissions') {
+      const payload = JSON.parse(config.data)
+      writes.push(payload)
+      await new Promise(resolve => {
+        finishSave = resolve
+      })
+      granted = payload.permissions
+    } else assert.fail(`Unexpected permission dialog request: ${config.method} ${config.url}`)
+    return { config, status: 200, statusText: 'OK', headers: {}, data: { code: 200, message: 'success', data } }
+  }
+  t.after(async () => {
+    await act(async () => {
+      for (const root of roots.splice(0)) root.unmount()
+    })
+    app.dispose()
+  })
+  await mount(
+    React.createElement(
+      core.AppProviders,
+      { runtime: app },
+      React.createElement(core.RolePermissionsDialog, { ref: handle }),
+    ),
+  )
+  const flush = () => new Promise(resolve => setTimeout(resolve, 20))
+  const button = label => [...document.querySelectorAll('button')].find(node => node.textContent.trim() === label)
+  const checkbox = label =>
+    [...document.querySelectorAll('[role="checkbox"]')].find(node => node.closest('label')?.textContent.includes(label))
+  await act(async () => {
+    handle.current.open(role)
+    await flush()
+  })
+  assert.equal(checkbox('查看审计').getAttribute('aria-checked'), 'true')
+  const search = document.querySelector('input[aria-label="搜索菜单权限"]')
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(search, '导出审计')
+    search.dispatchEvent(new window.Event('input', { bubbles: true }))
+  })
+  assert.equal(checkbox('查看审计'), undefined)
+  await act(async () => checkbox('导出审计').click())
+  const dialog = document.querySelector('[role="dialog"]')
+  await act(async () => {
+    dialog.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }))
+    button('保存权限').click()
+    await flush()
+  })
+  assert.deepEqual(writes, [{ permissions: ['audit:view', 'audit:export'] }])
+  assert.equal(button('保存权限').disabled, true)
+  assert.equal(button('取消').disabled, true)
+  await act(async () => dialog.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+  assert.ok(document.querySelector('[role="dialog"]'), 'pending writes must block dismissal')
+  await act(async () => {
+    finishSave()
+    await flush()
+  })
+  assert.equal(document.querySelector('[role="dialog"]'), null)
+  await act(async () => {
+    app.session.setState({ permissions: ['permission:role:getMenu', 'permission:menu:index'] })
+    handle.current.open(role)
+    await flush()
+  })
+  assert.equal(checkbox('查看审计').getAttribute('aria-checked'), 'true')
+  assert.equal(checkbox('导出审计').getAttribute('aria-checked'), 'true')
+  assert.equal(button('保存权限'), undefined)
+  await act(async () => checkbox('查看审计').click())
+  assert.equal(checkbox('查看审计').getAttribute('aria-checked'), 'true')
+  assert.equal(writes.length, 1)
+})
+
 for (const fixture of [
   {
     name: '角色',
@@ -1092,13 +1185,17 @@ for (const fixture of [
       userInfo: { username: 'crud-test' },
     })
     const writes = []
+    const rows = []
+    let listReads = 0
     let finishSave
     app.http.defaults.adapter = async config => {
       if (config.method === 'post' && config.url === fixture.url) {
-        writes.push(JSON.parse(config.data))
+        const payload = JSON.parse(config.data)
+        writes.push(payload)
         const code = await new Promise(resolve => {
           finishSave = resolve
         })
+        if (code === 200) rows.push({ id: 101, ...payload })
         return {
           config,
           status: 200,
@@ -1107,12 +1204,13 @@ for (const fixture of [
           data: { code, message: code === 200 ? 'success' : '保存测试失败', data: null },
         }
       }
+      if (config.method === 'get' && config.url === `${fixture.url}/list`) listReads++
       return {
         config,
         status: 200,
         statusText: 'OK',
         headers: {},
-        data: { code: 200, message: 'success', data: { list: [], total: 0 } },
+        data: { code: 200, message: 'success', data: { list: [...rows], total: rows.length } },
       }
     }
     t.after(async () => {
@@ -1125,10 +1223,10 @@ for (const fixture of [
       const [actions, setActions] = React.useState(null)
       return React.createElement(core.HeaderActionsSetterContext.Provider, { value: setActions }, actions, children)
     }
-    await mount(
+    const container = await mount(
       React.createElement(
-        core.RuntimeContext.Provider,
-        { value: app },
+        core.AppProviders,
+        { runtime: app },
         React.createElement(MemoryRouter, null, React.createElement(Header, null, React.createElement(fixture.Page))),
       ),
     )
@@ -1170,6 +1268,10 @@ for (const fixture of [
     })
     assert.equal(document.querySelector(`[role="dialog"] input[aria-label="${Object.keys(fixture.fields)[0]}"]`), null)
     assert.equal(writes[1].name, Object.values(fixture.fields)[0])
+    if (fixture.name === '角色') {
+      assert.ok(container.textContent.includes(writes[1].name), 'saved roles must appear through resource invalidation')
+      assert.equal(listReads, 2, 'the initial list and successful mutation each fetch once')
+    }
   })
 }
 

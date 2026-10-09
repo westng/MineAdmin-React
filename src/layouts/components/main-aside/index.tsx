@@ -158,11 +158,13 @@ function MenuTree({
   pathname,
   expanded,
   onToggle,
+  showRootIcons = true,
 }: {
   items: MenuItem[]
   pathname: string
   expanded: Set<string>
   onToggle: (path: string, open: boolean) => void
+  showRootIcons?: boolean
 }) {
   const localeRevision = useLocaleRevision()
   void localeRevision
@@ -173,14 +175,18 @@ function MenuTree({
       const isActive = pathname === item.to || (!item.end && pathname.startsWith(`${item.to}/`))
       const leaf = (
         <>
-          {<NavigationIconView icon={item.icon} />}
-          <span>{item.label}</span>
+          {showRootIcons && !nested && <NavigationIconView icon={item.icon} />}
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </>
       )
       if (!hasChildren) {
         return nested ? (
           <SidebarMenuSubItem key={item.to}>
-            <SidebarMenuSubButton isActive={isActive} render={<NavLink to={item.to} end={item.end} />}>
+            <SidebarMenuSubButton
+              isActive={isActive}
+              title={item.label}
+              render={<NavLink to={item.to} end={item.end} />}
+            >
               {leaf}
             </SidebarMenuSubButton>
           </SidebarMenuSubItem>
@@ -189,6 +195,7 @@ function MenuTree({
             <SidebarMenuButton
               isActive={isActive}
               tooltip={item.label}
+              title={item.label}
               render={<NavLink to={item.to} end={item.end} />}
             >
               {leaf}
@@ -199,7 +206,7 @@ function MenuTree({
       const isOpen = expanded.has(item.to)
       const trigger = (
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton isActive={isActive} tooltip={item.label}>
+          <SidebarMenuButton isActive={isActive} tooltip={item.label} title={item.label}>
             {leaf}
             <ChevronRight
               className={cn(
@@ -213,7 +220,8 @@ function MenuTree({
       )
       const content = (
         <CollapsibleContent>
-          <SidebarMenuSub>{renderItems(item.children ?? [], true)}</SidebarMenuSub>
+          {/* 保留原生左缩进和引导线，避免右侧留白随层级累积。 */}
+          <SidebarMenuSub className="mr-0 pr-0">{renderItems(item.children ?? [], true)}</SidebarMenuSub>
         </CollapsibleContent>
       )
       return nested ? (
@@ -345,7 +353,13 @@ export default function MainAside({
               {tx('导航')}
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <MenuTree items={storeItems} pathname={location.pathname} expanded={expanded} onToggle={onToggle} />
+              <MenuTree
+                items={storeItems}
+                pathname={location.pathname}
+                expanded={expanded}
+                onToggle={onToggle}
+                showRootIcons={menusOverride === undefined}
+              />
             </SidebarGroupContent>
           </SidebarGroup>
           <SidebarGroup>

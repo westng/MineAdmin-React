@@ -13,6 +13,8 @@ export type RoleVo = {
   remark?: string
 }
 
+export type RolePermissionVo = { id: number; name: string }
+
 export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'>) {
   const http = runtime.http
   const createResourceQueries = (module: string, resource: string) =>
@@ -39,7 +41,7 @@ export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'
 
   function getRolePermission(id: number) {
     return queries.detail(id, querySignal =>
-      http.get<ResponseStruct<null>>(`/admin/role/${id}/permissions`, { signal: querySignal }),
+      http.get<ResponseStruct<RolePermissionVo[]>>(`/admin/role/${id}/permissions`, { signal: querySignal }),
     )
   }
 
