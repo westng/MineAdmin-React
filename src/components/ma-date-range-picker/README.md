@@ -11,6 +11,7 @@ import { MaDateRangePicker } from '@/components/ma-date-range-picker'
 公共入口提供 `MaDateRangePicker`、表单适配组件 `MaDateRangePickerField`、`defaultDateRangeShortcuts`，以及 `MaDateRangePickerProps`、`MaDateRangeShortcut`。
 
 - `value` / `onChange` 沿用表单兼容的 `unknown` 契约，范围以数组表示；清空返回 `undefined`。
+- 日历通过两次点击确定起止日期，连续点击同一天可选中该日全天；默认允许单日范围，`calendarProps.min` 可设置起止日期的最小间隔天数。
 - `valueFormat` 默认 `yyyy-MM-dd HH:mm:ss`，设为 `date` 时日历选择返回 Date；`displayFormat` 默认 `yyyy-MM-dd HH:mm`。日历选择将起止时间归一到当天开始与结束。
 - `shortcuts` 接受 `{ label, getValue }[]`，默认提供常用日期范围。快捷项返回值原样交给 `onChange`；使用 `valueFormat="date"` 时应提供返回 Date 数组的快捷项。
 - 支持 `disabled`、`readOnly`、`placeholder`、`id`、`className` 与 ARIA 属性；`calendarProps`、`popupProps`、`triggerProps` 扩展底层控件。

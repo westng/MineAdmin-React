@@ -132,7 +132,7 @@ export function MaDateRangePicker({
               locale={calendarProps?.locale ?? zhCN}
               numberOfMonths={calendarProps?.numberOfMonths ?? 2}
               mode="range"
-              min={calendarProps?.min ?? 1}
+              min={calendarProps?.min ?? 0}
               resetOnSelect
               selected={from ? { from, to } : undefined}
               disabled={disabled || readOnly || calendarProps?.disabled}

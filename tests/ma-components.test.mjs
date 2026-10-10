@@ -185,6 +185,70 @@ test('迁移后的 MaDateRangePicker 公共入口保留格式化展示、清除�
   assert.equal(button(view.container, '清除时间范围'), undefined)
 })
 
+for (const { name, days, props = {}, expected, staysOpen = false } of [
+  {
+    name: '连续点击同一天选择全天范围',
+    days: [16, 16],
+    expected: ['2026-09-16 00:00:00', '2026-09-16 23:59:59'],
+  },
+  {
+    name: '顺序点击选择跨日范围',
+    days: [16, 18],
+    expected: ['2026-09-16 00:00:00', '2026-09-18 23:59:59'],
+  },
+  {
+    name: '反向点击选择跨日范围',
+    days: [18, 16],
+    expected: ['2026-09-16 00:00:00', '2026-09-18 23:59:59'],
+  },
+  {
+    name: '已有范围时重新选择单日',
+    days: [16, 16],
+    props: { value: ['2026-09-01 00:00:00', '2026-09-05 23:59:59'] },
+    expected: ['2026-09-16 00:00:00', '2026-09-16 23:59:59'],
+  },
+  {
+    name: 'Date 格式返回同一天的起止时间',
+    days: [16, 16],
+    props: { valueFormat: 'date' },
+    expected: [new Date(2026, 8, 16), new Date(2026, 8, 16, 23, 59, 59, 999)],
+  },
+  {
+    name: '保留显式配置的最小日期间隔',
+    days: [16, 16],
+    props: { calendarProps: { min: 1 } },
+    expected: undefined,
+    staysOpen: true,
+  },
+]) {
+  test(`MaDateRangePicker ${name}`, async t => {
+    const changes = []
+    const pickerProps = {
+      value: undefined,
+      onChange: value => changes.push(value),
+      ...props,
+      calendarProps: { defaultMonth: new Date(2026, 8, 1), ...props.calendarProps },
+    }
+    const view = await mount(t, compiled.exports.MaDateRangePicker, pickerProps)
+    const trigger = button(view.container, '请选择时间范围')
+    const selectDay = day =>
+      click(document.querySelector(`button[data-day="${new Date(2026, 8, day).toLocaleDateString('zh-CN')}"]`))
+
+    await click(trigger)
+    await selectDay(days[0])
+    assert.equal(changes.length, 1)
+    assert.ok(changes[0]?.[0])
+    assert.equal(changes[0]?.[1], undefined)
+    assert.equal(trigger.getAttribute('aria-expanded'), 'true')
+    await view.render({ ...pickerProps, value: changes[0] })
+
+    await selectDay(days[1])
+    assert.equal(changes.length, 2)
+    assert.deepEqual(changes[1], expected)
+    assert.equal(trigger.getAttribute('aria-expanded'), String(staysOpen))
+  })
+}
+
 test('MaEmpty 无 Provider 默认展示搜索插画，透传 ref 并关联独立标题和说明', async t => {
   const ref = createRef()
   const { container } = await mountEmpty(t, { ref, id: 'empty-files', description: '请先上传文件' })
