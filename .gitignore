@@ -1,6 +1,5 @@
 node_modules
 dist*
-.DS_Store
 *.local
 .eslintcache
 .vscode
@@ -25,3 +24,6 @@ src/components/*
 src/modules/*
 !src/modules/base/
 !src/modules/base/**
+
+# macOS 目录元数据
+.DS_*
