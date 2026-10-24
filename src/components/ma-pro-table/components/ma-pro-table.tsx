@@ -641,7 +641,7 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
     >
       {showHeader && (
         <FrameHeader className="min-w-0 flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">{headerContent}</div>
+          <div className="min-w-0 flex-1">{headerContent}</div>
         </FrameHeader>
       )}
       <FramePanel className="min-w-0 bg-card p-0! shadow-none!">

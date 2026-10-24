@@ -36,6 +36,8 @@ export interface MaDrawerProps<Payload = unknown> extends Dialog.Root.Props<Payl
   loading?: boolean
   side?: 'top' | 'right' | 'bottom' | 'left'
   width?: string | number
+  /** 左右抽屉默认支持拖动边缘调宽，仅影响当前打开会话。 */
+  resizable?: boolean
   showCloseButton?: boolean
   contentClassName?: string
   headerClassName?: string

@@ -100,21 +100,21 @@ export function ButtonPermissionTable({
       className="mt-5"
       data={rows}
       header={
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold">{tx('按钮权限')}</h3>
-            <Badge variant="secondary">
-              {value.length} {tx('项')}
-            </Badge>
+        <div className="flex w-full min-w-0 items-center justify-between gap-4">
+          <div className="min-w-0 flex flex-col gap-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold">{tx('按钮权限')}</h3>
+              <Badge variant="secondary">
+                {value.length} {tx('项')}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">{tx('配置按钮名称和对应的权限编码。')}</p>
           </div>
-          <p className="text-sm text-muted-foreground">{tx('配置按钮名称和对应的权限编码。')}</p>
+          <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={addButton}>
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            {tx('新增按钮')}
+          </Button>
         </div>
-      }
-      toolbarRight={
-        <Button type="button" size="sm" variant="outline" onClick={addButton}>
-          <Plus data-icon="inline-start" aria-hidden="true" />
-          {tx('新增按钮')}
-        </Button>
       }
       schema={{ tableColumns: buttonPermissionColumns }}
       options={{ tableOptions: { dense: true, showPagination: false } }}

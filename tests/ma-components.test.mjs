@@ -1487,6 +1487,282 @@ test('MaDialog 全屏时使用视口高度，退出后恢复配置且保留表�
   assert.deepEqual(changes, [true, false])
 })
 
+function mockDrawerGeometry(popup, initialWidth = 480) {
+  // Happy DOM 不执行 CSS 布局；仅替代面板几何测量，交互仍走真实组件事件。
+  popup.getBoundingClientRect = () => {
+    const width = popup.style.width.endsWith('px') ? Number.parseFloat(popup.style.width) : initialWidth
+    return new dom.DOMRect(popup.dataset.side === 'left' ? 16 : dom.innerWidth - 16 - width, 16, width, 600)
+  }
+}
+
+async function drawerPointer(target, type, options = {}) {
+  await act(async () =>
+    target.dispatchEvent(
+      new dom.PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        isPrimary: true,
+        button: 0,
+        clientX: 500,
+        ...options,
+      }),
+    ),
+  )
+}
+
+test('MaDrawer 调宽不回写调用方 CSS 宽度，保留输入与 Popup 样式，重开和配置更新恢复初始宽度', async t => {
+  const props = {
+    open: true,
+    title: '可调宽抽屉',
+    width: '50%',
+    popupProps: { style: state => ({ width: '70%', opacity: state.open ? 1 : 0 }) },
+    children: createElement('input', { defaultValue: '初始内容', 'aria-label': '抽屉内容' }),
+  }
+  const view = await mount(t, MaDrawer, props)
+  const popup = () => document.querySelector('[role="dialog"]')
+  const handle = () => popup().querySelector('[data-slot="ma-drawer-resize-handle"]')
+  mockDrawerGeometry(popup(), 512)
+  assert.equal(popup().style.width, '50%')
+  assert.equal(handle().getAttribute('role'), 'separator')
+  assert.equal(handle().getAttribute('aria-orientation'), 'vertical')
+  await enterValue(popup().querySelector('input'), '尚未保存')
+
+  await drawerPointer(handle(), 'pointerdown')
+  await drawerPointer(document, 'pointermove', { clientX: 400 })
+  await drawerPointer(document, 'pointerup')
+  assert.equal(popup().style.width, '612px')
+  assert.equal(handle().getAttribute('aria-valuenow'), '612')
+  assert.equal(popup().style.opacity, '1')
+  assert.equal(popup().querySelector('input').value, '尚未保存')
+  assert.equal(props.width, '50%')
+  await view.render({ ...props, title: '更新标题' })
+  assert.equal(popup().style.width, '612px')
+
+  await act(async () => handle().dispatchEvent(new dom.MouseEvent('dblclick', { bubbles: true })))
+  assert.equal(popup().style.width, '50%')
+  assert.equal(popup().querySelector('input').value, '尚未保存')
+  await drawerPointer(handle(), 'pointerdown')
+  await drawerPointer(document, 'pointermove', { clientX: 400 })
+  await drawerPointer(document, 'pointerup')
+  await view.render({ ...props, open: false })
+  await view.render(props)
+  assert.equal(popup().style.width, '50%')
+
+  mockDrawerGeometry(popup(), 512)
+  await drawerPointer(handle(), 'pointerdown')
+  await drawerPointer(document, 'pointermove', { clientX: 400 })
+  await view.render({ ...props, width: 640 })
+  assert.equal(popup().style.width, '640px')
+  assert.equal(document.body.style.cursor, '')
+  await view.render({ ...props, width: undefined, resizable: false })
+  assert.equal(popup().style.width, '70%')
+})
+
+for (const side of ['left', 'right']) {
+  test(`MaDrawer ${side} 抽屉从实际宽度拖动，方向键与 Shift、Home/End 遵守边缘方向和范围`, async t => {
+    await mount(t, MaDrawer, { defaultOpen: true, side, width: 480 })
+    const popup = document.querySelector('[role="dialog"]')
+    const handle = popup.querySelector('[data-slot="ma-drawer-resize-handle"]')
+    mockDrawerGeometry(popup)
+    assert.match(handle.className, side === 'left' ? /-right-4/ : /-left-4/)
+    const panel = popup.querySelector('[data-slot="ma-drawer-panel"]')
+    assert.ok(panel)
+    assert.equal(panel.contains(handle), false)
+    assert.match(popup.className, /overflow-visible!/)
+    assert.match(panel.className, /overflow-hidden/)
+    await drawerPointer(handle, 'pointerdown')
+    await drawerPointer(document, 'pointermove', { clientX: 532 })
+    await drawerPointer(document, 'pointerup')
+    assert.equal(popup.style.width, side === 'left' ? '512px' : '448px')
+
+    const key = async (key, options = {}) =>
+      act(async () =>
+        handle.dispatchEvent(new dom.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options })),
+      )
+    await key('ArrowLeft')
+    assert.equal(popup.style.width, side === 'left' ? '496px' : '464px')
+    await key('ArrowRight', { shiftKey: true })
+    assert.equal(popup.style.width, side === 'left' ? '560px' : '400px')
+    await key('Home')
+    assert.equal(popup.style.width, '320px')
+    await key('End')
+    assert.equal(popup.style.width, `${dom.innerWidth - 32}px`)
+    assert.equal(handle.getAttribute('aria-valuemax'), String(dom.innerWidth - 32))
+  })
+}
+
+test('MaDrawer 未设置 width 时默认宽度不会锁住拖动，双击可恢复默认布局', async t => {
+  await mount(t, MaDrawer, { defaultOpen: true })
+  const popup = document.querySelector('[role="dialog"]')
+  const handle = popup.querySelector('[data-slot="ma-drawer-resize-handle"]')
+  mockDrawerGeometry(popup)
+  assert.match(popup.className, /w-\[min\(30rem/)
+  await drawerPointer(handle, 'pointerdown')
+  await drawerPointer(document, 'pointermove', { clientX: 380 })
+  await drawerPointer(document, 'pointerup')
+  assert.equal(popup.style.width, '600px')
+  assert.doesNotMatch(popup.className, /w-\[min\(30rem/)
+  await act(async () => handle.dispatchEvent(new dom.MouseEvent('dblclick', { bubbles: true })))
+  assert.equal(popup.style.width, '')
+  assert.match(popup.className, /w-\[min\(30rem/)
+})
+
+test('MaDrawer 外侧手柄仅在主指针按住时进入加长状态，松开、取消和失焦后恢复', async t => {
+  const props = { open: true, width: 480 }
+  const view = await mount(t, MaDrawer, props)
+  const popup = () => document.querySelector('[role="dialog"]')
+  const handle = () => popup().querySelector('[data-slot="ma-drawer-resize-handle"]')
+  mockDrawerGeometry(popup())
+  const isPressed = () => handle().hasAttribute('data-resizing')
+  assert.equal(isPressed(), false)
+  await drawerPointer(handle(), 'pointerdown', { button: 2 })
+  await drawerPointer(handle(), 'pointerdown', { isPrimary: false })
+  assert.equal(isPressed(), false)
+
+  await drawerPointer(handle(), 'pointerdown')
+  assert.equal(isPressed(), true)
+  await drawerPointer(document, 'pointermove', { clientX: 450 })
+  assert.equal(isPressed(), true)
+  assert.equal(popup().style.width, '530px')
+  await drawerPointer(document, 'pointermove', { clientX: 400 })
+  assert.equal(popup().style.width, '580px')
+  await drawerPointer(document, 'pointerup', { pointerId: 2 })
+  assert.equal(isPressed(), true)
+  await drawerPointer(document, 'pointerup')
+  assert.equal(isPressed(), false)
+
+  await drawerPointer(handle(), 'pointerdown')
+  assert.equal(isPressed(), true)
+  await drawerPointer(document, 'pointercancel')
+  assert.equal(isPressed(), false)
+  await drawerPointer(handle(), 'pointerdown')
+  assert.equal(isPressed(), true)
+  await act(async () => dom.dispatchEvent(new dom.Event('blur')))
+  assert.equal(isPressed(), false)
+
+  await drawerPointer(handle(), 'pointerdown')
+  await view.render({ ...props, open: false })
+  await view.render(props)
+  assert.equal(isPressed(), false)
+})
+
+test('MaDrawer 调宽仅影响当前实例，不修改 useMaDrawer 配置或其他抽屉', async t => {
+  let drawer
+  function Drawers() {
+    drawer = compiled.exports.useMaDrawer({ width: 560 })
+    return createElement('div', null, [
+      createElement(MaDrawer, {
+        ...drawer.props,
+        key: 'first',
+        modal: false,
+        popupProps: { 'data-drawer': 'first' },
+      }),
+      createElement(MaDrawer, {
+        key: 'second',
+        defaultOpen: true,
+        width: 640,
+        modal: false,
+        popupProps: { 'data-drawer': 'second' },
+      }),
+    ])
+  }
+  await mount(t, Drawers, {})
+  await act(async () => drawer.open())
+  const first = () => document.querySelector('[data-drawer="first"]')
+  const second = document.querySelector('[data-drawer="second"]')
+  mockDrawerGeometry(first(), 560)
+  await drawerPointer(first().querySelector('[data-slot="ma-drawer-resize-handle"]'), 'pointerdown')
+  await drawerPointer(document, 'pointermove', { clientX: 400 })
+  await drawerPointer(document, 'pointerup')
+  assert.equal(first().style.width, '660px')
+  assert.equal(second.style.width, '640px')
+  assert.equal(drawer.props.width, 560)
+  await act(async () => drawer.close())
+  await act(async () => drawer.open())
+  assert.equal(first().style.width, '560px')
+  assert.equal(second.style.width, '640px')
+})
+
+test('MaDrawer 调宽过滤非主指针，限制宽度，取消和卸载后还原正文选取及光标', async t => {
+  const previousCursor = document.body.style.cursor
+  const previousUserSelect = document.body.style.userSelect
+  document.body.style.cursor = 'crosshair'
+  document.body.style.userSelect = 'text'
+  t.after(() => {
+    document.body.style.cursor = previousCursor
+    document.body.style.userSelect = previousUserSelect
+  })
+  const view = await mount(t, 'div', { children: createElement(MaDrawer, { defaultOpen: true, width: 480 }) })
+  const popup = document.querySelector('[role="dialog"]')
+  const handle = popup.querySelector('[data-slot="ma-drawer-resize-handle"]')
+  mockDrawerGeometry(popup)
+  await drawerPointer(handle, 'pointerdown', { button: 2 })
+  await drawerPointer(handle, 'pointerdown', { isPrimary: false })
+  await drawerPointer(document, 'pointermove', { clientX: 400 })
+  assert.equal(popup.style.width, '480px')
+  assert.equal(document.body.style.cursor, 'crosshair')
+
+  await drawerPointer(handle, 'pointerdown', { pointerType: 'touch' })
+  assert.equal(document.body.style.userSelect, 'none')
+  await drawerPointer(document, 'pointermove', { clientX: 400, pointerId: 2 })
+  assert.equal(popup.style.width, '480px')
+  await drawerPointer(document, 'pointermove', { clientX: -10000 })
+  assert.equal(popup.style.width, `${dom.innerWidth - 32}px`)
+  await drawerPointer(document, 'pointercancel', { pointerId: 2 })
+  assert.equal(document.body.style.cursor, 'col-resize')
+  await drawerPointer(document, 'pointercancel')
+  assert.equal(document.body.style.cursor, 'crosshair')
+  assert.equal(document.body.style.userSelect, 'text')
+  await drawerPointer(document, 'pointermove', { clientX: 10000 })
+  assert.equal(popup.style.width, `${dom.innerWidth - 32}px`)
+
+  await drawerPointer(handle, 'pointerdown')
+  await drawerPointer(document, 'pointermove', { clientX: 10000 })
+  assert.equal(popup.style.width, '320px')
+  await view.render({ children: null })
+  assert.equal(document.body.style.cursor, 'crosshair')
+  assert.equal(document.body.style.userSelect, 'text')
+  await drawerPointer(document, 'pointermove', { clientX: -10000 })
+})
+
+test('MaDrawer 已拖动宽度在窄视口内收缩，关闭调宽后恢复调用方宽度', async t => {
+  const originalViewportWidth = dom.innerWidth
+  const originalViewportDescriptor = Object.getOwnPropertyDescriptor(dom, 'innerWidth')
+  const props = { open: true, width: 480 }
+  const view = await mount(t, MaDrawer, props)
+  t.after(() => {
+    if (originalViewportDescriptor) Object.defineProperty(dom, 'innerWidth', originalViewportDescriptor)
+    else delete dom.innerWidth
+  })
+  const popup = document.querySelector('[role="dialog"]')
+  const handle = popup.querySelector('[data-slot="ma-drawer-resize-handle"]')
+  mockDrawerGeometry(popup)
+  await act(async () =>
+    handle.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true })),
+  )
+  assert.equal(popup.style.width, `${originalViewportWidth - 32}px`)
+  await act(async () => {
+    Object.defineProperty(dom, 'innerWidth', { configurable: true, value: 280 })
+    dom.dispatchEvent(new dom.Event('resize'))
+  })
+  assert.equal(popup.style.width, '248px')
+  assert.equal(handle.getAttribute('aria-valuemin'), '248')
+  assert.equal(handle.getAttribute('aria-valuemax'), '248')
+  await view.render({ ...props, resizable: false })
+  assert.equal(popup.style.width, '480px')
+  assert.equal(popup.querySelector('[role="separator"]'), null)
+})
+
+for (const props of [{ resizable: false }, { side: 'top' }, { side: 'bottom' }]) {
+  test(`MaDrawer ${JSON.stringify(props)} 保留调用方宽度且不显示调宽控件`, async t => {
+    await mount(t, MaDrawer, { defaultOpen: true, width: '60%', ...props })
+    const popup = document.querySelector('[role="dialog"]')
+    assert.equal(popup.style.width, '60%')
+    assert.equal(popup.querySelector('[data-slot="ma-drawer-resize-handle"]'), null)
+  })
+}
+
 for (const [name, Component] of [
   ['MaDialog', MaDialog],
   ['MaDrawer', MaDrawer],
