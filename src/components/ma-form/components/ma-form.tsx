@@ -103,6 +103,15 @@ function itemIsShown<T extends MaModel>(item: MaFormItem<T>, model: T): boolean 
   return typeof item.show === 'function' ? item.show(item, model) : item.show !== false
 }
 
+function getLabelTarget<T extends MaModel>(item: MaFormItem<T>, prop: string | undefined): string | undefined {
+  if (!prop) return undefined
+  const component = item.component ?? item.render ?? 'Input'
+  if (typeof component !== 'string') return undefined
+  return ['Input', 'Password', 'InputNumber', 'Textarea', 'Checkbox', 'Switch', 'Radio'].includes(component)
+    ? prop
+    : undefined
+}
+
 function MaFormInner<T extends MaModel>(
   {
     modelValue,
@@ -423,6 +432,7 @@ function MaFormInner<T extends MaModel>(
           const itemProps = item.itemProps ?? {}
           const fieldError = prop ? errors[prop] : undefined
           const errorId = prop ? `${prop.replace(/[^a-zA-Z0-9_-]/g, '-')}-error` : undefined
+          const labelTarget = getLabelTarget(item, prop)
           const labelPosition = options.labelPosition ?? 'top'
           const horizontalLabel = labelPosition === 'left' || labelPosition === 'right'
           const labelWidth = typeof options.labelWidth === 'number' ? `${options.labelWidth}px` : options.labelWidth
@@ -455,7 +465,7 @@ function MaFormInner<T extends MaModel>(
               {item.showLabel !== false && label !== undefined && label !== null && (
                 <FieldLabel
                   className={itemProps.labelClassName}
-                  htmlFor={prop}
+                  htmlFor={labelTarget}
                   style={
                     horizontalLabel && labelWidth
                       ? {

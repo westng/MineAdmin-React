@@ -932,6 +932,30 @@ test('MaForm DatePicker 使用 Calendar，TimePicker 使用分段 Select，值�
   assert.equal(ref.current.getValues().time, '09:45')
 })
 
+test('MaForm 不将下拉或弹层控件的标签点击转发为控件点击', async t => {
+  const view = await mount(t, MaForm, {
+    items: [
+      { prop: 'name', label: '名称', render: 'Input' },
+      {
+        prop: 'status',
+        label: '状态',
+        render: 'Select',
+        renderProps: { options: [{ label: '启用', value: 'enabled' }] },
+      },
+    ],
+  })
+  const input = view.container.querySelector('input[aria-label="名称"]')
+  const select = view.container.querySelector('[data-slot="select-trigger"]')
+  const selectLabel = [...view.container.querySelectorAll('label')].find(node => node.textContent.trim() === '状态')
+  assert.equal(input.id, 'name')
+  assert.equal(selectLabel.getAttribute('for'), null)
+  assert.equal(select.getAttribute('aria-expanded'), 'false')
+  await click(selectLabel)
+  assert.equal(select.getAttribute('aria-expanded'), 'false')
+  await click(select)
+  assert.equal(select.getAttribute('aria-expanded'), 'true')
+})
+
 test('MaForm 必选多选值为空数组时校验不通过', async t => {
   const ref = createRef()
   await mount(t, MaForm, {

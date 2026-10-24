@@ -1,6 +1,5 @@
 import { createTextTranslator } from '@/services/i18n/translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
-import { Checkbox } from '@/components/reui/primitives/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/reui/primitives/select'
 import {
   Cascader,
@@ -49,28 +48,6 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
     department: [],
     position: [],
     policy: { policy_type: 'SELF', is_default: true, value: [] },
-  }
-  function renderMultiSelect({ item, value, setValue }: MaFormRenderContext<UserForm>) {
-    const options = (item.renderProps?.options ?? []) as Array<{ id: number; name: string }>
-    const selected = Array.isArray(value) ? value.map(Number) : []
-    const toggle = (id: number, checked: boolean) => {
-      setValue(checked ? Array.from(new Set([...selected, id])) : selected.filter(value => value !== id))
-    }
-
-    return (
-      <div className="grid max-h-32 gap-2 overflow-y-auto rounded-md border p-2">
-        {options.length === 0 && <span className="text-sm text-muted-foreground">{tx('暂无可选项')}</span>}
-        {options.map(option => (
-          <label key={option.id} className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={selected.includes(option.id)}
-              onCheckedChange={checked => toggle(option.id, checked === true)}
-            />
-            <span>{option.name}</span>
-          </label>
-        ))}
-      </div>
-    )
   }
   function DepartmentTreeSelect({ value, setValue, item }: MaFormRenderContext<UserForm>) {
     const localeRevision = useLocaleRevision()
@@ -165,7 +142,12 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
       },
       { label: tx('状态'), prop: 'status', render: renderStatusField },
       { label: tx('部门'), prop: 'department', render: DepartmentTreeSelect, renderProps: { options: departments } },
-      { label: tx('岗位'), prop: 'position', render: renderMultiSelect, renderProps: { options: positions } },
+      {
+        label: tx('岗位'),
+        prop: 'position',
+        render: 'Select',
+        renderProps: { multiple: true, options: positions },
+      },
       {
         label: tx('数据权限'),
         prop: 'policy.policy_type',

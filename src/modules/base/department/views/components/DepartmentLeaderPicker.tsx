@@ -59,8 +59,24 @@ export function DepartmentLeaderPicker({ departmentName, busy, onClose, onAdd }:
       description={`${tx('为“')}${departmentName}${tx('”选择已启用的用户，可在当前页多选后添加。')}`}
       showFullscreenButton={false}
       showCloseButton={!busy}
-      contentClassName="max-h-[85vh] overflow-y-auto sm:max-w-3xl"
-      footer={false}
+      size="xl"
+      maxHeight="85dvh"
+      footer={
+        <>
+          <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
+            {tx('取消')}
+          </Button>
+          <Button
+            type="button"
+            disabled={busy || pending || !selectedIds.length}
+            onClick={() => {
+              if (!pending && !tableRef.current?.getElTableStates().loading) void onAdd(selectedIds)
+            }}
+          >
+            {busy ? tx('添加中…') : tx('添加所选负责人')}
+          </Button>
+        </>
+      }
     >
       <MaProTable<UserVo>
         ref={tableRef}
@@ -95,19 +111,6 @@ export function DepartmentLeaderPicker({ departmentName, busy, onClose, onAdd }:
         }
         onSelectionChange={onSelectionChange}
       />
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" disabled={busy} onClick={onClose}>
-          {tx('取消')}
-        </Button>
-        <Button
-          disabled={busy || pending || !selectedIds.length}
-          onClick={() => {
-            if (!pending && !tableRef.current?.getElTableStates().loading) void onAdd(selectedIds)
-          }}
-        >
-          {busy ? tx('添加中…') : tx('添加所选负责人')}
-        </Button>
-      </div>
     </MaDialog>
   )
 }

@@ -11,6 +11,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Plus, UsersRound } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
 import { MaDialog, useMaFormDialog, useMaConfirm } from '@/components/ma-dialog'
+import { MaDrawer } from '@/components/ma-drawer'
 import { MaForm } from '@/components/ma-form'
 
 import type { DepartmentUserVo, DepartmentVo } from '@/modules/base/department/api/department'
@@ -214,7 +215,7 @@ export default function PermissionDepartmentPageView() {
         <MaForm key={editor.formKey} {...editor.formProps} items={getFormItems(tx, parentOptions)} />
       </MaDialog>
 
-      <MaDialog
+      <MaDrawer
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
         title={
@@ -225,8 +226,7 @@ export default function PermissionDepartmentPageView() {
           </span>
         }
         description={tx('查看部门负责人、岗位和当前关联用户。')}
-        showFullscreenButton={false}
-        contentClassName="sm:max-w-2xl"
+        width="min(42rem, calc(100vw - 2rem))"
         footer={false}
       >
         <div className="grid gap-4 md:grid-cols-3">
@@ -264,10 +264,7 @@ export default function PermissionDepartmentPageView() {
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-2">
-          <Button onClick={() => setDetailsOpen(false)}>{tx('关闭')}</Button>
-        </div>
-      </MaDialog>
+      </MaDrawer>
       <MaDialog {...confirm.dialogProps} cancelText={tx('取消')} />
     </>
   )

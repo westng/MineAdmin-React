@@ -148,3 +148,9 @@ Host 的 `dispose()` 使在途 `register()` 安装失效。旧安装返回的 di
 同源标签页共享存储时，用 `session_id` 区分登录身份；身份变化立即清除旧资料、角色、权限和查询，阻止旧请求及刷新结果回填。同一身份的 token 轮换不会沿用其他账号的权限。HTTP 只允许向配置的 API origin 发送 Authorization，网络钩子修改地址后再次校验；需要调用其他来源时使用独立客户端。
 
 启动依次调用插件的 `hooks.start(config)` 和 `install(runtime)`，当前 bootstrap 不调用 `hooks.setup`。宿主没有安装超时、capability 白名单或 `context.signal`；插件须自行管理异步取消与部分安装失败的清理。HTTP 的 `networkRequest` 钩子单独受 `hookTimeout`（默认 10 秒）和请求 AbortSignal 限制。运行时释放后迟到的安装 disposer 仍会执行；这些生命周期规则不构成沙箱。
+
+## 平台型业务模块层级
+
+平台型业务先按业务域、平台和产品分组，再落到具体子模块，例如 `src/modules/marketing/oceanengine/qianchuan/material/`。中间分组目录不承担页面职责；叶子子模块仍使用 `api/`、`locales/`、`views/` 约定。巨量营销使用 `ads`，DOU+ 使用独立的 `douplus`，未接入的产品或平台不预建空业务模块。
+
+数据库菜单的 `component` 直接引用真实产品目录，例如 `marketing/oceanengine/qianchuan/material/views/index`。目录调整时通过定向 SQL 同步菜单的父子关系、路由和组件路径；前端 Runtime 只注册实际文件，不提供旧营销路径别名。框架 `createViewResolver` 保持通用解析，不硬编码业务目录或修改权限。

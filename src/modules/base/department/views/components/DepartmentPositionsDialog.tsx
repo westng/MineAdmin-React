@@ -92,49 +92,57 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
         onDelete: removePosition,
       }),
     )
-  }, [getPositionTableColumns, hasAuth, busy, editor.open, removePosition])
+  }, [getPositionTableColumns, hasAuth, busy, editor.dialogProps.open, editor.open, removePosition])
   return (
-    <MaDialog
-      open
-      onOpenChange={open => {
-        if (!open && !busy) onClose()
-      }}
-      title={tx('管理岗位')}
-      description={`${tx('维护“')}${departmentName}${tx('”的岗位，新增、编辑和删除后立即生效。')}`}
-      showFullscreenButton={false}
-      showCloseButton={!busy}
-      contentClassName="max-h-[85vh] overflow-y-auto sm:max-w-3xl"
-      footer={false}
-    >
-      <MaProTable<PositionVo>
-        ref={tableRef}
-        data={query.data}
-        loading={query.loading}
-        error={query.error}
-        schema={{ tableColumns: [], searchItems: [{ prop: 'name', label: tx('岗位名称'), render: 'Input' }] }}
-        options={{
-          toolbar: true,
-          searchOptions: { defaultValue: { name: '' }, foldButtonShow: false },
-          onSearchReset: () => {
-            toast(tx('筛选条件已重置'))
-          },
-          requestOptions: { api: query.request, requestKey: query.sessionVersion, requestPage: { size: 10 } },
-          tableOptions: { pagination: { total: query.total }, rowKey: 'id', emptyText: tx('暂无符合条件的部门岗位') },
-        }}
-        toolbarLeft={
-          hasAuth('permission:position:save') && (
-            <Button size="sm" disabled={busy} onClick={() => editor.open(null)}>
-              <Plus aria-hidden="true" />
-              {tx('新增岗位')}
+    <>
+      {!editor.dialogProps.open && (
+        <MaDialog
+          open
+          onOpenChange={open => {
+            if (!open && !busy) onClose()
+          }}
+          title={tx('管理岗位')}
+          description={`${tx('维护“')}${departmentName}${tx('”的岗位，新增、编辑和删除后立即生效。')}`}
+          showFullscreenButton={false}
+          showCloseButton={!busy}
+          size="xl"
+          maxHeight="85dvh"
+          footer={
+            <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
+              {tx('关闭')}
             </Button>
-          )
-        }
-      />
-      <div className="flex justify-end">
-        <Button variant="outline" disabled={busy} onClick={onClose}>
-          {tx('关闭')}
-        </Button>
-      </div>
+          }
+        >
+          <MaProTable<PositionVo>
+            ref={tableRef}
+            data={query.data}
+            loading={query.loading}
+            error={query.error}
+            schema={{ tableColumns: [], searchItems: [{ prop: 'name', label: tx('岗位名称'), render: 'Input' }] }}
+            options={{
+              toolbar: true,
+              searchOptions: { defaultValue: { name: '' }, foldButtonShow: false },
+              onSearchReset: () => {
+                toast(tx('筛选条件已重置'))
+              },
+              requestOptions: { api: query.request, requestKey: query.sessionVersion, requestPage: { size: 10 } },
+              tableOptions: {
+                pagination: { total: query.total },
+                rowKey: 'id',
+                emptyText: tx('暂无符合条件的部门岗位'),
+              },
+            }}
+            toolbarLeft={
+              hasAuth('permission:position:save') && (
+                <Button size="sm" disabled={busy} onClick={() => editor.open(null)}>
+                  <Plus aria-hidden="true" />
+                  {tx('新增岗位')}
+                </Button>
+              )
+            }
+          />
+        </MaDialog>
+      )}
       <MaDialog
         {...editor.dialogProps}
         title={editor.data?.id ? tx('编辑岗位') : tx('新增岗位')}
@@ -144,6 +152,6 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
         <MaForm key={editor.formKey} {...editor.formProps} items={getPositionFormItems(tx)} />
       </MaDialog>
       <MaDialog {...confirm.dialogProps} cancelText={tx('取消')} />
-    </MaDialog>
+    </>
   )
 }

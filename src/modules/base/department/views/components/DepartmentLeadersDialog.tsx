@@ -65,7 +65,6 @@ export function DepartmentLeadersDialog({ departmentId, departmentName, onClose,
       if (response.data.code !== 200) throw new Error(response.data.message || tx('负责人添加失败'))
       setPickerOpen(false)
       toast.success(tx('负责人添加成功'))
-      tableRef.current?.search()
       await onChanged()
     } catch (error) {
       toast.error(departmentErrorMessage(error, tx('负责人添加失败，请重试')))
@@ -105,46 +104,54 @@ export function DepartmentLeadersDialog({ departmentId, departmentName, onClose,
   )
   useEffect(() => {
     tableRef.current?.setTableColumns(getLeaderTableColumns({ canRemove, busy, onRemove: removeLeader }))
-  }, [getLeaderTableColumns, canRemove, busy, removeLeader])
+  }, [getLeaderTableColumns, canRemove, busy, pickerOpen, removeLeader])
 
   return (
-    <MaDialog
-      open
-      onOpenChange={open => {
-        if (!open && !busy) onClose()
-      }}
-      title={tx('设置负责人')}
-      description={`${tx('管理“')}${departmentName}${tx('”的负责人，添加和移除后立即生效。')}`}
-      showFullscreenButton={false}
-      showCloseButton={!busy}
-      contentClassName="max-h-[85vh] overflow-y-auto sm:max-w-3xl"
-      footer={false}
-    >
-      <MaProTable<LeaderRecord>
-        ref={tableRef}
-        data={query.data}
-        loading={query.loading}
-        error={query.error}
-        schema={{ tableColumns: [] }}
-        options={{
-          toolbar: true,
-          requestOptions: { api: request, requestKey: query.sessionVersion, requestPage: { size: 10 } },
-          tableOptions: { pagination: { total: query.total }, rowKey: 'user_id', emptyText: tx('当前部门暂无负责人') },
-        }}
-        toolbarLeft={
-          canAdd && (
-            <Button size="sm" disabled={busy} onClick={() => setPickerOpen(true)}>
-              <Plus aria-hidden="true" />
-              {tx('添加负责人')}
+    <>
+      {!pickerOpen && (
+        <MaDialog
+          open
+          onOpenChange={open => {
+            if (!open && !busy) onClose()
+          }}
+          title={tx('设置负责人')}
+          description={`${tx('管理“')}${departmentName}${tx('”的负责人，添加和移除后立即生效。')}`}
+          showFullscreenButton={false}
+          showCloseButton={!busy}
+          size="xl"
+          maxHeight="85dvh"
+          footer={
+            <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
+              {tx('关闭')}
             </Button>
-          )
-        }
-      />
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" disabled={busy} onClick={onClose}>
-          {tx('关闭')}
-        </Button>
-      </div>
+          }
+        >
+          <MaProTable<LeaderRecord>
+            ref={tableRef}
+            data={query.data}
+            loading={query.loading}
+            error={query.error}
+            schema={{ tableColumns: [] }}
+            options={{
+              toolbar: true,
+              requestOptions: { api: request, requestKey: query.sessionVersion, requestPage: { size: 10 } },
+              tableOptions: {
+                pagination: { total: query.total },
+                rowKey: 'user_id',
+                emptyText: tx('当前部门暂无负责人'),
+              },
+            }}
+            toolbarLeft={
+              canAdd && (
+                <Button size="sm" disabled={busy} onClick={() => setPickerOpen(true)}>
+                  <Plus aria-hidden="true" />
+                  {tx('添加负责人')}
+                </Button>
+              )
+            }
+          />
+        </MaDialog>
+      )}
       {pickerOpen && (
         <DepartmentLeaderPicker
           departmentName={departmentName}
@@ -154,6 +161,6 @@ export function DepartmentLeadersDialog({ departmentId, departmentName, onClose,
         />
       )}
       <MaDialog {...confirm.dialogProps} cancelText={tx('取消')} />
-    </MaDialog>
+    </>
   )
 }
