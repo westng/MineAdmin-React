@@ -1,0 +1,41 @@
+#!/bin/sh
+
+set -eu
+
+hook_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$hook_dir/.." && pwd)
+node_version=$(sed -n '1p' "$repo_root/.node-version")
+
+if [ -z "$node_version" ]; then
+  echo "Git hook: .node-version is empty" >&2
+  exit 1
+fi
+
+fnm_bin=$(command -v fnm 2>/dev/null || true)
+if [ -z "$fnm_bin" ]; then
+  for candidate in \
+    "${FNM_BIN:-}" \
+    "${HOME:-}/.local/bin/fnm" \
+    "/usr/local/bin/fnm" \
+    "/opt/homebrew/bin/fnm"
+  do
+    if [ -x "$candidate" ]; then
+      fnm_bin=$candidate
+      break
+    fi
+  done
+fi
+
+if [ -n "$fnm_bin" ]; then
+  cd "$repo_root"
+  exec "$fnm_bin" exec --using "$node_version" pnpm run check
+fi
+
+if command -v node >/dev/null 2>&1 && command -v pnpm >/dev/null 2>&1; then
+  cd "$repo_root"
+  exec pnpm run check
+fi
+
+echo "Git hook: cannot find a usable Node.js and pnpm runtime." >&2
+echo "Install fnm or run this command from a shell with Node.js and pnpm on PATH." >&2
+exit 1

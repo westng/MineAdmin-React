@@ -2,4 +2,4 @@
 
 set -eu
 
-pnpm run check
+exec "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/run-check"
