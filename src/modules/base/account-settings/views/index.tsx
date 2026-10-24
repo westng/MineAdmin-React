@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Monitor,
   MonitorSmartphone,
+  PanelsTopLeft,
   Palette,
   ShieldCheck,
 } from 'lucide-react'
@@ -58,11 +59,28 @@ function readAccountSettings(userInfo: UserInfo | null | undefined): AccountSett
   }
 }
 
-function mergeAccountSettings(userInfo: UserInfo | null | undefined, account: AccountSettings, app: AppSettings) {
+function readTabbarEnabled(userInfo: UserInfo | null | undefined, fallback: boolean) {
+  const backendSetting = userInfo?.backend_setting
+  const tabbar = isRecord(backendSetting) && isRecord(backendSetting.tabbar) ? backendSetting.tabbar : {}
+  return typeof tabbar.enable === 'boolean' ? tabbar.enable : fallback
+}
+
+function mergeAccountSettings(
+  userInfo: UserInfo | null | undefined,
+  account: AccountSettings,
+  app: AppSettings,
+  tabbarEnabled: boolean,
+) {
   const backendSetting = isRecord(userInfo?.backend_setting) ? userInfo.backend_setting : {}
   const previousApp = isRecord(backendSetting.app) ? { ...backendSetting.app } : {}
   const previous = isRecord(backendSetting.account) ? { ...backendSetting.account } : {}
-  return { ...backendSetting, app: { ...previousApp, ...app }, account: { ...previous, ...account } }
+  const previousTabbar = isRecord(backendSetting.tabbar) ? { ...backendSetting.tabbar } : {}
+  return {
+    ...backendSetting,
+    app: { ...previousApp, ...app },
+    account: { ...previous, ...account },
+    tabbar: { ...previousTabbar, enable: tabbarEnabled },
+  }
 }
 
 function appearanceSettings(app: AppSettings) {
@@ -239,18 +257,22 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   const setPrimaryColor = useSettingStore(state => state.setPrimaryColor)
   const setSystemSettings = useSettingStore(state => state.setSettings)
   const runtime = useRuntime()
+  const tabbarEnabledInStore = useSettingStore(state => state.settings.tabbar.enable)
   const layoutRegistry = runtime.layouts
   const layouts = useSyncExternalStore(layoutRegistry.subscribe, layoutRegistry.getSnapshot, layoutRegistry.getSnapshot)
   const [settings, setSettings] = useState(() => readAccountSettings(activeUserInfo))
+  const [tabbarEnabled, setTabbarEnabled] = useState(() => readTabbarEnabled(activeUserInfo, tabbarEnabledInStore))
   const [selectedLayout, setSelectedLayout] = useState(appSettings.layout)
   const [savedSettings, setSavedSettings] = useState(() => ({
     account: readAccountSettings(activeUserInfo),
     app: savedAppearanceSettings(activeUserInfo, appSettings),
+    tabbarEnabled: readTabbarEnabled(activeUserInfo, tabbarEnabledInStore),
   }))
   const [saving, setSaving] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const hasUnsavedChanges =
     settings.multiDeviceLogin !== savedSettings.account.multiDeviceLogin ||
+    tabbarEnabled !== savedSettings.tabbarEnabled ||
     appSettings.colorMode !== savedSettings.app.colorMode ||
     appSettings.primaryColor !== savedSettings.app.primaryColor ||
     selectedLayout !== savedSettings.app.layout
@@ -274,8 +296,13 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
 
   function discardChanges() {
     setSettings(savedSettings.account)
+    setTabbarEnabled(savedSettings.tabbarEnabled)
     setSelectedLayout(savedSettings.app.layout)
-    setSystemSettings({ app: { ...runtime.settings.getState().settings.app, ...savedSettings.app } })
+    const currentSettings = runtime.settings.getState().settings
+    setSystemSettings({
+      app: { ...currentSettings.app, ...savedSettings.app },
+      tabbar: { ...currentSettings.tabbar, enable: savedSettings.tabbarEnabled },
+    })
     setColorMode(savedSettings.app.colorMode)
   }
 
@@ -288,20 +315,28 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
     setSystemSettings({ app: { ...runtime.settings.getState().settings.app, layout } })
   }
 
+  function updateTabbarEnabled(enabled: boolean) {
+    setTabbarEnabled(enabled)
+    setSystemSettings({ tabbar: { ...runtime.settings.getState().settings.tabbar, enable: enabled } })
+  }
+
   async function saveSettings(leaveAfterSave = false) {
     setSaving(true)
     try {
       const nextAppSettings = { ...appSettings, layout: selectedLayout }
-      const backendSetting = mergeAccountSettings(activeUserInfo, settings, nextAppSettings)
+      const backendSetting = mergeAccountSettings(activeUserInfo, settings, nextAppSettings, tabbarEnabled)
       const response = await updateCurrentUser({ backend_setting: backendSetting })
       if (response.data.code !== 200) throw new Error(responseMessage(response))
       const nextUserInfo = { ...(activeUserInfo || {}), backend_setting: backendSetting }
       onUserInfoChange?.(nextUserInfo)
       if (!userInfo) setStoreUserInfo(nextUserInfo)
-      setSavedSettings({ account: settings, app: appearanceSettings(nextAppSettings) })
+      setSavedSettings({ account: settings, app: appearanceSettings(nextAppSettings), tabbarEnabled })
       // Continue the blocked navigation before applying a layout that may remount this page.
       if (leaveAfterSave && blocker.state === 'blocked') blocker.proceed()
-      setSystemSettings({ app: { ...runtime.settings.getState().settings.app, layout: selectedLayout } })
+      setSystemSettings({
+        app: { ...runtime.settings.getState().settings.app, layout: selectedLayout },
+        tabbar: { ...runtime.settings.getState().settings.tabbar, enable: tabbarEnabled },
+      })
       toast.success(tx('账号设置已保存'))
       return true
     } catch (error) {
@@ -389,6 +424,13 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
                 />
               </div>
             </div>
+            <PreferenceRow
+              icon={PanelsTopLeft}
+              label={tx('是否开启标签页')}
+              description={tx('在页面顶部显示已打开的页面标签。')}
+              checked={tabbarEnabled}
+              onCheckedChange={updateTabbarEnabled}
+            />
             <PreferenceRow
               icon={MonitorSmartphone}
               label={tx('是否多设备登录')}

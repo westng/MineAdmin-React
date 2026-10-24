@@ -147,6 +147,7 @@ function accountPreferencesFixture(t) {
     backend_setting: {
       app: { colorMode: 'light', primaryColor: '#2563EB', layout: 'classic', customOption: 'keep' },
       account: { multiDeviceLogin: false, customAccountOption: 'keep' },
+      tabbar: { enable: false, customTabbarOption: 'keep' },
       customSection: { enabled: true },
     },
   }
@@ -177,6 +178,9 @@ function accountPreferencesFixture(t) {
     loading: false,
   })
   core.useSettingStore.getState().setSettings({ app: { ...originalSettings.app, ...profile.backend_setting.app } })
+  core.useSettingStore
+    .getState()
+    .setSettings({ tabbar: { ...originalSettings.tabbar, ...profile.backend_setting.tabbar } })
   t.after(async () => {
     await act(async () => {
       for (const root of roots.splice(0)) root.unmount()
@@ -226,6 +230,7 @@ test('Account preferences save appearance and account fields, then restore them 
   await act(async () => button('深色').click())
   await act(async () => container.querySelector('[role="radio"][aria-label="玫瑰粉"]').click())
   await act(async () => container.querySelector('[role="radio"][aria-label="分栏导航"]').click())
+  await act(async () => container.querySelector('[role="switch"][aria-label="是否开启标签页"]').click())
   await act(async () => container.querySelector('[role="switch"][aria-label="是否多设备登录"]').click())
   await act(async () => button('保存设置').click())
   assert.ok(api.requests.includes('/admin/permission/update'))
@@ -234,6 +239,7 @@ test('Account preferences save appearance and account fields, then restore them 
   assert.equal(api.profile.backend_setting.app.layout, 'columns')
   assert.equal(api.profile.backend_setting.app.customOption, 'keep')
   assert.deepEqual(api.profile.backend_setting.account, { multiDeviceLogin: true, customAccountOption: 'keep' })
+  assert.deepEqual(api.profile.backend_setting.tabbar, { enable: true, customTabbarOption: 'keep' })
   assert.deepEqual(api.profile.backend_setting.customSection, { enabled: true })
   assert.deepEqual(core.sessionManager.getState().userInfo.backend_setting, api.profile.backend_setting)
   // Simulate stale local settings when a refresh loads the saved server profile.
@@ -250,6 +256,7 @@ test('Account preferences save appearance and account fields, then restore them 
   assert.equal(restored.colorMode, 'dark')
   assert.equal(restored.primaryColor, '#DB2777')
   assert.equal(restored.layout, 'columns')
+  assert.equal(core.useSettingStore.getState().settings.tabbar.enable, true)
   assert.equal(document.querySelector('[data-app-scope]').style.getPropertyValue('--primary'), '#DB2777')
   assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.primaryColor, '#DB2777')
 })
