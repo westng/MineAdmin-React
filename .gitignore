@@ -27,3 +27,18 @@ src/modules/*
 
 # macOS 目录元数据
 .DS_*
+
+# 本机工具配置及完整应用的素材由 BioTech 主仓库管理。
+.claude/
+AGENTS.md
+public/b1eb435b89a05e8b.mp4
+public/logo*.svg
+
+# 框架仓库只收录能在公共源码中独立运行的回归测试。
+tests/*
+!tests/framework-*.test.mjs
+!tests/framework-*.types.tsx
+!tests/component-boundaries.test.mjs
+!tests/frontend-session.test.mjs
+!tests/dashboard-slot.test.mjs
+!tests/ma-components.test.mjs

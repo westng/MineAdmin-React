@@ -63,6 +63,12 @@ export default defineConfig(({ mode, command }) => {
           assetFileNames: 'static/[ext]/[name]-[hash].[ext]',
           manualChunks(id) {
             if (/(?:^|\/)node_modules\/(?:react|react-dom|react-router-dom)(?:\/|$)/.test(id)) return 'react-vendor'
+            if (/(?:^|\/)node_modules\/zod(?:\/|$)/.test(id)) return 'zod-vendor'
+            if (/(?:^|\/)node_modules\/@tanstack\/(?:react-table|table-core|store|react-store)(?:\/|$)/.test(id))
+              return 'table-vendor'
+            if (/(?:^|\/)node_modules\/@base-ui\/(?:react)(?:\/|$)/.test(id)) return 'base-ui-vendor'
+            if (/(?:^|\/)node_modules\/@iconify\/react(?:\/|$)/.test(id)) return 'iconify-vendor'
+            if (/(?:^|\/)node_modules\/axios(?:\/|$)/.test(id)) return 'http-vendor'
           },
         },
       },

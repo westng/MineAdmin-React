@@ -5,6 +5,11 @@ export const tokenSchema = z.object({
   refresh_token: z.string().min(1),
   expire_at: z.number().positive().finite(),
 })
+export const captchaSchema = z.object({
+  captcha_id: z.string().regex(/^[a-f0-9]{64}$/),
+  image: z.string().regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/),
+  expires_in: z.number().int().positive().max(600),
+})
 export const profileSchema = z
   .object({
     id: z.number().optional(),

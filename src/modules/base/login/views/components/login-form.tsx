@@ -9,12 +9,9 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/reui/pri
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/reui/primitives/input-group'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/reui/primitives/input-otp'
 import { VerifyCode, type VerifyCodeHandle } from './verify-code'
+import type { LoginParams } from '@/services/auth/types'
 
-export interface LoginFormValues {
-  username: string
-  password: string
-  code: string
-}
+export type LoginFormValues = LoginParams
 
 interface LoginFormState {
   fieldErrors: Partial<Record<keyof LoginFormValues, string>>
@@ -57,12 +54,14 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
+  const [captchaReady, setCaptchaReady] = useState(false)
   const [state, formAction, isPending] = useActionState(
     async (_previousState: LoginFormState, formData: FormData): Promise<LoginFormState> => {
       const values: LoginFormValues = {
         username: String(formData.get('username') ?? ''),
         password: String(formData.get('password') ?? ''),
         code: String(formData.get('code') ?? ''),
+        captcha_id: captchaRef.current?.getChallengeId() ?? '',
       }
       const fieldErrors = validate(values, t)
 
@@ -70,7 +69,7 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
         return { fieldErrors, formError: '' }
       }
 
-      if (!captchaRef.current?.checkResult(values.code)) {
+      if (!values.captcha_id) {
         captchaRef.current?.refresh()
         return {
           fieldErrors: { code: t('auth.invalidCaptcha') },
@@ -82,9 +81,16 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
         await onSubmit(values)
         return initialState
       } catch (requestError) {
+        captchaRef.current?.refresh()
         return {
           fieldErrors: {},
-          formError: requestError instanceof Error ? requestError.message : t('auth.failed'),
+          formError:
+            requestError &&
+            typeof requestError === 'object' &&
+            'message' in requestError &&
+            typeof requestError.message === 'string'
+              ? requestError.message
+              : t('auth.failed'),
         }
       }
     },
@@ -166,7 +172,12 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
               </InputOTPGroup>
             </InputOTP>
             <div className="shrink-0">
-              <VerifyCode ref={captchaRef} onRefresh={handleCaptchaRefresh} disabled={isPending} />
+              <VerifyCode
+                ref={captchaRef}
+                onRefresh={handleCaptchaRefresh}
+                onReadyChange={setCaptchaReady}
+                disabled={isPending}
+              />
             </div>
           </div>
           <FieldError>{state.fieldErrors.code}</FieldError>
@@ -179,7 +190,7 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
         )}
 
         <div className="flex flex-col gap-10">
-          <Button className="w-full" type="submit" disabled={isPending}>
+          <Button className="w-full" type="submit" disabled={isPending || !captchaReady}>
             {isPending ? t('auth.signingIn') : t('auth.signIn')}
           </Button>
 

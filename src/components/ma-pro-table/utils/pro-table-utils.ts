@@ -5,6 +5,19 @@ export interface ResponseRecord {
   [key: string]: unknown
 }
 
+export function readRequestError(error: unknown): string {
+  if (typeof error === 'string' && error.trim()) return error
+  if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    error.message.trim()
+  )
+    return error.message
+  return '表格数据加载失败'
+}
+
 function getResponseRecords(response: unknown): ResponseRecord[] {
   const records: ResponseRecord[] = []
   let cursor: unknown = response

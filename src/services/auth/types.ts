@@ -1,7 +1,14 @@
 export interface LoginParams {
   username: string
   password: string
-  code?: string
+  code: string
+  captcha_id: string
+}
+
+export interface LoginCaptcha {
+  captcha_id: string
+  image: string
+  expires_in: number
 }
 
 export interface LoginResult {

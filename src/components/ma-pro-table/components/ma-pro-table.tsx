@@ -17,7 +17,13 @@ import { TableRequestContext, getIdleTableRequest, subscribeIdleTableRequest } f
 import { MaSearch } from '../../ma-search'
 import { MaTable } from '../../ma-table'
 import { MaEmpty } from '../../ma-empty'
-import { readResponseList, readResponseTotal, resolveText, resolveVisible } from '../utils/pro-table-utils'
+import {
+  readRequestError,
+  readResponseList,
+  readResponseTotal,
+  resolveText,
+  resolveVisible,
+} from '../utils/pro-table-utils'
 import { ProTableToolbarsContext } from '../context/toolbars-context'
 import type {
   MaProTableApi,
@@ -136,6 +142,7 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
   const autoRequestedRef = React.useRef<string | undefined>(undefined)
   const requestSequenceRef = React.useRef(0)
   const requestControllerRef = React.useRef<AbortController | null>(null)
+  const completedRequestRef = React.useRef<{ key: string; page: number; size: number } | null>(null)
   const columnsRef = React.useRef(columns)
   const selectedRowsRef = React.useRef(selectedRows)
   const controlledDataRef = React.useRef(controlledData)
@@ -165,16 +172,16 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
       return {
         data: rows,
         total: readResponseTotal(server.response, response?.totalKey ?? 'total', rows.length),
-        error: server.error instanceof Error ? server.error.message : '',
+        error: server.error == null ? undefined : readRequestError(server.error),
       }
     } catch (error) {
-      return { data: [] as T[], total: 0, error: error instanceof Error ? error.message : '表格数据加载失败' }
+      return { data: [] as T[], total: 0, error: readRequestError(error) }
     }
   }, [server, options.requestOptions])
   const total = controlledTotal ?? serverPage?.total ?? requestedTotal
   const data = controlledData ?? serverPage?.data ?? requestedData
   const loading = controlledLoading ?? (server.active ? server.loading : requestLoading)
-  const error = controlledError ?? serverPage?.error ?? requestError
+  const error = controlledError ?? (requestError || serverPage?.error || '')
 
   React.useLayoutEffect(() => {
     if (requestOptionsKeyRef.current !== requestOptionsKey) {
@@ -233,6 +240,8 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
       [pageName]: currentPageRef.current,
       [sizeName]: pageSizeRef.current,
     }
+    const requestedPage = currentPageRef.current
+    const requestedSize = pageSizeRef.current
     setRequestState({ key: requestOptionsSignature(requestOptions), loading: true })
     setError('')
     try {
@@ -258,9 +267,14 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
         setData(nextData)
         setTotal(readResponseTotal(response, totalKey, nextData.length))
       }
+      completedRequestRef.current = {
+        key: requestOptionsSignature(requestOptions),
+        page: requestedPage,
+        size: requestedSize,
+      }
     } catch (requestError) {
       if (requestSequence !== requestSequenceRef.current) return
-      setError(requestError instanceof Error ? requestError.message : '表格数据加载失败')
+      setError(readRequestError(requestError))
       if (!requestStore && controlledDataRef.current === undefined) {
         setData([])
         setTotal(0)
@@ -272,6 +286,47 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
       }
     }
   }, [setData, setTotal, requestStore])
+
+  React.useEffect(() => {
+    const completed = completedRequestRef.current
+    if (
+      !requestMode ||
+      requestLoading ||
+      server.loading ||
+      loading ||
+      error ||
+      requestError ||
+      serverPage?.error ||
+      requestControllerRef.current ||
+      !completed ||
+      completed.key !== requestOptionsKey ||
+      completed.page !== currentPageRef.current ||
+      completed.size !== pageSizeRef.current ||
+      !Number.isFinite(total) ||
+      total < 0
+    )
+      return
+    const lastPage = Math.max(1, Math.ceil(total / Math.max(1, pageSizeRef.current)))
+    if (currentPageRef.current <= lastPage) return
+    currentPageRef.current = lastPage
+    setCurrentPage(lastPage)
+    optionsRef.current.tableOptions?.pagination?.onChange?.(lastPage, pageSizeRef.current)
+    void requestData()
+  }, [
+    requestMode,
+    requestOptionsKey,
+    currentPage,
+    pageSize,
+    total,
+    requestLoading,
+    server.loading,
+    loading,
+    error,
+    requestError,
+    serverPage?.error,
+    requestData,
+    setCurrentPage,
+  ])
 
   React.useEffect(() => {
     if (

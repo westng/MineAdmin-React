@@ -1,12 +1,10 @@
 import { useImperativeHandle, type Ref } from 'react'
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
-import { createApi as createRoleApi } from '@/modules/base/role/api/role'
 import { createApi as createUserApi } from '@/modules/base/user/api/user'
 import { MaDialog, useMaFormDialog } from '@/components/ma-dialog'
 import { MaForm } from '@/components/ma-form'
 import { usePermission } from '@/hooks/auth/use-permission'
 import { useMessage } from '@/hooks/ui/use-message'
-import { type RoleVo } from '@/modules/base/role/api/role'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { extractList } from '@/utils/api-data'
 import { type UserVo } from '../../api/user'
@@ -23,20 +21,17 @@ export function UserRoleDialog({ ref }: { ref?: Ref<UserRoleDialogHandle> }) {
   const tx = useTextTranslator('base.permission.user.ui')
 
   const { hasAuth } = usePermission()
-  const { page: pageRoles } = useRuntimeFactory(createRoleApi)
   const { getUserRole, setUserRole } = useRuntimeFactory(createUserApi)
 
   const message = useMessage()
   const editor = useMaFormDialog<RoleForm, UserVo>({
-    defaultValues: () => ({ roleCodes: [], roles: [] }),
+    defaultValues: () => ({ roleCodes: [] }),
     canSubmit: () => hasAuth('permission:user:setRole'),
     loadValues: async user => {
       if (!user.id) throw new Error(tx('操作失败'))
-      const [roles, selected] = await Promise.all([pageRoles({}), getUserRole(user.id)])
-      assertUserResponse(roles)
+      const selected = await getUserRole(user.id)
       assertUserResponse(selected)
       return {
-        roles: extractList<RoleVo>(roles.data.data),
         roleCodes: extractList<{ code: string }>(selected.data.data).map(role => role.code),
       }
     },
@@ -59,8 +54,11 @@ export function UserRoleDialog({ ref }: { ref?: Ref<UserRoleDialogHandle> }) {
     >
       {editor.loading && <p role="status">{tx('正在加载角色信息…')}</p>}
       {editor.loadError != null && <p role="alert">{tx('角色信息加载失败，请关闭后重试。')}</p>}
-      {editor.ready && !editor.values.roles.length && <p>{tx('暂无可分配角色。')}</p>}
-      <MaForm key={editor.formKey} {...editor.formProps} items={getRoleFormItems(tx, editor.values.roles)} />
+      <MaForm
+        key={editor.formKey}
+        {...editor.formProps}
+        items={getRoleFormItems(tx, Boolean(editor.formProps.options?.disabled))}
+      />
     </MaDialog>
   )
 }

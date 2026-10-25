@@ -4,6 +4,8 @@
 
 `MaProTable` 是 React 端的列表页组合组件。当前版本通过 Frame 组合 `MaSearch`、`MaTable`、请求状态、响应解析、分页和选择状态；页面只需要提供 `schema`、`options` 和业务插槽。
 
+请求失败时，组件显示 `Error`、标准接口错误对象或字符串中的错误信息。请求成功后若总数缩减导致当前页越界，组件会同步页码并重新请求最后一个有效页；应用 Query 后台刷新和独立请求均遵循此行为，受控数据仍由调用方管理分页。
+
 本文按当前 `web/src/components/ma-pro-table` 源码整理。它使用项目内的 `MaTable` 和 ReUI/Base UI，最外层统一由官方 `Frame` 包裹；组件只编排表格布局，不覆盖 `MaTable` 自身的样式配置。
 
 ## 快速开始
@@ -371,11 +373,11 @@ await tableRef.current?.refresh()
 
 根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
 
-| 目录 | 职责 | 文件 |
-| --- | --- | --- |
-| `components/` | 展示组件 | ma-pro-table.tsx |
-| `context/` | React 接入 | request-context.ts, toolbars-context.ts |
-| `types/` | 公共及内部类型 | index.ts, request.ts |
-| `utils/` | 转换与状态工厂 | pro-table-utils.ts, toolbars.ts |
+| 目录          | 职责           | 文件                                    |
+| ------------- | -------------- | --------------------------------------- |
+| `components/` | 展示组件       | ma-pro-table.tsx                        |
+| `context/`    | React 接入     | request-context.ts, toolbars-context.ts |
+| `types/`      | 公共及内部类型 | index.ts, request.ts                    |
+| `utils/`      | 转换与状态工厂 | pro-table-utils.ts, toolbars.ts         |
 
 使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

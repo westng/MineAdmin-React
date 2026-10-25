@@ -1,9 +1,13 @@
 import type { HttpClient } from '@/services/http/client'
-import type { LoginParams, LoginResult, CurrentUserInfo } from '@/services/auth/types'
-import { profileSchema, validateResponse } from '@/services/auth/schemas'
+import type { LoginParams, LoginResult, LoginCaptcha, CurrentUserInfo } from '@/services/auth/types'
+import { captchaSchema, profileSchema, validateResponse } from '@/services/auth/schemas'
 export type * from '@/services/auth/types'
 
 export function createAuthApi(http: HttpClient) {
+  async function captchaApi(signal?: AbortSignal): Promise<LoginCaptcha> {
+    const response = await http.post<{ data: LoginCaptcha }>('/admin/passport/captcha', undefined, { signal })
+    return validateResponse(captchaSchema, response.data.data, 'auth.captcha')
+  }
   function loginApi(data: LoginParams, signal?: AbortSignal) {
     return http.post<{ data: LoginResult }>('/admin/passport/login', data, { signal })
   }
@@ -30,5 +34,5 @@ export function createAuthApi(http: HttpClient) {
     )
   }
 
-  return { loginApi, getInfo, refreshApi, logoutApi }
+  return { captchaApi, loginApi, getInfo, refreshApi, logoutApi }
 }

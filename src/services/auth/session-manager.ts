@@ -24,7 +24,7 @@ export interface UserState {
   error: string | null
   roles: string[]
   permissions: string[]
-  login: (data: { username: string; password: string; code?: string }) => Promise<LoginResult>
+  login: (data: LoginParams) => Promise<LoginResult>
   loginWithTokens: (result: LoginResult, userInfo?: UserInfo) => Promise<LoginResult>
   hydrate: () => Promise<boolean>
   refreshToken: () => Promise<boolean>

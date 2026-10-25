@@ -121,6 +121,8 @@ pnpm run dev
 
 `VITE_` 配置会进入浏览器代码。只填写可公开的配置，账号密码和服务端密钥不要放进这些变量。本地环境文件不提交到 Git。
 
+默认登录页使用服务端图形验证码。后端须提供 `POST /admin/passport/captcha`，并在登录接口校验 `captcha_id` 和 `code`；升级时需要同步接入后端，接口字段及失败恢复规则见 [登录验证码接入](src/modules/base/login/README.md)。
+
 ## 目录说明
 
 ```text
