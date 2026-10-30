@@ -316,7 +316,7 @@ await tableRef.current?.refresh()
 | `getTableColumns()`                     | 获取表格列                                                      | `MaProTableColumns<T>[]`                             |
 | `setSearchForm(form)`                   | 合并设置搜索表单                                                | `void`                                               |
 | `getSearchForm()`                       | 获取搜索表单                                                    | `T`                                                  |
-| `getRequestParams()`                    | 获取固定参数和已提交筛选，经 `paramsTransform` 归一化后去除分页 | `Record<string, unknown>`                            |
+| `getRequestParams(form?)`               | 获取固定参数和指定表单快照（省略时为已提交筛选），归一化后去除分页 | `Record<string, unknown>`                            |
 | `search(params?)`                       | 合并额外参数并立即搜索                                          | `void`                                               |
 | `setProTableOptions(options)`           | 动态合并组件配置                                                | `void`                                               |
 | `getProTableOptions()`                  | 获取当前组件配置                                                | `MaProTableOptions<T>`                               |
@@ -367,7 +367,9 @@ await tableRef.current?.refresh()
 
 列表与导出共享 `requestOptions.paramsTransform(params)`。API 包装中存在 trim、空值剔除或业务字段改名时，将同一纯函数配置在这里，避免列表与导出范围不一致。不要在转换函数中改变分页键；自定义分页键由 `requestPage.pageName/sizeName` 声明。接口函数只负责请求及响应解析。
 
-`getRequestParams()` 返回当前固定参数和已提交筛选；搜索框尚未提交的编辑值不会影响导出。默认筛选、`onSearchSubmit` 和 `onSearchReset` 返回的参数都会进入此契约。
+`getRequestParams()` 返回当前固定参数和已提交筛选，包括默认筛选、`onSearchSubmit` 和 `onSearchReset` 返回的参数。传入 `getRequestParams(form)` 时，使用该表单快照替代已提交筛选，再合并固定参数、执行 `paramsTransform` 并剔除分页；空对象表示清空表单筛选。读取快照不会触发搜索回调或列表请求，也不会改变已提交筛选。
+
+导出插件默认读取 `getSearchRef()?.getSearchForm()` 的当前输入并传给 `getRequestParams(form)`，因此无需先点搜索，新增、修改或清空筛选都会用于导出。列表仍按已提交筛选查询；列表和导出共同需要的转换应放在 `paramsTransform`。
 
 ## 工程结构
 

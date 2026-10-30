@@ -493,13 +493,12 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
         setSearchFormState(searchFormRef.current)
       },
       getSearchForm: () => searchFormRef.current,
-      getRequestParams: () => {
+      getRequestParams: form => {
         const requestOptions = optionsRef.current.requestOptions
-        if (!requestOptions) return {}
-        const pageName = requestOptions.requestPage?.pageName ?? 'page'
-        const sizeName = requestOptions.requestPage?.sizeName ?? 'page_size'
-        const rawParams = { ...requestOptions.requestParams, ...searchParamsRef.current }
-        const params = { ...(requestOptions.paramsTransform?.(rawParams) ?? rawParams) }
+        const pageName = requestOptions?.requestPage?.pageName ?? 'page'
+        const sizeName = requestOptions?.requestPage?.sizeName ?? 'page_size'
+        const rawParams = { ...requestOptions?.requestParams, ...(form ?? searchParamsRef.current) }
+        const params = { ...(requestOptions?.paramsTransform?.(rawParams) ?? rawParams) }
         delete params[pageName]
         delete params[sizeName]
         return params

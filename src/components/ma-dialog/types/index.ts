@@ -43,6 +43,8 @@ export interface MaDialogProps<Payload = unknown> extends Dialog.Root.Props<Payl
   onFullscreenChange?: (fullscreen: boolean) => void
   showFullscreenButton?: boolean
   showCloseButton?: boolean
+  /** 是否允许拖动标题栏；默认开启，全屏时暂停。 */
+  draggable?: boolean
   size?: MaDialogSize
   /** 固定高度；未传时随内容自适应，数字按像素处理。 */
   height?: CSSProperties['height']

@@ -130,7 +130,8 @@ export interface MaProTableExpose<T extends MaProTableModel = MaProTableModel, S
   getSearchRef: () => MaSearchExpose<S> | null
   getTableRef: () => MaTableExpose<T> | null
   getElTableStates: () => { data: T[]; loading: boolean; selectedRows: T[] }
-  getRequestParams: () => Record<string, unknown>
+  /** 传入表单快照时基于该快照取参；省略时读取已提交筛选。 */
+  getRequestParams: (form?: S) => Record<string, unknown>
   refresh: () => Promise<void>
   requestData: () => Promise<void>
   changeApi: (api: MaProTableApi, requestNow?: boolean) => void

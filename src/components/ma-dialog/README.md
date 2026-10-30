@@ -28,6 +28,20 @@
 
 显式尺寸参数优先于 `popupProps.style` 中的同名样式，其余 Popup 样式和函数式 `style` 保持兼容。全屏时由封装统一使用视口高度，退出后恢复原尺寸；业务页面无需维护额外的全屏状态或滚动布局。
 
+## 标题栏拖动
+
+默认 `draggable={true}`，可用鼠标主键或触摸拖动标题栏，移动范围保留视口边缘留白。正文和底部操作区不触发拖动；标题中的按钮、链接、输入框、可编辑内容等交互控件保留原有行为。
+
+```tsx
+<MaDialog open={open} onOpenChange={setOpen} title="固定位置" draggable={false}>
+  <UserForm />
+</MaDialog>
+```
+
+全屏时禁用拖动并清除偏移，退出全屏后恢复默认位置；关闭后重新打开、窗口尺寸变化或关闭拖动功能时也会清除偏移。切换全屏和拖动不会重挂载正文或丢失表单输入，关闭事件被取消时保留当前位置。
+
+拖动位置仅属于当前组件实例，不回写 `useMaDialog` 配置。`useMaDialog({ draggable: false })` 和 `setAttributes({ draggable: false })` 同样支持关闭拖动。拖动时仅在原有 Popup 的 `left/top` 上叠加偏移，保留其他样式、函数式 `style` 和 `ref`。
+
 ## 异步确认
 
 ```tsx
@@ -147,7 +161,7 @@ function remove(row: User) {
 | 目录 | 职责 | 文件 |
 | --- | --- | --- |
 | `components/` | 展示组件 | confirm-dialog.tsx, ma-dialog.tsx |
-| `hooks/` | 状态与生命周期 | use-ma-confirm.ts, use-ma-dialog.ts, use-ma-form-dialog.ts |
+| `hooks/` | 状态与生命周期 | use-ma-confirm.ts, use-ma-dialog.ts, use-ma-dialog-drag.ts, use-ma-form-dialog.ts |
 | `types/` | 公共及内部类型 | index.ts |
 
 使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

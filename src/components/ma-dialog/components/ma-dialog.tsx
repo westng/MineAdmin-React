@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/reui/primitives/dialog'
 import { cn } from '@/utils/cn'
+import { useMaDialogDrag } from '../hooks/use-ma-dialog-drag'
 import type { MaDialogAction, MaDialogActionContext, MaDialogProps } from '../types'
 
 function MaDialog<Payload = unknown>({
@@ -36,6 +37,7 @@ function MaDialog<Payload = unknown>({
   onFullscreenChange,
   showFullscreenButton = true,
   showCloseButton = true,
+  draggable = true,
   disablePointerDismissal = true,
   size = 'md',
   height,
@@ -66,6 +68,7 @@ function MaDialog<Payload = unknown>({
   const isOpen = openProp ?? internalOpen
   const fullscreen = fullscreenProp ?? internalFullscreen
   const actionLoading = loading || okLoading || cancelLoading
+  const { enabled: dragEnabled, getPopupStyle, headerProps } = useMaDialogDrag({ open: isOpen, draggable, fullscreen })
 
   const setOpen = useCallback<NonNullable<MaDialogProps['onOpenChange']>>(
     (nextOpen, eventDetails) => {
@@ -182,13 +185,21 @@ function MaDialog<Payload = unknown>({
         )
       }
       style={state => ({
-        ...(typeof popupProps?.style === 'function' ? popupProps.style(state) : popupProps?.style),
+        ...getPopupStyle(typeof popupProps?.style === 'function' ? popupProps.style(state) : popupProps?.style),
         ...(height !== undefined ? { height } : {}),
         ...(maxHeight !== undefined ? { maxHeight } : {}),
         ...(fullscreen ? { height: '100svh', maxHeight: '100svh' } : {}),
       })}
     >
-      <DialogHeader className={cn('relative shrink-0 p-4', showFullscreenButton ? 'pr-24' : 'pr-14', headerClassName)}>
+      <DialogHeader
+        {...headerProps}
+        className={cn(
+          'relative shrink-0 p-4',
+          showFullscreenButton ? 'pr-24' : 'pr-14',
+          dragEnabled && 'touch-none cursor-move select-none',
+          headerClassName,
+        )}
+      >
         <div className="min-w-0">
           <DialogTitle className={cn(!title && 'sr-only')}>{title || '对话框'}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

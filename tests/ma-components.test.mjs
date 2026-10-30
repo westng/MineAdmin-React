@@ -1487,6 +1487,330 @@ test('MaDialog 全屏时使用视口高度，退出后恢复配置且保留表�
   assert.deepEqual(changes, [true, false])
 })
 
+function mockDialogGeometry(
+  popup,
+  { width = 480, height = 320, left = (dom.innerWidth - width) / 2, top = (dom.innerHeight - height) / 2 } = {},
+) {
+  const offset = property => Number(popup.style[property].match(/\+\s*(-?[\d.]+)px\)$/)?.[1] ?? 0)
+  popup.getBoundingClientRect = () => new dom.DOMRect(left + offset('left'), top + offset('top'), width, height)
+}
+
+async function dialogPointer(target, type, options = {}) {
+  await act(async () =>
+    target.dispatchEvent(
+      new dom.PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        isPrimary: true,
+        button: 0,
+        clientX: 500,
+        clientY: 300,
+        ...options,
+      }),
+    ),
+  )
+}
+
+test('MaDialog 默认标题栏拖动可累积位移，保留 Popup 函数样式、ref 和正文输入', async t => {
+  const popupRef = createRef()
+  await mount(t, MaDialog, {
+    defaultOpen: true,
+    title: '拖动表单',
+    popupProps: {
+      ref: popupRef,
+      style: state => ({ opacity: state.open ? 1 : 0, transform: 'scale(1)', color: 'red' }),
+    },
+    children: createElement('input', { defaultValue: '原始内容' }),
+  })
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup)
+  assert.match(header.className, /cursor-move/)
+  assert.match(header.className, /touch-none/)
+  await enterValue(popup.querySelector('input'), '未保存的输入')
+  await dialogPointer(header.querySelector('[data-slot="dialog-title"]'), 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  assert.equal(popup.style.left, 'calc(50% + 80px)')
+  assert.equal(popup.style.top, 'calc(50% + 40px)')
+  assert.equal(popup.style.opacity, '1')
+  assert.equal(popup.style.transform, 'scale(1)')
+  assert.equal(popup.style.color, 'red')
+  assert.equal(popupRef.current, popup)
+  assert.equal(popup.querySelector('input').value, '未保存的输入')
+  await dialogPointer(document, 'pointerup')
+  await dialogPointer(document, 'pointermove', { clientX: 900, clientY: 600 })
+  assert.equal(popup.style.left, 'calc(50% + 80px)')
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 520, clientY: 290 })
+  await dialogPointer(document, 'pointerup')
+  assert.equal(popup.style.left, 'calc(50% + 100px)')
+  assert.equal(popup.style.top, 'calc(50% + 30px)')
+})
+
+test('MaDialog 不从正文、底部、标题交互控件或非主指针开始拖动', async t => {
+  await mount(t, MaDialog, {
+    defaultOpen: true,
+    title: createElement('span', null, [
+      createElement('button', { key: 'button' }, createElement('span', null, '标题按钮')),
+      createElement('a', { key: 'link', href: '#title' }, createElement('span', null, '标题链接')),
+      createElement('input', { key: 'input' }),
+      createElement('span', { key: 'editable', contentEditable: true }),
+      createElement('span', { key: 'focusable', tabIndex: 0 }, '自定义控件'),
+      createElement('span', { key: 'role', role: 'button' }, '角色按钮'),
+      createElement('span', { key: 'prevented', onPointerDown: event => event.preventDefault() }, '取消拖动'),
+    ]),
+    children: createElement('input', { 'data-dialog-body': '' }),
+  })
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup)
+  const targets = [
+    header.querySelector('button span'),
+    header.querySelector('a span'),
+    header.querySelector('input'),
+    header.querySelector('[contenteditable]'),
+    header.querySelector('[tabindex]'),
+    header.querySelector('[role="button"]'),
+    header.querySelector('[data-slot="dialog-title"] > span > span:last-child'),
+    button(popup, '全屏显示').querySelector('svg'),
+    popup.querySelector('[data-slot="dialog-close"] svg'),
+    popup.querySelector('[data-dialog-body]'),
+    button(popup, '确定'),
+  ]
+  for (const target of targets) {
+    assert.ok(target)
+    await dialogPointer(target, 'pointerdown')
+    await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+    await dialogPointer(document, 'pointerup')
+    assert.equal(popup.style.left, '')
+    assert.equal(popup.style.top, '')
+  }
+  for (const options of [{ button: 2 }, { isPrimary: false }]) {
+    await dialogPointer(header, 'pointerdown', options)
+    await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+    await dialogPointer(document, 'pointerup')
+    assert.equal(popup.style.left, '')
+  }
+})
+
+test('MaDialog draggable 可动态关闭并恢复调用方定位，不将属性透传给 DOM', async t => {
+  const props = {
+    open: true,
+    draggable: false,
+    title: '固定位置',
+    popupProps: { style: { left: '40%', top: 180, opacity: 0.7 } },
+  }
+  const view = await mount(t, MaDialog, props)
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup, { left: dom.innerWidth * 0.4 - 240, top: 20 })
+  assert.doesNotMatch(header.className, /cursor-move|touch-none/)
+  assert.equal(popup.getAttribute('draggable'), null)
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  assert.equal(popup.style.left, '40%')
+  assert.equal(popup.style.top, '180px')
+  await view.render({ ...props, draggable: true })
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  assert.equal(popup.style.left, 'calc(40% + 80px)')
+  assert.equal(popup.style.top, 'calc(180px + 40px)')
+  const previousCursor = document.body.style.cursor
+  assert.equal(previousCursor, 'move')
+  await view.render(props)
+  assert.equal(popup.style.left, '40%')
+  assert.equal(popup.style.top, '180px')
+  assert.equal(popup.style.opacity, '0.7')
+  assert.notEqual(document.body.style.cursor, 'move')
+  await dialogPointer(document, 'pointermove', { clientX: 650, clientY: 400 })
+  assert.equal(popup.style.left, '40%')
+})
+
+test('MaDialog 全屏切换清除位移并禁用拖动，受控全屏也保留正文输入', async t => {
+  const props = {
+    defaultOpen: true,
+    title: '全屏拖动',
+    children: createElement('input', { defaultValue: '原始内容' }),
+  }
+  const view = await mount(t, MaDialog, props)
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup)
+  await enterValue(popup.querySelector('input'), '保留内容')
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  await dialogPointer(document, 'pointerup')
+  await click(button(popup, '全屏显示'))
+  assert.equal(popup.style.left, '')
+  assert.equal(popup.style.top, '')
+  assert.doesNotMatch(header.className, /cursor-move|touch-none/)
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  await dialogPointer(document, 'pointerup')
+  assert.equal(popup.style.left, '')
+  await click(button(popup, '退出全屏'))
+  assert.match(header.className, /cursor-move/)
+  assert.equal(popup.style.left, '')
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  await view.render({ ...props, fullscreen: true })
+  assert.equal(popup.style.left, '')
+  assert.notEqual(document.body.style.cursor, 'move')
+  await view.render({ ...props, fullscreen: false })
+  assert.equal(popup.style.left, '')
+  assert.equal(popup.style.top, '')
+  assert.equal(popup.querySelector('input').value, '保留内容')
+})
+
+test('MaDialog 受控关闭重开与 keepMounted 重置位置，取消关闭保留位移', async t => {
+  const actionsRef = createRef()
+  let cancelClose = true
+  const props = {
+    open: true,
+    title: '保留实例',
+    actionsRef,
+    portalProps: { keepMounted: true },
+    onOpenChange: (open, details) => {
+      if (!open && cancelClose) details.cancel()
+    },
+    children: createElement('input', { defaultValue: '保留输入' }),
+  }
+  const view = await mount(t, MaDialog, props)
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup)
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  await dialogPointer(document, 'pointerup')
+  await act(async () => actionsRef.current.close())
+  assert.equal(popup.style.left, 'calc(50% + 80px)')
+  assert.equal(popup.style.top, 'calc(50% + 40px)')
+  cancelClose = false
+  await dialogPointer(header, 'pointerdown')
+  await view.render({ ...props, open: false })
+  assert.notEqual(document.body.style.cursor, 'move')
+  assert.equal(popup.style.left, 'calc(50% + 80px)')
+  await dialogPointer(document, 'pointermove', { clientX: 650, clientY: 400 })
+  assert.equal(popup.style.left, 'calc(50% + 80px)')
+  await view.render(props)
+  assert.equal(document.querySelector('[role="dialog"]'), popup)
+  assert.equal(popup.style.left, '')
+  assert.equal(popup.style.top, '')
+  assert.equal(popup.querySelector('input').value, '保留输入')
+})
+
+test('MaDialog 拖动只影响当前实例，useMaDialog 重开归位且支持更新 draggable', async t => {
+  let dialog
+  function Dialogs() {
+    dialog = compiled.exports.useMaDialog({ draggable: true })
+    return createElement('div', null, [
+      createElement(MaDialog, { ...dialog.props, key: 'first', modal: false, popupProps: { 'data-dialog': 'first' } }),
+      createElement(MaDialog, {
+        key: 'second',
+        defaultOpen: true,
+        modal: false,
+        popupProps: { 'data-dialog': 'second' },
+      }),
+    ])
+  }
+  await mount(t, Dialogs, {})
+  await act(async () => dialog.open())
+  const first = () => document.querySelector('[data-dialog="first"]')
+  const second = document.querySelector('[data-dialog="second"]')
+  mockDialogGeometry(first())
+  await dialogPointer(first().querySelector('[data-slot="dialog-header"]'), 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  await dialogPointer(document, 'pointerup')
+  assert.equal(first().style.left, 'calc(50% + 80px)')
+  assert.equal(second.style.left, '')
+  assert.equal(dialog.props.draggable, true)
+  await act(async () => dialog.close())
+  await act(async () => dialog.open())
+  assert.equal(first().style.left, '')
+  assert.equal(second.style.left, '')
+  await act(async () => dialog.setAttributes({ draggable: false }))
+  assert.doesNotMatch(first().querySelector('[data-slot="dialog-header"]').className, /cursor-move|touch-none/)
+})
+
+test('MaDialog 拖动限制视口边界，窗口尺寸变化时恢复默认位置并结束拖动', async t => {
+  await mount(t, MaDialog, { defaultOpen: true, title: '边界限制' })
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup)
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 10000, clientY: 10000 })
+  assert.equal(popup.getBoundingClientRect().right, dom.innerWidth - 16)
+  assert.equal(popup.getBoundingClientRect().bottom, dom.innerHeight - 16)
+  await dialogPointer(document, 'pointerup')
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: -10000, clientY: -10000 })
+  assert.equal(popup.getBoundingClientRect().left, 16)
+  assert.equal(popup.getBoundingClientRect().top, 16)
+  await act(async () => dom.dispatchEvent(new dom.Event('resize')))
+  assert.equal(popup.style.left, '')
+  assert.equal(popup.style.top, '')
+  assert.notEqual(document.body.style.cursor, 'move')
+  await dialogPointer(document, 'pointermove', { clientX: 580, clientY: 340 })
+  assert.equal(popup.style.left, '')
+})
+
+test('MaDialog 按指针 ID 结束拖动，取消、捕获丢失、失焦和卸载时还原光标与选取', async t => {
+  const view = await mount(t, 'div', { children: createElement(MaDialog, { defaultOpen: true }) })
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup)
+  const previousCursor = document.body.style.cursor
+  const previousUserSelect = document.body.style.userSelect
+  document.body.style.cursor = 'crosshair'
+  document.body.style.userSelect = 'text'
+  t.after(() => {
+    document.body.style.cursor = previousCursor
+    document.body.style.userSelect = previousUserSelect
+  })
+  let capturedPointer
+  header.setPointerCapture = id => {
+    capturedPointer = id
+  }
+  header.hasPointerCapture = id => capturedPointer === id
+  header.releasePointerCapture = () => {
+    capturedPointer = undefined
+  }
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    const before = popup.style.left
+    await dialogPointer(header, 'pointerdown', { pointerType: 'touch' })
+    assert.equal(capturedPointer, 1)
+    assert.equal(document.body.style.cursor, 'move')
+    assert.equal(document.body.style.userSelect, 'none')
+    await dialogPointer(document, 'pointermove', { pointerId: 2, clientX: 580, clientY: 340 })
+    assert.equal(popup.style.left, before)
+    const target = type === 'lostpointercapture' ? header : document
+    await dialogPointer(target, type, { pointerId: 2 })
+    assert.equal(document.body.style.cursor, 'move')
+    await dialogPointer(document, 'pointermove', { clientX: 520, clientY: 310 })
+    await dialogPointer(target, type)
+    assert.equal(capturedPointer, undefined)
+    assert.equal(document.body.style.cursor, 'crosshair')
+    assert.equal(document.body.style.userSelect, 'text')
+    const after = popup.style.left
+    await dialogPointer(document, 'pointermove', { clientX: 650, clientY: 400 })
+    assert.equal(popup.style.left, after)
+  }
+  await dialogPointer(header, 'pointerdown')
+  await act(async () => dom.dispatchEvent(new dom.Event('blur')))
+  assert.equal(document.body.style.cursor, 'crosshair')
+  assert.equal(document.body.style.userSelect, 'text')
+  assert.equal(capturedPointer, undefined)
+  await dialogPointer(header, 'pointerdown')
+  const beforeUnmount = popup.style.left
+  await view.render({ children: null })
+  assert.equal(document.body.style.cursor, 'crosshair')
+  assert.equal(document.body.style.userSelect, 'text')
+  assert.equal(capturedPointer, undefined)
+  await dialogPointer(document, 'pointermove', { clientX: 650, clientY: 400 })
+  assert.equal(popup.style.left, beforeUnmount)
+})
+
 function mockDrawerGeometry(popup, initialWidth = 480) {
   // Happy DOM 不执行 CSS 布局；仅替代面板几何测量，交互仍走真实组件事件。
   popup.getBoundingClientRect = () => {
@@ -1935,7 +2259,7 @@ test('MaProTable 参数与显式数据源键变化自动加载，只接受最新
   await act(async () => pending[2].resolve({ list: [], total: 0 }))
 })
 
-test('MaProTable 列表和导出共享默认筛选、已提交筛选及归一化，导出去掉自定义分页', async t => {
+test('MaProTable 归一化导出表单快照并去掉分页，保留列表默认和已提交筛选', async t => {
   const ref = createRef()
   const calls = []
   const view = await mount(t, MaProTable, {
@@ -1960,6 +2284,11 @@ test('MaProTable 列表和导出共享默认筛选、已提交筛选及归一化
     },
     schema: { searchItems: [{ prop: 'status' }, { prop: 'keyword' }] },
   })
+  const draft = { status: '2', keyword: ' 新名称 ' }
+  assert.deepEqual(ref.current.getRequestParams(draft), { tenant: '固定', status: '2', keyword: '新名称' })
+  assert.deepEqual(draft, { status: '2', keyword: ' 新名称 ' })
+  assert.deepEqual(ref.current.getRequestParams({}), { tenant: '固定' })
+  assert.equal(calls.length, 0)
   await act(async () => ref.current.refresh())
   assert.deepEqual(ref.current.getRequestParams(), { tenant: '固定', status: '1', keyword: '名称' })
   assert.equal(calls[0].cursor, 1)
