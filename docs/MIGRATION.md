@@ -1,10 +1,10 @@
 # 前端目录迁移指南
 
-文档属性：正式开发文档。更新时间：2026-09-28。本文描述当前源码布局与调用方迁移要求；版本发布、部署和业务验收另行记录。
+文档属性：正式开发文档。更新时间：2026-10-30。本文描述当前源码布局与调用方迁移要求；版本发布、部署和业务验收另行记录。
 
-## 两个开源项目
+## 框架源码范围
 
-BioTech 与 MineAdmin-React 均为开源项目。BioTech 主仓库收录完整应用、业务模块、插件和共享业务组件；嵌套框架仓库及 `export:public` 提供可复用框架。业务源码被框架清单排除不表示它是私有源码。
+本文覆盖 MineAdmin-React 的目录迁移与公共契约。发布源码以 `scripts/public-files.mjs` 和 `export:public` 的框架清单为准；应用扩展按需对照迁移，不作为框架发行内容。
 
 ## 导入路径
 
@@ -34,7 +34,6 @@ BioTech 与 MineAdmin-React 均为开源项目。BioTech 主仓库收录完整�
 | hooks/framework/use-route                               | hooks/use-route                                                                           |
 | hooks/framework/use-permission 的 PermissionGate        | provider/access/permission-gate                                                           |
 | hooks/shell                                             | layouts/hooks/                                                                            |
-| components/nm-advertiser-select、nm-douyin-user-parser  | components/business/advertiser-select、douyin-user-parser                                 |
 | types/global.d.ts                                       | 环境声明到 types/env.d.ts，设置类型到 store/settings/types.ts，路由类型到 router/types.ts |
 
 能力内部引用具体实现；跨能力引用稳定入口。`services` 与纯 Store 不调用 React Hook、不读取 RuntimeContext；Provider 不硬编码业务实现。路由权限规则的输入契约由 `services/auth/access` 声明，路由类型可以消费该契约，服务不反向依赖 router。

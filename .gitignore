@@ -8,19 +8,19 @@ dist*
 .env
 .env.*
 !.env.example
-# BioTech 与 MineAdmin-React 均为开源项目；本仓库仅收录可复用框架。
-# 以下应用集成及业务插件由 BioTech 主仓库管理。
+# 本仓库仅收录可复用框架。
+# 以下应用集成和插件不属于框架源码范围。
 src/app/application.tsx
 src/app/config/
 src/app/styles/application.css
 src/plugins/**
-# 本框架仓库收录通用组件，业务组件由 BioTech 主仓库管理。
+# 本框架仓库仅收录通用组件。
 src/components/*
 !src/components/ma-*/
 !src/components/ma-*/**
 !src/components/reui/
 !src/components/reui/**
-# 本框架仓库收录基础模块，业务模块由 BioTech 主仓库管理。
+# 本框架仓库仅收录基础模块。
 src/modules/*
 !src/modules/base/
 !src/modules/base/**
@@ -28,7 +28,7 @@ src/modules/*
 # macOS 目录元数据
 .DS_*
 
-# 本机工具配置及完整应用的素材由 BioTech 主仓库管理。
+# 本机工具配置和应用素材不纳入框架仓库。
 .claude/
 AGENTS.md
 public/b1eb435b89a05e8b.mp4

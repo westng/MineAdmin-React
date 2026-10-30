@@ -1,8 +1,16 @@
 # 变更记录
 
-## Unreleased — 2026-09-29
+本文件记录 MineAdmin-React 框架的变化，Release 变更说明以对应版本条目为准。日常变更汇总到 `Unreleased`，发版时按版本号和实际发布日期归档；维护流程见 [贡献规范](CONTRIBUTING.md#变更记录与发版)。
 
-以下为当前工作树的未发布变化；不表示已经发布、部署或完成业务验收。
+## Unreleased
+
+以下为尚未按版本发布的框架变化；不表示已经部署或完成应用验收。
+
+### 新增
+
+- MaDialog 支持鼠标和触摸拖动标题栏，默认启用，可通过 `draggable={false}` 关闭；拖动受视口边界约束，全屏、关闭后重开或窗口尺寸变化时清除偏移。
+- MaProTable 的 `getRequestParams(form?)` 支持传入表单快照，合并固定参数并执行 `paramsTransform` 后剔除分页；省略参数时仍读取已提交筛选，读取快照不会触发搜索或改变列表状态。
+- ReUI 新增文件类型展示与进度条原语，支持文件名和 MIME 类型解析，以及 `value={null}` 的不确定进度展示；同步第三方来源清单和组件说明。
 
 ### 兼容性变化
 
@@ -30,6 +38,8 @@
 
 ### 当前入口与文档
 
+- 明确每次提交同步更新 CHANGELOG、推送前核对日志已入库，手动发布 Release 时携带对应版本的完整变更内容。
+- 整理公开文档及配置注释，使其仅描述 MineAdmin-React 框架的架构、接入与发布契约，示例统一使用通用模块和接口。
 - Base 页面按子模块组织，页面入口为 `base/<子模块>/views/index`；旧目录不提供转发别名。
 - API 消费使用 `useRuntimeFactory(createApi)`；设置、标签、语言、字典与 Toast 绑定当前 Runtime / Provider。
 - 路由、插件和 Shell 插槽统一见 [路由文档](docs/ROUTING.md)，导入路径变化见 [迁移指南](docs/MIGRATION.md)。

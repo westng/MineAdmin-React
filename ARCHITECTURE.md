@@ -2,7 +2,7 @@
 
 本项目是开源后台应用模板，使用 React 19、TypeScript、React Router 的路由配置、TanStack Query、Zustand、ReUI 与 Ma 组件。当前不发布 npm SDK。本文说明源码中的公共契约；构建通过不能替代浏览器、后端和部署验收。
 
-更新时间：2026-09-28。BioTech 与 MineAdmin-React 都是开源项目；下文的框架和业务划分表示职责及分发范围。
+更新时间：2026-10-30。本文仅说明 MineAdmin-React 框架的职责、公共契约与源码分发范围。
 
 ## 依赖与组合
 
@@ -29,7 +29,7 @@ flowchart TD
 
 Router、Shell、页面权限和个人资料组件通过框架 Hook 读取同一 Runtime 的 Session。导航管理器发布统一的菜单与路由结果，动态页面使用该 Runtime 的视图解析器。静态和菜单的同路径权限叠加；导航变化由 `NavigationLifecycle` 调用插件的 `routerRedirect` 钩子。
 
-应用组合根优先使用可选的 `src/app/application.tsx`，没有本地文件时由 `src/app/default-application.ts` 提供空实现。应用品牌配置和菜单策略放在 `app/config`，应用样式放在 `app/styles`。这些 BioTech 应用代码与业务模块由主仓库开源，独立框架导出清单只选择 MineAdmin-React 的可复用内容。公共依赖检查在 TypeScript 解析后检查目标路径，覆盖类型导入、相对导入、别名、再导出和 glob 边界；静态值依赖使用强连通分量检查循环，纯类型循环允许。
+应用组合根优先使用可选的 `src/app/application.tsx`，没有本地文件时由 `src/app/default-application.ts` 提供空实现。应用定制通过组合根和 Runtime 端口注入，框架导出范围由 `scripts/public-files.mjs` 明确限定。公共依赖检查在 TypeScript 解析后检查目标路径，覆盖类型导入、相对导入、别名、再导出和 glob 边界；静态值依赖使用强连通分量检查循环，纯类型循环允许。
 
 运行时页面发现与 Git 收录完全独立：`app/runtime/instance.ts` 在构建时发现 `modules/**/views/` 和 `plugins/**/views/` 下的 `.tsx`、`.jsx` 页面，排除组件、数据、Hook 和测试目录；`router/dynamic-routes.tsx` 负责按文件地址解析页面。菜单组件值必须对应实际页面文件。`.gitignore`、`public-files.mjs` 和提交/推送策略只决定源码收录，不改变运行时页面集合。
 
@@ -43,7 +43,7 @@ Router、Shell、页面权限和个人资料组件通过框架 Hook 读取同一
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `app`        | 入口、`bootstrap.ts`、应用装配、`config/`、`styles/`；`runtime/create-runtime.ts` 创建实例，`runtime/instance.ts` 提供默认浏览器实例 |
 | `assets`     | 字体、图片、图标和全局样式                                                                                                           |
-| `components` | `ma-*`、`reui` 通用组件；`business/` 放跨业务模块复用组件                                                                            |
+| `components` | `ma-*`、`reui` 通用组件                                                                                                              |
 | `services`   | auth、http、query、i18n、dictionary、navigation、storage、registry、async、errors、telemetry；不调用 React Hook、不读取组件上下文    |
 | `provider`   | `app-provider.tsx`、Runtime Context 与组合类型、表格 Query 适配、权限显示组件、插件宿主和扩展注册                                    |
 | `store`      | settings、tabs、keep-alive；每项界面状态的纯工厂与订阅 Hook 分文件相邻存放                                                           |
@@ -59,7 +59,7 @@ Router、Shell、页面权限和个人资料组件通过框架 Hook 读取同一
 
 纯 Store 工厂不导入 app、router、Provider 或 Hook。默认首页身份由 `createAppRuntime` 传给 `createSettingsStore`，保留历史设置纠正行为。会话状态由 SessionManager 管理，导航内部状态留在 router/navigation，服务器数据由 Query 管理，不复制到界面 Store。
 
-`app/styles/application.css` 显式扫描被嵌套框架仓库忽略的业务模块和插件。运行时页面发现、Git 收录与框架源码导出分别管理；它们不决定 BioTech 是否开源。
+运行时页面发现、样式扫描、Git 收录与框架源码导出分别管理。扩展模块和插件需要单独配置样式扫描范围，不能用 Git 忽略规则推断构建时可见的页面或样式。
 
 `scripts/check-source-structure.mjs` 拦截旧目录；依赖检查解析相对路径、别名和类型导入，禁止服务依赖 UI、纯 Store 依赖装配层、Provider 硬编码业务模块、通用 UI Hook 读取 Runtime，并检查值依赖循环。Ma/ReUI 组件闭包不能通过应用 Hook 间接依赖 Runtime。组件声明数据端口，Provider 注入实现；例如 `MaDictionaryContext` 和 `TableRequestContext`。
 
@@ -149,8 +149,8 @@ Host 的 `dispose()` 使在途 `register()` 安装失效。旧安装返回的 di
 
 启动依次调用插件的 `hooks.start(config)` 和 `install(runtime)`，当前 bootstrap 不调用 `hooks.setup`。宿主没有安装超时、capability 白名单或 `context.signal`；插件须自行管理异步取消与部分安装失败的清理。HTTP 的 `networkRequest` 钩子单独受 `hookTimeout`（默认 10 秒）和请求 AbortSignal 限制。运行时释放后迟到的安装 disposer 仍会执行；这些生命周期规则不构成沙箱。
 
-## 平台型业务模块层级
+## 业务模块扩展
 
-平台型业务先按业务域、平台和产品分组，再落到具体子模块，例如 `src/modules/marketing/oceanengine/qianchuan/material/`。中间分组目录不承担页面职责；叶子子模块仍使用 `api/`、`locales/`、`views/` 约定。巨量营销使用 `ads`，DOU+ 使用独立的 `douplus`，未接入的产品或平台不预建空业务模块。
+需要按平台分组时，可使用 `src/modules/<业务域>/<平台>/<产品>/<子模块>/` 组织扩展。中间分组目录不承担页面职责；叶子子模块仍使用 `api/`、`locales/`、`views/` 约定，不为未接入的产品或平台预建空模块。
 
-数据库菜单的 `component` 直接引用真实产品目录，例如 `marketing/oceanengine/qianchuan/material/views/index`。目录调整时通过定向 SQL 同步菜单的父子关系、路由和组件路径；前端 Runtime 只注册实际文件，不提供旧营销路径别名。框架 `createViewResolver` 保持通用解析，不硬编码业务目录或修改权限。
+菜单的 `component` 引用实际页面路径，例如 `<业务域>/<平台>/<产品>/<子模块>/views/index`。目录调整时应同步菜单的父子关系、路由和组件路径。框架 `createViewResolver` 保持通用解析，不硬编码具体业务目录或修改权限。

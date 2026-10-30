@@ -74,7 +74,7 @@ pnpm exec node --test tests/framework-routing.test.mjs tests/framework-route-pag
 pnpm run build:public-smoke -- --working-tree
 ```
 
-公开测试在临时目录中按 MineAdmin-React 框架清单排除 BioTech 应用入口、业务模块、业务插件和本地环境文件，先验证空插件场景，再安装通用示例并检查页面实际渲染。它使用模拟会话和菜单，不修改后台数据。
+公开测试在临时目录中只使用 MineAdmin-React 框架清单内的源码，先验证空插件场景，再安装通用示例并检查页面实际渲染。它使用模拟会话和菜单，不修改后台数据。
 
 公开导出默认读取 Git 提交；本地未提交实现用 `--working-tree` 预览。发布前还需核对新增框架文件的 Git 收录状态。
 

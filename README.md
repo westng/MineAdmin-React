@@ -35,16 +35,16 @@
 
 ### 主要能力
 
-| 能力       | 当前实现                                                                   |
-| ---------- | -------------------------------------------------------------------------- |
-| 认证与权限 | 会话恢复、Token 刷新、账号切换隔离，以及路由和组件访问控制                 |
-| 动态路由   | 统一静态、菜单和插件路由，按 modules/plugins 文件路径自动解析页面          |
-| 页面布局   | 经典布局、分栏导航、混合导航三种布局；当前开放经典布局和分栏导航           |
-| 业务组件   | MaForm、MaSearch、MaTable、MaProTable、MaDialog、MaDrawer、MaUpload、MaDownload        |
-| UI 与主题  | ReUI、shadcn/ui 风格原语、Tailwind CSS、明暗主题和主题色                   |
-| 数据访问   | Axios 请求层、TanStack Query 缓存，以及按会话隔离的请求生命周期            |
-| 应用扩展   | 插件能力注册、Dashboard 区域、登录方式、工具栏和 Shell 插槽                |
-| 国际化     | 语言包注册与回退，默认提供 zh_CN、zh_TW、en_US；覆盖范围以各模块语言包为准 |
+| 能力       | 当前实现                                                                        |
+| ---------- | ------------------------------------------------------------------------------- |
+| 认证与权限 | 会话恢复、Token 刷新、账号切换隔离，以及路由和组件访问控制                      |
+| 动态路由   | 统一静态、菜单和插件路由，按 modules/plugins 文件路径自动解析页面               |
+| 页面布局   | 经典布局、分栏导航、混合导航三种布局；当前开放经典布局和分栏导航                |
+| 业务组件   | MaForm、MaSearch、MaTable、MaProTable、MaDialog、MaDrawer、MaUpload、MaDownload |
+| UI 与主题  | ReUI、shadcn/ui 风格原语、Tailwind CSS、明暗主题和主题色                        |
+| 数据访问   | Axios 请求层、TanStack Query 缓存，以及按会话隔离的请求生命周期                 |
+| 应用扩展   | 插件能力注册、Dashboard 区域、登录方式、工具栏和 Shell 插槽                     |
+| 国际化     | 语言包注册与回退，默认提供 zh_CN、zh_TW、en_US；覆盖范围以各模块语言包为准      |
 
 ### 布局与二级菜单扩展
 
@@ -131,8 +131,7 @@ src/
 ├── assets/              # 字体、图片、图标和全局样式
 ├── components/
 │   ├── ma-*/            # 通用管理组件
-│   ├── reui/            # ReUI、primitives 和内部辅助
-│   └── business/        # BioTech 跨业务模块组件
+│   └── reui/            # ReUI、primitives 和内部辅助
 ├── hooks/               # auth、query、runtime、i18n、ui；路由与字典消费
 ├── layouts/             # 布局、Shell、组件和 layouts/hooks
 ├── modules/             # base 基础模块及其他业务子模块
@@ -145,7 +144,7 @@ src/
 └── utils/               # 无 Runtime 和业务状态的纯工具
 ```
 
-BioTech 与 MineAdmin-React 均为开源项目。BioTech 收录完整应用及业务模块、插件、业务组件；MineAdmin-React 独立仓库和框架导出包提供可复用框架。应用配置位于 `app/config/`，业务样式及扫描范围位于 `app/styles/application.css`。完整依赖关系见 [架构说明](ARCHITECTURE.md)，菜单使用当前文件路径（例如 `base/user/views/index`）解析页面，插件静态页面通过 `views` 声明；见 [路由与插件接入](docs/ROUTING.md) 和 [可运行示例](examples/routing/README.md)。
+MineAdmin-React 提供可复用的管理端框架、Ma/ReUI 组件和 Base 基础模块。应用通过 Runtime 端口和插件注册接入扩展能力。完整依赖关系见 [架构说明](ARCHITECTURE.md)，菜单使用当前文件路径（例如 `base/user/views/index`）解析页面，插件静态页面通过 `views` 声明；见 [路由与插件接入](docs/ROUTING.md) 和 [可运行示例](examples/routing/README.md)。
 
 ### 组件文档
 
@@ -155,8 +154,6 @@ BioTech 与 MineAdmin-React 均为开源项目。BioTech 收录完整应用及�
 
 通用 UI 原语位于 `src/components/reui/primitives/`，[components.json](components.json) 中的 shadcn 配置也指向这个目录。业务页面优先复用已有 Ma 组件。
 
-跨模块业务组件（例如 `src/components/business/douyin-user-parser`）由 BioTech 主仓库开源；独立框架仓库通过 `.gitignore` 和框架导出清单划定自己的分发范围。
-
 ## 开发检查
 
 | 命令                                      | 作用                                               |
@@ -165,7 +162,7 @@ BioTech 与 MineAdmin-React 均为开源项目。BioTech 收录完整应用及�
 | `pnpm run check`                          | 依次运行 TypeScript、ESLint、Prettier              |
 | `pnpm run typecheck`                      | 项目 TypeScript 检查                               |
 | `pnpm run lint` / `pnpm run format:check` | 全量 Lint / 配置范围内的格式检查                   |
-| `pnpm run check:ma`                       | Ma 结构、类型检查、Lint 与行为测试                |
+| `pnpm run check:ma`                       | Ma 结构、类型检查、Lint 与行为测试                 |
 | `pnpm run check:boundaries`               | 目录、Ma 结构与入口、组件闭包、Core 依赖检查       |
 | `pnpm run test:framework`                 | 框架 DOM、路由、会话、边界及 Dashboard 测试        |
 | `pnpm run check:framework`                | `check:boundaries` + `check:ma` + `test:framework` |
@@ -185,6 +182,12 @@ pnpm exec prettier --ignore-path /dev/null --check README.md ARCHITECTURE.md doc
 ```
 
 静态检查、模拟 DOM、生产构建和浏览器联调分别验证不同内容。提交时说明实际执行的检查及失败项，不把配置了 CI 等同于 CI 已通过。
+
+## 变更记录与发版
+
+每次提交必须同步更新 [CHANGELOG.md](CHANGELOG.md) 的 `Unreleased`，并与相关改动一起提交；推送前确认变更记录已入库。发版时按实际版本号和发布日期归档，Release 正文完整携带该版本的变更内容，包括兼容性变化和升级注意事项。
+
+沿用现有 CI，确认目标提交检查通过后手动创建 Tag 和 Release，不新增发布流水线。具体要求见 [贡献规范](CONTRIBUTING.md#变更记录与发版)。
 
 ## 构建与部署
 
@@ -210,9 +213,9 @@ iframe 默认不允许任何外部来源。`VITE_IFRAME_ORIGINS` 接受如 `http
 
 构建不会自动生成 gzip/Brotli 归档；压缩与缓存策略由部署服务器决定。`VITE_BUILD_SOURCEMAP` 控制 sourcemap 生成。
 
-## 两个开源仓库的分发范围
+## 框架源码分发范围
 
-[scripts/public-files.mjs](scripts/public-files.mjs) 定义 MineAdmin-React 框架源码导出白名单：包含通用框架、Ma/ReUI、`modules/base`、示例和指定文档。BioTech 业务模块、插件和应用装配由主仓库收录，不进入这个框架分发包；这不代表它们是私有源码。
+[scripts/public-files.mjs](scripts/public-files.mjs) 定义 MineAdmin-React 框架源码导出白名单：包含通用框架、Ma/ReUI、`modules/base`、示例和指定文档。公开仓库、CI 制品、源码导出包和 Release 均按此清单核对范围。
 
 ```bash
 pnpm run check:public-index

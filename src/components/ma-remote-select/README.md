@@ -2,19 +2,16 @@
 
 远程下拉选择器。应用已在 `AppProviders` 中通过 `MaRemoteSelectProvider` 绑定当前 Runtime 的 HTTP 客户端，普通场景只需要传入 `url`。独立消费方应提供 `request` 或 `MaRemoteSelectProvider`；组件自身不创建应用 HTTP 单例。
 
+以下使用应用自行提供的用户选项接口演示，不表示框架内置该接口。
+
 ```tsx
-<MaRemoteSelect url="/admin/advertiser/options" />
+<MaRemoteSelect url="/admin/user/options" />
 ```
 
 常用配置：
 
 ```tsx
-<MaRemoteSelect
-  url="/admin/advertiser/options"
-  params={{ platform: 'QC' }}
-  fieldNames={{ value: 'id', label: 'name' }}
-  multiple
-/>
+<MaRemoteSelect url="/admin/user/options" params={{ status: 1 }} fieldNames={{ value: 'id', label: 'name' }} multiple />
 ```
 
 组件默认使用 `GET`，搜索参数为 `keywords`，分页参数为 `page` 和 `page_size`，默认页大小为 20，并默认支持清除；传入 `clearable: false` 可关闭。标准响应支持 `data.items`、`data.list` 或数组，并根据 `total`、`hasMore`、`has_more` 判断是否还有下一页。
@@ -33,12 +30,12 @@ URL、请求方法、固定参数、请求体、回显配置、字段映射或�
 
 ```tsx
 {
-  prop: 'advertiser_id',
-  label: '广告主',
+  prop: 'user_id',
+  label: '用户',
   component: MaRemoteSelect,
   renderProps: {
-    url: '/admin/advertiser/options',
-    params: { platform: 'QC' },
+    url: '/admin/user/options',
+    params: { status: 1 },
   },
 }
 ```
@@ -49,13 +46,13 @@ URL、请求方法、固定参数、请求体、回显配置、字段映射或�
 
 根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
 
-| 目录 | 职责 | 文件 |
-| --- | --- | --- |
-| `components/` | 展示组件 | ma-remote-select-provider.tsx, ma-remote-select.tsx |
-| `context/` | React 接入 | request-context.ts |
-| `data/` | 默认配置与目录数据 | defaults.ts |
-| `hooks/` | 状态与生命周期 | use-remote-select-request.ts, use-remote-select.ts |
-| `types/` | 公共及内部类型 | index.ts, internal.ts |
-| `utils/` | 转换与状态工厂 | remote-select-utils.ts |
+| 目录          | 职责               | 文件                                                |
+| ------------- | ------------------ | --------------------------------------------------- |
+| `components/` | 展示组件           | ma-remote-select-provider.tsx, ma-remote-select.tsx |
+| `context/`    | React 接入         | request-context.ts                                  |
+| `data/`       | 默认配置与目录数据 | defaults.ts                                         |
+| `hooks/`      | 状态与生命周期     | use-remote-select-request.ts, use-remote-select.ts  |
+| `types/`      | 公共及内部类型     | index.ts, internal.ts                               |
+| `utils/`      | 转换与状态工厂     | remote-select-utils.ts                              |
 
 使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。
