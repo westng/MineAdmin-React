@@ -24,6 +24,7 @@
 
 ### 架构与修复
 
+- 升级 Axios / http-proxy 的 `follow-redirects` 传递依赖至 `1.16.2`，修复自定义敏感请求头可能随重定向泄露的高危漏洞（[GHSA-mrwp-f3q8-3g9p](https://github.com/advisories/GHSA-mrwp-f3q8-3g9p)）。
 - 构建版本信息从 `package.json` 读取，随发布版本更新；公共构建可从 Git 快照保留经过检查的静态产物，临时目录复用已安装依赖，避免 PNPM 11 自动重装共享依赖。
 - MaTable 和 MaProTable 分页器增加指定页跳转，支持回车、页码边界校验，以及 `showQuickJumper` 显隐配置。
 - Ma 组件按实现、类型、Hook、上下文和纯工具整理目录，通过公共入口共享能力；新增结构校验并同步类型检查与导出清单。
