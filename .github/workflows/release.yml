@@ -1,0 +1,163 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag, for example v3.2.1 or v3.2.2-rc.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  target:
+    name: Validate release target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      revision: ${{ steps.resolve.outputs.revision }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - name: Resolve existing version tag
+        id: resolve
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const tag = context.eventName === 'workflow_dispatch'
+              ? context.payload.inputs.tag
+              : context.ref.replace(/^refs\/tags\//, '');
+            if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag))
+              throw new Error('Select an existing vX.Y.Z or vX.Y.Z-prerelease tag');
+            const { data: commit } = await github.rest.repos.getCommit({
+              ...context.repo, ref: `refs/tags/${tag}`,
+            });
+            core.setOutput('tag', tag);
+            core.setOutput('revision', commit.sha);
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Validate package version and complete changelog entry
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
+        run: node scripts/check-release.mjs "$RELEASE_TAG"
+
+  checks:
+    name: Existing framework checks
+    needs: target
+    uses: ./.github/workflows/ma-components.yml
+    with:
+      ref: ${{ needs.target.outputs.revision }}
+
+  build:
+    name: Build public release assets
+    needs: [target, checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ needs.target.outputs.tag }}
+      VITE_OPEN_PROXY: 'true'
+      VITE_PROXY_PREFIX: /api
+      VITE_BUILD_SOURCEMAP: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.target.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - name: Locked dependency install
+        run: pnpm install --frozen-lockfile
+      - name: Generate version release notes from Git
+        run: pnpm run check:release -- "$RELEASE_TAG" "$RUNNER_TEMP/release"
+      - name: Export public source snapshot
+        run: pnpm run export:public -- "$RUNNER_TEMP/source"
+      - name: Build and retain public static files
+        run: pnpm run build:public-smoke -- --output-dir "$RUNNER_TEMP/dist"
+      - name: Archive source, static files and checksums
+        run: |
+          cp "$RUNNER_TEMP/source/LICENSE" "$RUNNER_TEMP/source/THIRD_PARTY_NOTICES.md" "$RUNNER_TEMP/dist/"
+          tar -czf "$RUNNER_TEMP/release/mineadmin-react-$RELEASE_TAG-source.tar.gz" -C "$RUNNER_TEMP/source" .
+          tar -czf "$RUNNER_TEMP/release/mineadmin-react-$RELEASE_TAG-dist.tar.gz" -C "$RUNNER_TEMP/dist" .
+          cd "$RUNNER_TEMP/release"
+          sha256sum "mineadmin-react-$RELEASE_TAG-source.tar.gz" "mineadmin-react-$RELEASE_TAG-dist.tar.gz" > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ needs.target.outputs.tag }}
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: [target, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ needs.target.outputs.tag }}
+      RELEASE_REVISION: ${{ needs.target.outputs.revision }}
+      RELEASE_PRERELEASE: ${{ needs.target.outputs.prerelease }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ needs.target.outputs.tag }}
+          path: ${{ runner.temp }}/release
+      - name: Verify archives
+        working-directory: ${{ runner.temp }}/release
+        run: sha256sum --check SHA256SUMS
+      - name: Verify unchanged tag and refuse an existing release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            const { data: commit } = await github.rest.repos.getCommit({
+              ...context.repo, ref: `refs/tags/${tag}`,
+            });
+            if (commit.sha !== process.env.RELEASE_REVISION)
+              throw new Error('Release tag changed after validation');
+            let existing;
+            try {
+              existing = await github.rest.repos.getReleaseByTag({ ...context.repo, tag });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (existing) throw new Error(`Release ${tag} already exists; it will not be overwritten`);
+      - name: Create release with full version notes and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          args=()
+          if [[ "$RELEASE_PRERELEASE" == 'true' ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "MineAdmin-React $RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/release/RELEASE_NOTES.md" \
+            "${args[@]}" \
+            "$RUNNER_TEMP/release/mineadmin-react-$RELEASE_TAG-source.tar.gz" \
+            "$RUNNER_TEMP/release/mineadmin-react-$RELEASE_TAG-dist.tar.gz" \
+            "$RUNNER_TEMP/release/SHA256SUMS"

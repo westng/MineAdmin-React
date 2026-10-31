@@ -1,10 +1,12 @@
 import path from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import process from 'node:process'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { sourceStructureHmr } from './scripts/vite-source-structure-hmr.mjs'
+
+const packageVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
 
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -75,7 +77,7 @@ export default defineConfig(({ mode, command }) => {
     },
     define: {
       __MINE_SYSTEM_INFO__: JSON.stringify({
-        pkg: { version: '3.2.1' },
+        pkg: { version: packageVersion },
         lastBuildTime: new Date().toISOString(),
       }),
     },

@@ -29,6 +29,7 @@
     "test:framework": "node --test tests/framework-*.test.mjs tests/component-boundaries.test.mjs tests/frontend-session.test.mjs tests/dashboard-slot.test.mjs",
     "check:framework": "pnpm run check:boundaries && pnpm run check:ma && pnpm run test:framework",
     "check:public-index": "node scripts/check-public-index.mjs",
+    "check:release": "node scripts/check-release.mjs",
     "check:bootstrap": "node scripts/check-bootstrap.mjs",
     "build:public-smoke": "node scripts/public-smoke.mjs",
     "export:public": "node scripts/export-public.mjs",

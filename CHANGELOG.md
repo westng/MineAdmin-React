@@ -8,6 +8,7 @@
 
 ### 新增
 
+- 新增 Actions Release 流程：版本 Tag 或手动运行触发，复用完整 CI 后发布公开源码包、静态构建包与 SHA-256 校验文件；校验 Tag、版本和完整 CHANGELOG，支持预发布并拒绝覆盖已有 Release。
 - MaDialog 支持鼠标和触摸拖动标题栏，默认启用，可通过 `draggable={false}` 关闭；拖动受视口边界约束，全屏、关闭后重开或窗口尺寸变化时清除偏移。
 - MaProTable 的 `getRequestParams(form?)` 支持传入表单快照，合并固定参数并执行 `paramsTransform` 后剔除分页；省略参数时仍读取已提交筛选，读取快照不会触发搜索或改变列表状态。
 - ReUI 新增文件类型展示与进度条原语，支持文件名和 MIME 类型解析，以及 `value={null}` 的不确定进度展示；同步第三方来源清单和组件说明。
@@ -23,6 +24,7 @@
 
 ### 架构与修复
 
+- 构建版本信息从 `package.json` 读取，随发布版本更新；公共构建可从 Git 快照保留经过检查的静态产物，临时目录复用已安装依赖，避免 PNPM 11 自动重装共享依赖。
 - MaTable 和 MaProTable 分页器增加指定页跳转，支持回车、页码边界校验，以及 `showQuickJumper` 显隐配置。
 - Ma 组件按实现、类型、Hook、上下文和纯工具整理目录，通过公共入口共享能力；新增结构校验并同步类型检查与导出清单。
 - 新增 MaUpload、MaDownload、MaEmpty；MaForm 支持声明式 DictSelect 和 Upload，上传下载能力由调用方注入。
@@ -38,7 +40,7 @@
 
 ### 当前入口与文档
 
-- 明确每次提交同步更新 CHANGELOG、推送前核对日志已入库，手动发布 Release 时携带对应版本的完整变更内容。
+- 明确每次提交同步更新 CHANGELOG、推送前核对日志已入库，Release 正文携带对应版本的完整变更内容。
 - 整理公开文档及配置注释，使其仅描述 MineAdmin-React 框架的架构、接入与发布契约，示例统一使用通用模块和接口。
 - Base 页面按子模块组织，页面入口为 `base/<子模块>/views/index`；旧目录不提供转发别名。
 - API 消费使用 `useRuntimeFactory(createApi)`；设置、标签、语言、字典与 Toast 绑定当前 Runtime / Provider。

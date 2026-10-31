@@ -170,6 +170,7 @@ MineAdmin-React 提供可复用的管理端框架、Ma/ReUI 组件和 Base 基�
 | `pnpm run build`                          | TypeScript 检查和生产构建，默认输出到 `dist/`      |
 | `pnpm run serve`                          | 使用 http-server 打开已生成的 `dist/`              |
 | `pnpm run check:public-index`             | 检查 Git 已跟踪内容是否符合公共发布清单            |
+| `pnpm run check:release -- vX.Y.Z`        | 检查当前 Tag、版本及完整发布日志                   |
 | `pnpm run build:public-smoke`             | 在临时目录中对公共源码执行类型检查和构建           |
 | `pnpm run export:public`                  | 导出公共源码与 SHA-256 文件清单                    |
 
@@ -187,7 +188,7 @@ pnpm exec prettier --ignore-path /dev/null --check README.md ARCHITECTURE.md doc
 
 每次提交必须同步更新 [CHANGELOG.md](CHANGELOG.md) 的 `Unreleased`，并与相关改动一起提交；推送前确认变更记录已入库。发版时按实际版本号和发布日期归档，Release 正文完整携带该版本的变更内容，包括兼容性变化和升级注意事项。
 
-沿用现有 CI，确认目标提交检查通过后手动创建 Tag 和 Release，不新增发布流水线。具体要求见 [贡献规范](CONTRIBUTING.md#变更记录与发版)。
+手动推送 `vX.Y.Z` Tag 后，[Release 工作流](.github/workflows/release.yml) 复用现有 CI，检查通过后自动创建 GitHub Release，附上公开源码包、静态构建包与 SHA-256 校验文件。支持在 Actions 中指定已有 Tag 手动运行，预发布 Tag 自动标记为 prerelease，已有 Release 不会被覆盖。静态包使用根路径、hash 路由和同源 `/api` 前缀；其他部署配置从源码包重新构建。具体要求见 [贡献规范](CONTRIBUTING.md#变更记录与发版)。
 
 ## 构建与部署
 
@@ -223,7 +224,7 @@ pnpm run check:public-index
 pnpm run export:public -- /absolute/path/to/new-source-directory
 ```
 
-导出默认读取 HEAD，生成 `SOURCE_MANIFEST.json`，记录 commit 和各文件的 SHA-256；预览未提交修改时使用 `pnpm run export:public -- --working-tree /absolute/path/to/new-source-directory`。`build:public-smoke` 同样默认检查 HEAD，开发预览可显式传入 `--working-tree`。导出不会提交、推送或修改 Git index。`.gitignore` 不会自动取消跟踪历史文件，因此“本地被忽略”“Git 已跟踪”“公共导出包含”需要分别核对。发布边界失败时应先审查具体路径，不能把业务实现塞进框架分发包来掩盖反向依赖。
+导出默认读取 HEAD，生成 `SOURCE_MANIFEST.json`，记录 commit 和各文件的 SHA-256；预览未提交修改时使用 `pnpm run export:public -- --working-tree /absolute/path/to/new-source-directory`。`build:public-smoke` 同样默认检查 HEAD，开发预览可显式传入 `--working-tree`；添加 `--output-dir /absolute/path/to/new-build-directory` 可以保留通过检查的静态文件，保留产物只接受 Git 快照并拒绝覆盖已有目录。导出不会提交、推送或修改 Git index。`.gitignore` 不会自动取消跟踪历史文件，因此“本地被忽略”“Git 已跟踪”“公共导出包含”需要分别核对。发布边界失败时应先审查具体路径，不能把业务实现塞进框架分发包来掩盖反向依赖。
 
 ## 参与开发
 

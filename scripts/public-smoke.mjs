@@ -1,10 +1,29 @@
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, readFileSync, rmSync, readdirSync } from 'node:fs'
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  symlinkSync,
+  readFileSync,
+  rmSync,
+  readdirSync,
+  existsSync,
+  cpSync,
+} from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { publicSource, projectRoot } from './public-files.mjs'
 // The source tree is freshly materialized from an allowlist; local adapters and env files never enter it.
 const source = publicSource({ workingTree: process.argv.includes('--working-tree') })
+const outputIndex = process.argv.indexOf('--output-dir')
+let outputDirectory
+if (outputIndex !== -1) {
+  const argument = process.argv[outputIndex + 1]
+  if (!argument || argument.startsWith('--')) throw new Error('--output-dir requires a new destination directory')
+  if (source.source !== 'git') throw new Error('Retained build artifacts require a committed Git snapshot')
+  outputDirectory = path.resolve(argument)
+  if (existsSync(outputDirectory)) throw new Error('Build destination already exists; choose a new empty path')
+}
 const destination = mkdtempSync(path.join(os.tmpdir(), 'mineadmin-public-'))
 try {
   for (const file of source.files) {
@@ -25,6 +44,8 @@ try {
       stdio: 'inherit',
       env: {
         ...process.env,
+        // This temporary checkout shares installed dependencies; PNPM must not purge or reinstall them.
+        pnpm_config_verify_deps_before_run: 'false',
         VITE_APP_TITLE: 'MineAdmin',
         VITE_APP_ROOT_BASE: '/',
         VITE_APP_ROUTE_MODE: 'hash',
@@ -46,6 +67,14 @@ try {
   console.log(
     `Public-only source smoke passed (${source.files.length} files; no private modules or local environment files)`,
   )
+  if (outputDirectory) {
+    cpSync(path.join(destination, 'dist-public'), outputDirectory, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+    })
+    console.log(`Retained public build at ${outputDirectory}`)
+  }
 } finally {
   rmSync(destination, { recursive: true, force: true })
 }
