@@ -6,6 +6,10 @@
 
 以下为尚未按版本发布的框架变化；不表示已经部署或完成应用验收。
 
+## [3.2.1-alpha.1] - 2026-10-31
+
+首个 Alpha 预发布版本，基于 React 19、TypeScript 和 ReUI，适配 MineAdmin 3.2 后端；以应用源码模板交付。
+
 ### 新增
 
 - 新增 Actions Release 流程：版本 Tag 或手动运行触发，复用完整 CI 后发布公开源码包、静态构建包与 SHA-256 校验文件；校验 Tag、版本和完整 CHANGELOG，支持预发布并拒绝覆盖已有 Release。
@@ -46,3 +50,10 @@
 - Base 页面按子模块组织，页面入口为 `base/<子模块>/views/index`；旧目录不提供转发别名。
 - API 消费使用 `useRuntimeFactory(createApi)`；设置、标签、语言、字典与 Toast 绑定当前 Runtime / Provider。
 - 路由、插件和 Shell 插槽统一见 [路由文档](docs/ROUTING.md)，导入路径变化见 [迁移指南](docs/MIGRATION.md)。
+
+### 使用与升级注意事项
+
+- 本版本供开发和集成验证，后续 Alpha 版本的公共 API 与目录结构可能调整。已有开发快照应先核对以上兼容性变化及 [迁移指南](docs/MIGRATION.md)，特别是模块页面路径、Runtime 注入和插件安装契约。
+- 工具链按 `.node-version` 使用 Node.js `22.23.4`，包管理器为 `pnpm@11.7.0`；使用 `pnpm install --frozen-lockfile` 安装依赖。
+- Release 包含公开源码包、静态构建包与 `SHA256SUMS`。静态包按根路径、hash 路由和同源 `/api` 前缀构建，部署环境需配置后端反向代理；其他 API、路由或子目录配置从源码包重新构建。
+- 认证、菜单和数据需要接入应用提供后端，前端权限控制不能替代服务端授权。首次接入按 [快速开始](README.md#快速开始) 配置并验证实际后端。
