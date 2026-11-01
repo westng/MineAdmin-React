@@ -1,22 +1,38 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { AlertCircle, ChevronDown, ChevronUp, Clock3, RotateCw, X } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/reui/alert'
+import { Badge } from '@/components/reui/primitives/badge'
 import { Button } from '@/components/reui/primitives/button'
+import { Skeleton } from '@/components/reui/primitives/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/reui/primitives/tabs'
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
-import { createApi } from '../../api'
-import { displayError, displayTime, statusLabels } from '../data/display'
+import { createApi, type SyncTask } from '../../api'
+import { platformLabels, triggerLabels } from '../data/display'
+import { TaskMetadata, TaskOverview } from './TaskOverview'
+import { TaskStatus } from './TaskStatus'
+import { TaskUnits } from './TaskUnits'
 
-export function TaskDetails({ id }: { id: string }) {
+interface TaskDetailsProps {
+  id: string
+  tasks: SyncTask[]
+  onClose: () => void
+  onTaskChange: (id: string) => void
+}
+
+export function TaskDetails({ id, tasks, onClose, onTaskChange }: TaskDetailsProps) {
   const api = useRuntimeFactory(createApi)
+  const [tab, setTab] = useState('overview')
   const [page, setPage] = useState(1)
   const [unitId, setUnitId] = useState<string | null>(null)
   const detailQuery = useQuery({ ...api.detailOptions(id), refetchInterval: 10000 })
   const unitQuery = useQuery({ ...api.unitOptions(id, page), refetchInterval: 10000 })
   const attemptQuery = useQuery({ ...api.attemptOptions(id, unitId || ''), enabled: unitId !== null })
-  const task = detailQuery.data?.data.data
+  const task = detailQuery.data?.data.data || tasks.find(row => row.id === id)
+  const index = tasks.findIndex(row => row.id === id)
   const units = unitQuery.data?.data.data.list || []
   const total = unitQuery.data?.data.data.total || 0
   const busy = detailQuery.isFetching || unitQuery.isFetching
-  const error = detailQuery.error?.message || unitQuery.error?.message || ''
   const attempts = attemptQuery.data?.data.data || []
   const attemptError = attemptQuery.error?.message || ''
   const attemptBusy = unitId !== null && attemptQuery.isFetching
@@ -27,161 +43,162 @@ export function TaskDetails({ id }: { id: string }) {
   }
 
   return (
-    <div className="space-y-5" aria-busy={busy}>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-muted-foreground">刷新可查看最新执行结果</span>
-        <Button variant="outline" size="sm" disabled={busy} onClick={refresh}>
-          刷新
-        </Button>
-      </div>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      {busy && (
-        <p role="status" className="text-sm">
-          正在加载…
-        </p>
-      )}
-      {task && (
-        <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-muted-foreground">任务</dt>
-            <dd>{task.title}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">状态</dt>
-            <dd>{statusLabels[task.status] || task.status}</dd>
-          </div>
-          <div className="col-span-2">
-            <dt className="text-muted-foreground">任务编号</dt>
-            <dd className="break-all font-mono">{task.task_no}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">发现记录 / 确认完成</dt>
-            <dd>
-              {task.discovered_count} / {task.persisted_count}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">执行单元成功 / 失败 / 总数</dt>
-            <dd>
-              {task.units_succeeded} / {task.units_failed} / {task.units_total}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">开始时间</dt>
-            <dd>{displayTime(task.started_at)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">完成时间</dt>
-            <dd>{displayTime(task.finished_at)}</dd>
-          </div>
-        </dl>
-      )}
-      <p className="text-xs text-muted-foreground">
-        确认完成包含成功写入及已确认无需更新的记录，不等同于新增条数。任务发现新数据时，执行单元总数会增长。
-      </p>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-left text-sm">
-          <caption className="sr-only">同步执行单元</caption>
-          <thead className="bg-muted/50">
-            <tr>
-              {['目标', '阶段', '状态', '次数', '结果 / 原因', '操作'].map(label => (
-                <th key={label} className="whitespace-nowrap p-3">
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {units.map(unit => (
-              <tr key={unit.id} className="border-t">
-                <td className="p-3">
-                  {unit.target_id}
-                  {unit.range_start && (
-                    <div className="text-xs text-muted-foreground">
-                      {unit.range_start} 至 {unit.range_end}
-                    </div>
-                  )}
-                </td>
-                <td className="whitespace-nowrap p-3">
-                  {{ discover: '数据拉取', persist: '数据写入', report: '报表同步' }[unit.stage] || unit.stage}
-                </td>
-                <td className="whitespace-nowrap p-3">{statusLabels[unit.status] || unit.status}</td>
-                <td className="p-3">{unit.attempts}</td>
-                <td className="min-w-40 p-3">{displayError(unit.error_code)}</td>
-                <td className="p-3">
-                  <Button size="sm" variant="ghost" onClick={() => setUnitId(unit.id)}>
-                    执行历史
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {!busy && !units.length && (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-muted-foreground">
-                  暂无执行单元
-                </td>
-              </tr>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <header className="shrink-0 space-y-3 px-4 pt-3 pb-4 sm:px-5">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <span className="min-w-0 truncate font-mono text-xs text-muted-foreground" title={task?.task_no}>
+            {task?.task_no || `TASK-${id}`}
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            {index >= 0 && tasks.length > 1 && (
+              <div className="mr-1 flex items-center rounded-md border" role="group" aria-label="当前页任务导航">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="max-sm:size-11"
+                  aria-label="上一个任务"
+                  disabled={index === 0 || busy}
+                  onClick={() => onTaskChange(tasks[index - 1].id)}
+                >
+                  <ChevronUp aria-hidden="true" />
+                </Button>
+                <span className="hidden px-2 text-xs tabular-nums text-muted-foreground sm:block" title="当前页任务">
+                  {index + 1} / {tasks.length}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="max-sm:size-11"
+                  aria-label="下一个任务"
+                  disabled={index === tasks.length - 1 || busy}
+                  onClick={() => onTaskChange(tasks[index + 1].id)}
+                >
+                  <ChevronDown aria-hidden="true" />
+                </Button>
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex items-center justify-end gap-3 text-sm">
-        <span>
-          共 {total} 个单元，第 {page} 页
-        </span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy || page <= 1}
-          onClick={() => {
-            setPage(page - 1)
-            setUnitId(null)
-          }}
-        >
-          上一页
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy || page * 20 >= total}
-          onClick={() => {
-            setPage(page + 1)
-            setUnitId(null)
-          }}
-        >
-          下一页
-        </Button>
-      </div>
-      {unitId && (
-        <section className="space-y-2" aria-label="执行历史">
-          <h3 className="text-sm font-medium">单元 {unitId} 的执行历史</h3>
-          {attemptBusy && <p role="status">正在加载…</p>}
-          {attemptError && (
-            <p role="alert" className="text-destructive">
-              {attemptError}
-            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="max-sm:size-11"
+              aria-label="刷新任务详情"
+              title="刷新任务详情"
+              disabled={busy || attemptBusy}
+              onClick={refresh}
+            >
+              <RotateCw className={busy ? 'animate-spin motion-reduce:animate-none' : undefined} aria-hidden="true" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="max-sm:size-11"
+              aria-label="关闭"
+              onClick={onClose}
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            <h2 className="min-w-0 break-words text-base font-medium leading-6 [overflow-wrap:anywhere]">
+              {task?.title || '同步任务详情'}
+            </h2>
+            {task && <TaskStatus status={task.status} />}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <Clock3 className="size-3.5" aria-hidden="true" />
+            {task && (
+              <>
+                <span className="break-words [overflow-wrap:anywhere]">
+                  {platformLabels[task.platform] || task.platform}
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>{triggerLabels[task.trigger_type] || task.trigger_type}</span>
+                <span aria-hidden="true">·</span>
+              </>
+            )}
+            <span>每 10 秒自动刷新</span>
+          </div>
+        </div>
+      </header>
+      <Tabs value={tab} onValueChange={value => setTab(String(value))} className="min-h-0 flex-1 flex-col gap-0">
+        <div className="shrink-0 border-y px-4 sm:px-5">
+          <TabsList variant="line" aria-label="同步任务详情" className="h-10 gap-5 p-0 max-sm:h-11">
+            <TabsTrigger
+              value="overview"
+              className="flex-none px-0 after:inset-x-0 after:bottom-0 after:h-0.5 aria-selected:after:opacity-100"
+            >
+              概览
+            </TabsTrigger>
+            <TabsTrigger
+              value="units"
+              className="flex-none px-0 after:inset-x-0 after:bottom-0 after:h-0.5 aria-selected:after:opacity-100"
+            >
+              执行单元
+              {unitQuery.data && (
+                <Badge variant="outline" className="px-1.5 py-0 text-xs tabular-nums">
+                  {total.toLocaleString('zh-CN')}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="details"
+              className="flex-none px-0 after:inset-x-0 after:bottom-0 after:h-0.5 aria-selected:after:opacity-100"
+            >
+              任务信息
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="overview" className="min-h-0 overflow-y-auto px-4 py-5 sm:px-5">
+          {detailQuery.error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle aria-hidden="true" />
+              <AlertTitle>任务详情加载失败</AlertTitle>
+              <AlertDescription className="break-words [overflow-wrap:anywhere]">
+                {detailQuery.error.message}
+              </AlertDescription>
+            </Alert>
           )}
-          {!attemptBusy && !attemptError && !attempts.length && (
-            <p className="text-sm text-muted-foreground">尚未开始执行</p>
+          {detailQuery.isPending && !task ? (
+            <Skeleton className="h-60 w-full" aria-label="正在加载任务详情" />
+          ) : task ? (
+            <TaskOverview task={task} onViewUnits={() => setTab('units')} />
+          ) : null}
+        </TabsContent>
+        <TabsContent value="units" className="min-h-0 overflow-y-auto px-4 py-5 sm:px-5">
+          <TaskUnits
+            units={units}
+            total={total}
+            page={page}
+            loading={unitQuery.isPending}
+            refreshing={unitQuery.isFetching}
+            error={unitQuery.error?.message || ''}
+            unitId={unitId}
+            attempts={attempts}
+            attemptLoading={attemptBusy}
+            attemptError={attemptError}
+            onUnitChange={setUnitId}
+            onPageChange={nextPage => {
+              setPage(nextPage)
+              setUnitId(null)
+            }}
+            onRefresh={refresh}
+          />
+        </TabsContent>
+        <TabsContent value="details" className="min-h-0 overflow-y-auto px-4 py-5 sm:px-5">
+          {task && (
+            <section aria-label="同步任务信息" className="min-w-0 space-y-5">
+              <h3 className="text-sm font-medium">任务信息</h3>
+              <TaskMetadata task={task} extended />
+            </section>
           )}
-          {attempts.map(attempt => (
-            <div key={attempt.id} className="space-y-1 rounded-md border p-3 text-sm">
-              <p>
-                第 {attempt.attempt_no} 次 · {statusLabels[attempt.status] || attempt.status}
-              </p>
-              <p>
-                {displayTime(attempt.started_at)} — {displayTime(attempt.finished_at)}
-              </p>
-              <p>{displayError(attempt.error_code)}</p>
-              <p className="break-all font-mono text-xs">追踪编号：{attempt.trace_id}</p>
-            </div>
-          ))}
-        </section>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

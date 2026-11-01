@@ -25,7 +25,7 @@ function BrandMark({ siteName }: { siteName: string }) {
 
 function BrandContent({ config }: { config: WebsiteLoginConfig }) {
   return (
-    <div className="absolute bottom-5 left-10 z-10 w-[85%] text-black">
+    <div className={cn('absolute bottom-5 left-10 z-10 w-[85%]', config.video_url ? 'text-black' : 'text-foreground')}>
       <div className="flex flex-col gap-3 text-[40px] font-bold leading-normal">
         {config.headline && <p>{config.headline}</p>}
         {config.subheadline && <p>{config.subheadline}</p>}

@@ -205,9 +205,22 @@ export default function SyncTaskPage() {
         }}
         title="同步任务详情"
         description="查看执行单元、结果与重试历史。"
+        width="min(36rem, calc(100vw - 2rem))"
+        showCloseButton={false}
+        contentClassName="scheme-light dark:scheme-dark"
+        headerClassName="sr-only"
+        bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
         footer={false}
       >
-        {detailId && <TaskDetails key={detailId} id={detailId} />}
+        {detailId && (
+          <TaskDetails
+            key={detailId}
+            id={detailId}
+            tasks={query.data}
+            onClose={() => setDetailId(null)}
+            onTaskChange={setDetailId}
+          />
+        )}
       </MaDrawer>
       <MaDialog {...confirm.dialogProps} cancelText="返回" />
     </section>

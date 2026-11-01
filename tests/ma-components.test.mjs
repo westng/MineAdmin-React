@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { readFile } from 'node:fs/promises'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
+import { compile } from 'tailwindcss'
 import { Window } from 'happy-dom'
 import { Activity, act, createElement, createRef, useState } from 'react'
 
@@ -1263,6 +1265,63 @@ test('MaTable 暴露 TanStack 实例，列排序、列显示、列宽及新 prop
   assert.match(view.container.textContent, /新配置/)
 })
 
+test('MaProTable 在局部深色作用域切换标题、面板、工具栏及选中文字，并直接读取作用域边框', async t => {
+  const ref = createRef()
+  const view = await mount(t, MaProTable, {
+    ref,
+    data: [{ id: 1, name: '主题测试' }],
+    schema: { tableColumns: [{ type: 'selection' }, { prop: 'name', label: '名称' }] },
+    options: {
+      header: { mainTitle: '数据列表', subTitle: '主题说明' },
+      selection: { rowKey: 'id' },
+      tableOptions: { rowKey: 'id', border: true },
+    },
+    toolbarLeft: createElement('span', { 'data-theme-toolbar': '' }, '工具栏文字'),
+  })
+  view.container.className = 'ma-theme-test'
+  await act(async () => ref.current.getTableRef().getTableInstance().toggleAllRowsSelected(true))
+  const source = await readFile(new URL('../src/assets/styles/globals.css', import.meta.url), 'utf8')
+  const theme = source.match(/@theme inline \{[\s\S]*?\n\}/)?.[0]
+  assert.ok(theme, '应使用项目的主题颜色映射编译 Tailwind 工具类')
+  const { build } = await compile(`
+    :root { --foreground: rgb(30, 30, 30); --card-foreground: rgb(35, 35, 35); --card: rgb(255, 255, 255); --border: rgb(220, 220, 220); --muted-foreground: rgb(100, 100, 100); }
+    .ma-theme-test.dark { --foreground: rgb(245, 245, 245); --card-foreground: rgb(250, 250, 250); --card: rgb(35, 35, 35); --border: rgb(70, 70, 70); --muted-foreground: rgb(180, 180, 180); }
+    body { color: var(--foreground); }
+    ${theme}
+    @tailwind utilities;
+  `)
+  const style = document.createElement('style')
+  const colors = [...new Set([...view.container.querySelectorAll('*')].flatMap(node => [...node.classList]))].filter(
+    name => /^(text-|bg-card$|\[--frame-|border-\(|border-\[)/.test(name),
+  )
+  style.textContent = build(colors)
+  document.head.append(style)
+  t.after(() => style.remove())
+  const frame = view.container.querySelector('[data-slot="frame"]')
+  const panel = view.container.querySelector('[data-slot="frame-panel"]')
+  const title = view.container.querySelector('[data-slot="frame-panel-title"]')
+  const description = view.container.querySelector('[data-slot="frame-panel-description"]')
+  const toolbar = view.container.querySelector('[data-theme-toolbar]')
+  const selection = [...view.container.querySelectorAll('span')].find(node => node.textContent === '已选择 1 项')
+  for (const name of [
+    '[--frame-panel-bg:var(--card)]',
+    '[--frame-panel-border-color:var(--border)]',
+    '[--frame-border-color:var(--border)]',
+  ])
+    assert.ok(frame.classList.contains(name), 'Frame 变量应直接读取当前作用域，避免继承根节点已解析的颜色别名')
+  for (const dark of [false, true, false]) {
+    view.container.classList.toggle('dark', dark)
+    assert.equal(getComputedStyle(document.body).color, 'rgb(30, 30, 30)')
+    assert.equal(getComputedStyle(title).color, dark ? 'rgb(245, 245, 245)' : 'rgb(30, 30, 30)')
+    for (const node of [panel, toolbar, selection])
+      assert.equal(getComputedStyle(node).color, dark ? 'rgb(250, 250, 250)' : 'rgb(35, 35, 35)')
+    assert.equal(getComputedStyle(description).color, dark ? 'rgb(180, 180, 180)' : 'rgb(100, 100, 100)')
+    assert.equal(getComputedStyle(panel).backgroundColor, dark ? 'rgb(35, 35, 35)' : 'rgb(255, 255, 255)')
+    for (const node of [frame, panel])
+      assert.equal(getComputedStyle(node).borderTopColor, dark ? 'rgb(70, 70, 70)' : 'rgb(220, 220, 220)')
+  }
+})
+
 test('MaProTable 保留分页回调，动态页码与列配置可从 props 更新', async t => {
   const ref = createRef()
   const calls = []
@@ -1487,12 +1546,56 @@ test('MaDialog 全屏时使用视口高度，退出后恢复配置且保留表�
   assert.deepEqual(changes, [true, false])
 })
 
-function mockDialogGeometry(
-  popup,
-  { width = 480, height = 320, left = (dom.innerWidth - width) / 2, top = (dom.innerHeight - height) / 2 } = {},
-) {
+function mockDialogGeometry(popup, geometry = {}) {
   const offset = property => Number(popup.style[property].match(/\+\s*(-?[\d.]+)px\)$/)?.[1] ?? 0)
-  popup.getBoundingClientRect = () => new dom.DOMRect(left + offset('left'), top + offset('top'), width, height)
+  popup.getBoundingClientRect = () => {
+    const {
+      width = 480,
+      height = 320,
+      left = (dom.innerWidth - width) / 2,
+      top = (dom.innerHeight - height) / 2,
+    } = typeof geometry === 'function' ? geometry() : geometry
+    return new dom.DOMRect(left + offset('left'), top + offset('top'), width, height)
+  }
+}
+
+function mockDialogResize(t) {
+  const observers = new Set()
+  const OriginalResizeObserver = dom.ResizeObserver
+  dom.ResizeObserver = class {
+    constructor(callback) {
+      this.callback = callback
+      this.targets = new Set()
+      observers.add(this)
+    }
+    observe(target) {
+      this.targets.add(target)
+    }
+    unobserve(target) {
+      this.targets.delete(target)
+    }
+    disconnect() {
+      this.targets.clear()
+    }
+  }
+  t.after(() => {
+    dom.ResizeObserver = OriginalResizeObserver
+  })
+  return {
+    observes: target => [...observers].some(observer => observer.targets.has(target)),
+    notify: async target => {
+      const bounds = target.getBoundingClientRect()
+      await act(async () => {
+        for (const observer of observers) {
+          if (!observer.targets.has(target)) continue
+          observer.callback(
+            [{ target, borderBoxSize: [{ inlineSize: bounds.width, blockSize: bounds.height }] }],
+            observer,
+          )
+        }
+      })
+    },
+  }
 }
 
 async function dialogPointer(target, type, options = {}) {
@@ -1546,6 +1649,96 @@ test('MaDialog 默认标题栏拖动可累积位移，保留 Popup 函数样式�
   await dialogPointer(document, 'pointerup')
   assert.equal(popup.style.left, 'calc(50% + 100px)')
   assert.equal(popup.style.top, 'calc(50% + 30px)')
+})
+
+test('MaDialog 从 CSS 类定位连续拖动，关闭重开后恢复原有定位', async t => {
+  const style = document.createElement('style')
+  style.textContent = '.dialog-drag-left { left: 80px; } .dialog-drag-top { top: 40px; }'
+  document.head.append(style)
+  t.after(() => style.remove())
+  const props = {
+    open: true,
+    title: 'CSS 定位',
+    contentClassName: 'dialog-drag-left',
+    popupProps: { className: () => 'dialog-drag-top' },
+    portalProps: { keepMounted: true },
+  }
+  const view = await mount(t, MaDialog, props)
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup, { left: 80, top: 40, width: 400, height: 200 })
+  assert.equal(dom.getComputedStyle(popup).left, '80px')
+  assert.equal(dom.getComputedStyle(popup).top, '40px')
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 520, clientY: 320 })
+  await dialogPointer(document, 'pointerup')
+  assert.equal(popup.style.left, 'calc(80px + 20px)')
+  assert.equal(popup.style.top, 'calc(40px + 20px)')
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 530, clientY: 310 })
+  await dialogPointer(document, 'pointerup')
+  assert.equal(popup.style.left, 'calc(80px + 50px)')
+  assert.equal(popup.style.top, 'calc(40px + 30px)')
+  await view.render({ ...props, open: false })
+  assert.equal(popup.style.left, 'calc(80px + 50px)')
+  await view.render(props)
+  assert.equal(popup.style.left, '')
+  assert.equal(popup.style.top, '')
+  assert.equal(dom.getComputedStyle(popup).left, '80px')
+  assert.equal(dom.getComputedStyle(popup).top, '40px')
+})
+
+test('MaDialog 内容尺寸变化后重新约束拖动位置，保留输入和未越界的偏移', async t => {
+  const resize = mockDialogResize(t)
+  let dimensions = { width: 480, height: 200 }
+  const props = () => ({
+    open: true,
+    title: '异步内容',
+    children: [
+      createElement('input', { key: 'input', defaultValue: '原始内容' }),
+      createElement('div', { key: 'details', style: dimensions }, '加载的内容'),
+    ],
+  })
+  const view = await mount(t, 'div', { children: createElement(MaDialog, props()) })
+  const popup = document.querySelector('[role="dialog"]')
+  const header = popup.querySelector('[data-slot="dialog-header"]')
+  mockDialogGeometry(popup, () => dimensions)
+  await resize.notify(popup)
+  await enterValue(popup.querySelector('input'), '保留输入')
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: -10000, clientY: -10000 })
+  await dialogPointer(document, 'pointerup')
+  assert.equal(popup.getBoundingClientRect().left, 16)
+  assert.equal(popup.getBoundingClientRect().top, 16)
+  dimensions = { width: 900, height: 600 }
+  await view.render({ children: createElement(MaDialog, props()) })
+  assert.equal(popup.getBoundingClientRect().top, -184)
+  await resize.notify(popup)
+  assert.equal(popup.getBoundingClientRect().left, 16)
+  assert.equal(popup.getBoundingClientRect().top, 16)
+  assert.equal(popup.querySelector('input').value, '保留输入')
+  const correctedPosition = { left: popup.style.left, top: popup.style.top }
+  dimensions = { width: 480, height: 200 }
+  await view.render({ children: createElement(MaDialog, props()) })
+  await resize.notify(popup)
+  assert.deepEqual({ left: popup.style.left, top: popup.style.top }, correctedPosition)
+  assert.equal(popup.getBoundingClientRect().top, 216)
+  await dialogPointer(header, 'pointerdown')
+  await dialogPointer(document, 'pointermove', { clientX: 10000, clientY: 10000 })
+  await resize.notify(popup)
+  assert.equal(document.body.style.cursor, 'move')
+  dimensions = { width: 900, height: 600 }
+  await view.render({ children: createElement(MaDialog, props()) })
+  await resize.notify(popup)
+  assert.equal(popup.getBoundingClientRect().right, dom.innerWidth - 16)
+  assert.equal(popup.getBoundingClientRect().bottom, dom.innerHeight - 16)
+  assert.notEqual(document.body.style.cursor, 'move')
+  const resizedPosition = { left: popup.style.left, top: popup.style.top }
+  await dialogPointer(document, 'pointermove', { clientX: -10000, clientY: -10000 })
+  assert.deepEqual({ left: popup.style.left, top: popup.style.top }, resizedPosition)
+  assert.equal(resize.observes(popup), true)
+  await view.render({ children: null })
+  assert.equal(resize.observes(popup), false)
 })
 
 test('MaDialog 不从正文、底部、标题交互控件或非主指针开始拖动', async t => {

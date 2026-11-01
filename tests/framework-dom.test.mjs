@@ -52,6 +52,7 @@ const result = await build({
   export const { session: sessionManager, http, query: queryClient, settings: useSettingStore, tabs: useTabStore, layouts: layoutRegistry, slots: shellSlots } = testRuntime
   export const useI18nStore = testRuntime.i18n.store
   export { AppProviders } from './src/provider/app-provider'
+  export { resolvePrimaryColors } from './src/components/reui/utils/theme-color'
   export { Access } from './src/provider/access/access'
   export { AppRouter } from './src/router'
   export { useUserQueries } from './src/modules/base/user/hooks/use-user-queries'
@@ -266,7 +267,10 @@ test('Account preferences save appearance and account fields, then restore them 
   assert.equal(restored.layout, 'columns')
   assert.equal(restored.contentWidth, 'full')
   assert.equal(core.useSettingStore.getState().settings.tabbar.enable, true)
-  assert.equal(document.querySelector('[data-app-scope]').style.getPropertyValue('--primary'), '#DB2777')
+  assert.equal(
+    document.querySelector('[data-app-scope]').style.getPropertyValue('--primary'),
+    core.resolvePrimaryColors('#DB2777', true).primary,
+  )
   assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.primaryColor, '#DB2777')
   assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.contentWidth, 'full')
 })

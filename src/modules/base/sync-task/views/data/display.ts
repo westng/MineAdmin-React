@@ -18,6 +18,12 @@ export const triggerLabels: Record<string, string> = {
   system: '系统触发',
   retry: '失败重试',
 }
+export const platformLabels: Record<string, string> = {
+  pdd: '拼多多',
+  doudian: '抖店',
+  wangdian: '旺店通',
+  oceanengine: '巨量引擎',
+}
 export const errorLabels: Record<string, string> = {
   pdd_account_unavailable: '拼多多账户已停用、授权归属变化或无权访问',
   pdd_order_fetch_failed: '拼多多订单查询失败，将按策略重试',

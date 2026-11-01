@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import type { ShikiTransformer } from "shiki"
+import { resolvePrimaryColors } from "@/components/reui/utils/theme-color"
 
 /**
  * One themed slice of a line. `color`/`colorDark` emit as `--cb-c`/`--cb-cd`
@@ -177,6 +178,10 @@ const LANGUAGE_ALIASES: Record<string, string> = {
 export const codeBlockThemes: Record<string, () => Promise<unknown>> = {
   "github-light": () => import("shiki/themes/github-light.mjs"),
   "github-dark": () => import("shiki/themes/github-dark.mjs"),
+  "github-light-high-contrast": () =>
+    import("shiki/themes/github-light-high-contrast.mjs"),
+  "github-dark-high-contrast": () =>
+    import("shiki/themes/github-dark-high-contrast.mjs"),
   /**
    * Design-token theming: every token colour becomes a `var(--code-token-*)`
    * reference, so the palette lives in the consumer's stylesheet and follows
@@ -196,8 +201,8 @@ export const codeBlockThemes: Record<string, () => Promise<unknown>> = {
 }
 
 export const DEFAULT_CODE_BLOCK_THEMES: CodeBlockThemes = {
-  light: "github-light",
-  dark: "github-dark",
+  light: "github-light-high-contrast",
+  dark: "github-dark-high-contrast",
 }
 
 /** Resolves an alias and reports whether the grammar is actually available. */
@@ -813,8 +818,8 @@ export async function highlightCode(
   try {
     const highlighter = await loadHighlighter()
     const [light, dark] = await Promise.all([
-      ensureTheme(highlighter, themes.light),
-      ensureTheme(highlighter, themes.dark),
+      ensureTheme(highlighter, themes.light, "light"),
+      ensureTheme(highlighter, themes.dark, "dark"),
     ])
     await ensureLanguage(highlighter, language)
 
@@ -910,7 +915,7 @@ const ANSI_LIGHT = [
   "#a855f7",
   "#06b6d4",
   "#a1a1aa",
-]
+].map((color) => resolvePrimaryColors(color, false)?.primary ?? color)
 const ANSI_DARK = [
   "#a1a1aa",
   "#f87171",
@@ -928,7 +933,7 @@ const ANSI_DARK = [
   "#d8b4fe",
   "#67e8f9",
   "#fafafa",
-]
+].map((color) => resolvePrimaryColors(color, true)?.primary ?? color)
 
 const ansiVar = (slot: number, fallback: string) =>
   `var(--code-ansi-${ANSI_SLOTS[slot]}, ${fallback})`
@@ -949,10 +954,10 @@ function ansi256(index: number): string {
 
 // eslint-disable-next-line no-control-regex
 const SGR_RE = /\x1b\[([0-9;]*)m/g
-// eslint-disable-next-line no-control-regex
 /* Everything except SGR (the trailing `m`), which the tokenizer consumes -
    this regex once matched SGR too and silently stripped every colour. */
 const OTHER_ESCAPES_RE =
+  // eslint-disable-next-line no-control-regex
   /\x1b(?:\[(?![0-9;]*m)[0-9;?]*[A-Za-z]|\][^\x07]*(?:\x07|\x1b\\)|[()][0-9A-B])/g
 
 type AnsiStyle = {

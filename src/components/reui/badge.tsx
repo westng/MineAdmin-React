@@ -16,10 +16,10 @@ const badgeVariants = cva(
         default: "bg-primary text-primary-foreground",
         outline: "border-border bg-transparent dark:bg-input/32",
         secondary: "bg-secondary text-secondary-foreground",
-        info: "bg-info text-white",
-        success: "bg-success text-white",
-        warning: "bg-warning text-white",
-        destructive: "bg-destructive text-white",
+        info: "bg-info text-info-solid-foreground",
+        success: "bg-success text-success-solid-foreground",
+        warning: "bg-warning text-warning-solid-foreground",
+        destructive: "bg-destructive text-destructive-solid-foreground",
         focus: "bg-focus text-focus-foreground",
         invert: "bg-invert text-invert-foreground",
         "primary-light":
@@ -35,7 +35,7 @@ const badgeVariants = cva(
         "invert-light":
           "border-invert/15 bg-invert/10 text-foreground dark:border-invert/45 dark:bg-invert/35 dark:text-invert-foreground",
         "focus-light":
-          "border-focus/15 bg-focus/10 text-focus-foreground dark:border-focus/25 dark:bg-focus/15 dark:text-focus",
+          "border-focus/15 bg-focus/10 text-focus-foreground dark:border-focus/25 dark:bg-focus/15",
         "primary-outline":
           "bg-background border-border text-primary dark:bg-input/30",
         "warning-outline":
@@ -47,7 +47,7 @@ const badgeVariants = cva(
         "destructive-outline":
           "bg-background border-border text-destructive-foreground dark:bg-input/30",
         "invert-outline":
-          "bg-background border-border text-invert-foreground dark:bg-input/30",
+          "bg-background border-border text-foreground dark:bg-input/30",
         "focus-outline":
           "bg-background border-border text-focus-foreground dark:bg-input/30",
       },

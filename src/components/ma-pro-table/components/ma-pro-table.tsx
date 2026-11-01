@@ -689,7 +689,11 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
       dense
       variant="default"
       spacing="sm"
-      className={cn('w-full min-w-0', options.className, className)}
+      className={cn(
+        'w-full min-w-0 text-foreground [--frame-panel-bg:var(--card)] [--frame-panel-border-color:var(--border)] [--frame-border-color:var(--border)]',
+        options.className,
+        className,
+      )}
       data-ma-pro-table-id={tableId}
       data-variant={variant}
     >
@@ -698,7 +702,7 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
           <div className="min-w-0 flex-1">{headerContent}</div>
         </FrameHeader>
       )}
-      <FramePanel className="min-w-0 bg-card p-0! shadow-none!">
+      <FramePanel className="min-w-0 bg-card text-card-foreground p-0! shadow-none!">
         <MaTable
           ref={tableRef}
           columns={operationColumns}

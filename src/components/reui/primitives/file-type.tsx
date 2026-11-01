@@ -43,10 +43,21 @@ type FileTypeExtension = {
  * its glyph turns dark gray, where white would fade on the pale page.
  */
 const NEUTRAL =
-  'text-zinc-500 [--file-type-fill:color-mix(in_oklab,currentColor_45%,white)] [--file-type-glyph:color-mix(in_oklab,currentColor_80%,black)]'
+  'text-zinc-500 [--file-type-fill:color-mix(in_oklab,currentColor_45%,white)] [--file-type-glyph:color-mix(in_oklab,currentColor_70%,black)]'
 /** Yellow takes dark text, as the JavaScript logo does: white on it stays
  * under 3:1 until the 700 step. */
 const YELLOW = 'text-yellow-500 [--file-type-foreground:var(--color-yellow-950)]'
+
+/** Bright format colors need dark labels in both themes. */
+const FORMAT_COLORS = {
+  amber: 'text-amber-600 [--file-type-foreground:var(--color-zinc-950)]',
+  cyan: 'text-cyan-600 [--file-type-foreground:var(--color-zinc-950)]',
+  emerald: 'text-emerald-600 [--file-type-foreground:var(--color-zinc-950)]',
+  green: 'text-green-600 [--file-type-foreground:var(--color-zinc-950)]',
+  orange: 'text-orange-600 [--file-type-foreground:var(--color-zinc-950)]',
+  sky: 'text-sky-600 [--file-type-foreground:var(--color-zinc-950)]',
+  teal: 'text-teal-600 [--file-type-foreground:var(--color-zinc-950)]',
+}
 
 /** The family colors, which a format without a brand color of its own takes. */
 const CATEGORY_COLORS: Record<FileTypeCategory, string> = {
@@ -62,7 +73,7 @@ const CATEGORY_COLORS: Record<FileTypeCategory, string> = {
   font: NEUTRAL,
   image: 'text-violet-600',
   presentation: 'text-red-600',
-  spreadsheet: 'text-green-600',
+  spreadsheet: FORMAT_COLORS.green,
   video: 'text-blue-600',
 }
 
@@ -87,17 +98,17 @@ const CATEGORY_NAMES: Record<FileTypeCategory, string> = {
  * Known extensions. A format takes its brand's color (Word blue, Excel green,
  * the GitHub language colors for code), else its family's, and a format with
  * neither (archives, plain text, data, config, fonts, installers) is neutral.
- * Every color is the 600 step, so the set reads as one palette with white
- * label text at 3:1 or better.
+ * Every branded color is the 600 step. Bright fills use dark labels; the
+ * others keep white labels, so small extension text remains readable.
  */
 const FILE_TYPE_EXTENSIONS = {
   // Documents
-  pdf: { category: 'document', color: 'text-orange-600' },
+  pdf: { category: 'document', color: FORMAT_COLORS.orange },
   doc: { category: 'document', color: 'text-blue-600' },
   docx: { category: 'document', color: 'text-blue-600' },
   odt: { category: 'document', color: 'text-blue-600' },
   rtf: { category: 'document', color: 'text-blue-600' },
-  pages: { category: 'document', color: 'text-amber-600' },
+  pages: { category: 'document', color: FORMAT_COLORS.amber },
   txt: { category: 'document', color: NEUTRAL },
   md: { category: 'document', color: NEUTRAL },
   log: { category: 'document', color: NEUTRAL },
@@ -107,15 +118,15 @@ const FILE_TYPE_EXTENSIONS = {
   srt: { category: 'document', color: NEUTRAL },
   vtt: { category: 'document', color: NEUTRAL },
   // Spreadsheets
-  xls: { category: 'spreadsheet', color: 'text-green-600' },
-  xlsx: { category: 'spreadsheet', color: 'text-green-600' },
-  xlsm: { category: 'spreadsheet', color: 'text-green-600' },
-  ods: { category: 'spreadsheet', color: 'text-green-600' },
-  csv: { category: 'spreadsheet', color: 'text-green-600' },
-  tsv: { category: 'spreadsheet', color: 'text-green-600' },
-  numbers: { category: 'spreadsheet', color: 'text-green-600', label: 'NUM' },
+  xls: { category: 'spreadsheet', color: FORMAT_COLORS.green },
+  xlsx: { category: 'spreadsheet', color: FORMAT_COLORS.green },
+  xlsm: { category: 'spreadsheet', color: FORMAT_COLORS.green },
+  ods: { category: 'spreadsheet', color: FORMAT_COLORS.green },
+  csv: { category: 'spreadsheet', color: FORMAT_COLORS.green },
+  tsv: { category: 'spreadsheet', color: FORMAT_COLORS.green },
+  numbers: { category: 'spreadsheet', color: FORMAT_COLORS.green, label: 'NUM' },
   parquet: { category: 'spreadsheet', color: NEUTRAL, label: 'PARQ' },
-  sqlite: { category: 'spreadsheet', color: 'text-sky-600' },
+  sqlite: { category: 'spreadsheet', color: FORMAT_COLORS.sky },
   db: { category: 'spreadsheet', color: NEUTRAL },
   // Presentations
   ppt: { category: 'presentation', color: 'text-red-600' },
@@ -162,8 +173,8 @@ const FILE_TYPE_EXTENSIONS = {
   mjs: { category: 'code', color: YELLOW },
   ts: { category: 'code', color: 'text-blue-600' },
   tsx: { category: 'code', color: 'text-blue-600' },
-  html: { category: 'code', color: 'text-orange-600' },
-  htm: { category: 'code', color: 'text-orange-600' },
+  html: { category: 'code', color: FORMAT_COLORS.orange },
+  htm: { category: 'code', color: FORMAT_COLORS.orange },
   css: { category: 'code', color: 'text-purple-600' },
   scss: { category: 'code', color: 'text-pink-600' },
   json: { category: 'code', color: NEUTRAL },
@@ -172,45 +183,45 @@ const FILE_TYPE_EXTENSIONS = {
   yml: { category: 'code', color: NEUTRAL },
   sql: { category: 'code', color: NEUTRAL },
   py: { category: 'code', color: 'text-blue-600' },
-  java: { category: 'code', color: 'text-orange-600' },
+  java: { category: 'code', color: FORMAT_COLORS.orange },
   php: { category: 'code', color: 'text-indigo-600' },
   rb: { category: 'code', color: 'text-red-600' },
-  go: { category: 'code', color: 'text-cyan-600' },
-  rs: { category: 'code', color: 'text-orange-600' },
+  go: { category: 'code', color: FORMAT_COLORS.cyan },
+  rs: { category: 'code', color: FORMAT_COLORS.orange },
   c: { category: 'code', color: NEUTRAL },
   cpp: { category: 'code', color: 'text-blue-600' },
   h: { category: 'code', color: NEUTRAL },
   cs: { category: 'code', color: 'text-purple-600' },
-  sh: { category: 'code', color: 'text-green-600' },
-  rss: { category: 'code', color: 'text-orange-600' },
+  sh: { category: 'code', color: FORMAT_COLORS.green },
+  rss: { category: 'code', color: FORMAT_COLORS.orange },
   cjs: { category: 'code', color: YELLOW },
   mts: { category: 'code', color: 'text-blue-600' },
-  vue: { category: 'code', color: 'text-emerald-600' },
-  svelte: { category: 'code', color: 'text-orange-600' },
-  astro: { category: 'code', color: 'text-orange-600' },
+  vue: { category: 'code', color: FORMAT_COLORS.emerald },
+  svelte: { category: 'code', color: FORMAT_COLORS.orange },
+  astro: { category: 'code', color: FORMAT_COLORS.orange },
   graphql: { category: 'code', color: 'text-pink-600', label: 'GQL' },
   gql: { category: 'code', color: 'text-pink-600' },
-  prisma: { category: 'code', color: 'text-sky-600' },
+  prisma: { category: 'code', color: FORMAT_COLORS.sky },
   wasm: { category: 'code', color: 'text-indigo-600' },
   map: { category: 'code', color: NEUTRAL },
   kt: { category: 'code', color: 'text-violet-600' },
   kts: { category: 'code', color: 'text-violet-600' },
   swift: { category: 'code', color: 'text-red-600' },
-  dart: { category: 'code', color: 'text-teal-600' },
+  dart: { category: 'code', color: FORMAT_COLORS.teal },
   lua: { category: 'code', color: 'text-blue-600' },
-  r: { category: 'code', color: 'text-sky-600' },
+  r: { category: 'code', color: FORMAT_COLORS.sky },
   scala: { category: 'code', color: 'text-rose-600' },
   ex: { category: 'code', color: 'text-purple-600' },
   exs: { category: 'code', color: 'text-purple-600' },
   hpp: { category: 'code', color: 'text-blue-600' },
   cc: { category: 'code', color: 'text-blue-600' },
-  cu: { category: 'code', color: 'text-green-600' },
+  cu: { category: 'code', color: FORMAT_COLORS.green },
   ps1: { category: 'code', color: 'text-blue-600' },
-  bat: { category: 'code', color: 'text-green-600' },
-  bash: { category: 'code', color: 'text-green-600' },
-  zsh: { category: 'code', color: 'text-green-600' },
-  gradle: { category: 'code', color: 'text-cyan-600' },
-  ipynb: { category: 'code', color: 'text-orange-600' },
+  bat: { category: 'code', color: FORMAT_COLORS.green },
+  bash: { category: 'code', color: FORMAT_COLORS.green },
+  zsh: { category: 'code', color: FORMAT_COLORS.green },
+  gradle: { category: 'code', color: FORMAT_COLORS.cyan },
+  ipynb: { category: 'code', color: FORMAT_COLORS.orange },
   // Config and infrastructure
   env: { category: 'code', color: NEUTRAL },
   toml: { category: 'code', color: NEUTRAL },
@@ -221,7 +232,7 @@ const FILE_TYPE_EXTENSIONS = {
   git: { category: 'code', color: 'text-red-600' },
   ignore: { category: 'code', color: NEUTRAL },
   dockerfile: { category: 'code', color: 'text-blue-600', label: 'DOCK' },
-  makefile: { category: 'code', color: 'text-green-600', label: 'MAKE' },
+  makefile: { category: 'code', color: FORMAT_COLORS.green, label: 'MAKE' },
   tf: { category: 'code', color: 'text-purple-600' },
   tfvars: { category: 'code', color: 'text-purple-600' },
   hcl: { category: 'code', color: 'text-purple-600' },
@@ -242,7 +253,7 @@ const FILE_TYPE_EXTENSIONS = {
   bz2: { category: 'archive', color: NEUTRAL },
   xz: { category: 'archive', color: NEUTRAL },
   zst: { category: 'archive', color: NEUTRAL },
-  jar: { category: 'archive', color: 'text-orange-600' },
+  jar: { category: 'archive', color: FORMAT_COLORS.orange },
   whl: { category: 'archive', color: 'text-blue-600' },
   // Model weights, packed like an archive
   safetensors: { category: 'archive', color: NEUTRAL, label: 'SAFE' },
@@ -251,9 +262,9 @@ const FILE_TYPE_EXTENSIONS = {
   pt: { category: 'archive', color: 'text-red-600' },
   // Design
   fig: { category: 'design', color: 'text-purple-600' },
-  sketch: { category: 'design', color: 'text-amber-600' },
-  psd: { category: 'design', color: 'text-sky-600' },
-  ai: { category: 'design', color: 'text-orange-600' },
+  sketch: { category: 'design', color: FORMAT_COLORS.amber },
+  psd: { category: 'design', color: FORMAT_COLORS.sky },
+  ai: { category: 'design', color: FORMAT_COLORS.orange },
   eps: { category: 'design', color: 'text-purple-600' },
   indd: { category: 'design', color: 'text-pink-600' },
   aep: { category: 'design', color: 'text-violet-600' },
@@ -262,13 +273,13 @@ const FILE_TYPE_EXTENSIONS = {
   exe: { category: 'executable', color: NEUTRAL },
   msi: { category: 'executable', color: NEUTRAL },
   dmg: { category: 'executable', color: NEUTRAL },
-  apk: { category: 'executable', color: 'text-green-600' },
+  apk: { category: 'executable', color: FORMAT_COLORS.green },
   deb: { category: 'executable', color: 'text-rose-600' },
   iso: { category: 'executable', color: NEUTRAL },
   app: { category: 'executable', color: NEUTRAL },
   pkg: { category: 'executable', color: NEUTRAL },
   ipa: { category: 'executable', color: NEUTRAL },
-  aab: { category: 'executable', color: 'text-green-600' },
+  aab: { category: 'executable', color: FORMAT_COLORS.green },
   rpm: { category: 'executable', color: 'text-red-600' },
   // Fonts
   ttf: { category: 'font', color: NEUTRAL },

@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/reui/primitives/tooltip'
 import { cn } from '@/utils/cn'
+import { getColorForeground } from './utils/theme-color'
 
 export interface ThemeColorOption {
   value: string
@@ -63,6 +64,7 @@ export function ThemeColorPicker({ colors, value, onChange, className, compact =
                     {selected && (
                       <Check
                         className={cn(compact ? 'size-2.5' : 'size-3', 'text-white drop-shadow')}
+                        style={{ color: getColorForeground(color.value) }}
                         aria-hidden="true"
                       />
                     )}

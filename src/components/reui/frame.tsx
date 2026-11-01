@@ -16,7 +16,7 @@ import { cn } from "@/utils/cn"
  */
 const frameVariants = cva(
   [
-    "relative flex flex-col bg-muted/50 gap-(--frame-gap) px-(--frame-px) py-(--frame-py) rounded-(--frame-radius)",
+    "relative flex flex-col bg-muted/50 text-foreground gap-(--frame-gap) px-(--frame-px) py-(--frame-py) rounded-(--frame-radius)",
     "(--radius-xl)] [--frame-radius:var(--radius-xl)]",
     "(--radius-none)] (--radius-2xl)] (--radius-lg)] (--radius-none)]",
     "[--frame-gap:--spacing(0.75)] [--frame-px:--spacing(0.75)] [--frame-py:--spacing(0.75)] [--frame-panel-header-gap:0rem] [--frame-panel-footer-gap:--spacing(1)]",
@@ -24,7 +24,7 @@ const frameVariants = cva(
     "[--frame-panel-px:calc(var(--frame-panel-px-base)_+_var(--frame-panel-px-adjust))] [--frame-panel-py:calc(var(--frame-panel-py-base)_+_var(--frame-panel-py-adjust))] [--frame-panel-header-px:calc(var(--frame-panel-header-px-base)_+_var(--frame-panel-header-px-adjust))] [--frame-panel-header-py:calc(var(--frame-panel-header-py-base)_+_var(--frame-panel-header-py-adjust))] [--frame-panel-footer-px:calc(var(--frame-panel-footer-px-base)_+_var(--frame-panel-footer-px-adjust))] [--frame-panel-footer-py:calc(var(--frame-panel-footer-py-base)_+_var(--frame-panel-footer-py-adjust))]",
     "(1)] (1)] (1.25)] (1.5)] (1.5)] (0.5)] (1)] (1)]",
     // Default panel token values — overridden per-variant below
-    "[--frame-panel-bg:var(--color-card)] [--frame-panel-border-color:var(--color-border)] [--frame-border-color:var(--color-border)]",
+    "[--frame-panel-bg:var(--card)] [--frame-panel-border-color:var(--border)] [--frame-border-color:var(--border)]",
     // Concentric inner radius: the panel corner nests smoothly inside the frame
     // corner instead of matching it. The panel sits inset from the frame's outer
     // edge by the frame's 1px border + --frame-px padding, so its radius is
@@ -39,7 +39,7 @@ const frameVariants = cva(
       variant: {
         default: "border border-[var(--frame-border-color)] bg-clip-padding",
         inverse:
-          "[--frame-panel-bg:color-mix(in_oklch,var(--color-muted)_40%,transparent)] border border-[var(--frame-border-color)] bg-background bg-clip-padding",
+          "[--frame-panel-bg:color-mix(in_oklch,var(--muted)_40%,transparent)] border border-[var(--frame-border-color)] bg-background bg-clip-padding",
         // No frame border, so the panel is inset by --frame-px padding only.
         ghost: "[--frame-panel-radius:calc(var(--frame-radius)_-_var(--frame-px))]",
       },
@@ -120,7 +120,7 @@ function FramePanel({
         // bg-(--frame-panel-bg) and border-(--frame-panel-border-color) consume the
         // CSS vars set by the Frame parent. Any explicit bg-* or border-* class passed
         // via className overrides these by Tailwind source order - no ! needed.
-        "relative overflow-hidden rounded-(--frame-panel-radius) border border-(--frame-panel-border-color) bg-(--frame-panel-bg) bg-clip-padding shadow-xs",
+        "relative overflow-hidden rounded-(--frame-panel-radius) border border-(--frame-panel-border-color) bg-(--frame-panel-bg) text-card-foreground bg-clip-padding shadow-xs",
         // `fit` sizes the panel to its content; otherwise it grows to fill the frame.
         !fit && "grow",
         "before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--frame-panel-radius)_-_1px)] before:shadow-black/5",

@@ -40,7 +40,11 @@ export default function Header({ className }: { className?: string }) {
         <Breadcrumb className="min-w-0">
           <BreadcrumbList className="flex-nowrap gap-2">
             <BreadcrumbItem className="hidden shrink-0 items-center pl-0.5 md:inline-flex">
-              <img src={logo} alt="博策云工作台" className="h-5 w-auto max-w-40 object-contain" />
+              <img
+                src={logo}
+                alt="博策云工作台"
+                className="h-5 w-auto max-w-40 object-contain dark:brightness-0 dark:invert"
+              />
             </BreadcrumbItem>
             {breadcrumb.map((item, index) => {
               const current = index === breadcrumb.length - 1
