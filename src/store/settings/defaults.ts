@@ -10,6 +10,7 @@ export const defaultSettings: Omit<SystemSettings, 'dashboardPage'> = {
     useLocale: 'zh_CN',
     whiteRoute: ['login'],
     layout: 'classic',
+    contentWidth: 'bounded',
     pageAnimate: 'ma-slide-down',
     enableWatermark: false,
     primaryColor: '#2563EB',

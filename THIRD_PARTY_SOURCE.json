@@ -128,7 +128,7 @@
     "src/components/reui/sliding-number.tsx": "e556119ec0547897bd0fac97a5131cb4f8f59c61f99ff892dc2d6715f1a67123",
     "src/components/reui/sortable.tsx": "a343dd4f207b1c1bdaecf278c5f6cb0f45a6d9971d86a4f3a803273ea6fff272",
     "src/components/reui/stepper.tsx": "7e4fa70220392a22c1077d14e51e458930bba2408cc99e4e098b35173defdba1",
-    "src/components/reui/theme-color-picker.tsx": "0e2d804d8538b9570fba0d6053ad30f0b8cf08a2afd4ef445d3abeb4a9f35151",
+    "src/components/reui/theme-color-picker.tsx": "daec15a611b821bffe12100afa7328493c6e0beab4304eed07091f855a468b16",
     "src/components/reui/timeline.tsx": "5e767cf9734fe838765018fed336ced6ca803b9101a0467bb8e0138da66165fe",
     "src/components/reui/toast-api.ts": "8b51c2883c130dc52ae1ba42149bb57f69a2d0c93d440c3be2ae65a44e98e375",
     "src/components/reui/toast-context.ts": "aa01b653a0f1afd572d27b6f2b11a3a8fa3a803e77a841cfdf456eea4d390c04",

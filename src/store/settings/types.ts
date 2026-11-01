@@ -4,6 +4,7 @@ export interface AppSettings {
   /** @deprecated Compatibility field; not implemented by the default Shell. */
   whiteRoute: string[]
   layout: 'columns' | 'classic' | 'mixed' | (string & {})
+  contentWidth: 'bounded' | 'full'
   /** @deprecated Compatibility field; not implemented by the default Shell. */
   pageAnimate: string
   /** @deprecated Compatibility field; not implemented by the default Shell. */

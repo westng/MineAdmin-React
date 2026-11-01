@@ -17,6 +17,8 @@ import { cn } from '@/utils/cn'
 import { ShellProvider } from './shell-provider'
 import { ShellSlotOutlet } from './slot-outlet'
 import type { LayoutDefinition } from './registry'
+import { useSettingStore } from '@/store/settings/use-settings'
+import type { AppSettings } from '@/store/settings/types'
 import { VerveHeader } from './verve'
 import { VerveSectionNavigation, VerveSectionToggle } from './verve/section-navigation'
 import { VerveNavigationProvider } from './verve/navigation-provider'
@@ -46,6 +48,7 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
 
   const t = useTranslate()
   const location = useLocation()
+  const contentWidth = useSettingStore(state => state.settings.app.contentWidth)
   const [sidebarDefaultOpen] = useState(getSidebarDefaultOpen)
   const shellPagePolicies = useRuntime().pagePolicies
   const policies = useSyncExternalStore(
@@ -56,7 +59,8 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
   const policy = policies.find(item => item.path === location.pathname)
   const Navigation = layout.navigation
   const HeaderNavigation = layout.headerNavigation
-  if (layout.shell === 'inset') return renderInsetLayout({ layout, location, policy, t, sidebarDefaultOpen })
+  if (layout.shell === 'inset')
+    return renderInsetLayout({ layout, location, policy, t, sidebarDefaultOpen, contentWidth })
 
   return (
     <SidebarProvider
@@ -102,8 +106,10 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
                   policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
                 )}
               >
-                <div className={cn('mx-auto w-full max-w-7xl', policy?.padding !== false && 'p-4 md:p-6')}>
-                  <Outlet />
+                <div className={cn('w-full', contentWidth !== 'full' && 'mx-auto max-w-7xl')}>
+                  <div className={cn('w-full', policy?.padding !== false && 'p-4 md:p-6')}>
+                    <Outlet />
+                  </div>
                 </div>
               </main>
             </SidebarInset>
@@ -122,12 +128,14 @@ function renderInsetLayout({
   policy,
   t,
   sidebarDefaultOpen,
+  contentWidth,
 }: {
   layout: LayoutDefinition
   location: ReturnType<typeof useLocation>
   policy: ShellPagePolicy | undefined
   t: ReturnType<typeof useTranslate>
   sidebarDefaultOpen: boolean
+  contentWidth: AppSettings['contentWidth']
 }) {
   const Navigation = layout.navigation
 
@@ -170,8 +178,10 @@ function renderInsetLayout({
                     policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
                   )}
                 >
-                  <div className={cn('mx-auto w-full max-w-7xl', policy?.padding !== false && 'p-4 md:p-6')}>
-                    <Outlet />
+                  <div className={cn('w-full', contentWidth !== 'full' && 'mx-auto max-w-7xl')}>
+                    <div className={cn('w-full', policy?.padding !== false && 'p-4 md:p-6')}>
+                      <Outlet />
+                    </div>
                   </div>
                 </main>
               </div>

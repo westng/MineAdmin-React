@@ -228,6 +228,7 @@ test('Account preferences save appearance and account fields, then restore them 
   const { container } = await mountAccountPreferences(t)
   const button = label => [...container.querySelectorAll('button')].find(item => item.textContent === label)
   await act(async () => button('深色').click())
+  await act(async () => container.querySelector('[role="radio"][aria-label="全屏"]').click())
   await act(async () => container.querySelector('[role="radio"][aria-label="玫瑰粉"]').click())
   await act(async () => container.querySelector('[role="radio"][aria-label="分栏导航"]').click())
   await act(async () => container.querySelector('[role="switch"][aria-label="是否开启标签页"]').click())
@@ -237,6 +238,7 @@ test('Account preferences save appearance and account fields, then restore them 
   assert.equal(api.profile.backend_setting.app.colorMode, 'dark')
   assert.equal(api.profile.backend_setting.app.primaryColor, '#DB2777')
   assert.equal(api.profile.backend_setting.app.layout, 'columns')
+  assert.equal(api.profile.backend_setting.app.contentWidth, 'full')
   assert.equal(api.profile.backend_setting.app.customOption, 'keep')
   assert.deepEqual(api.profile.backend_setting.account, { multiDeviceLogin: true, customAccountOption: 'keep' })
   assert.deepEqual(api.profile.backend_setting.tabbar, { enable: true, customTabbarOption: 'keep' })
@@ -246,7 +248,13 @@ test('Account preferences save appearance and account fields, then restore them 
   await act(async () => {
     const store = core.useSettingStore.getState()
     store.setSettings({
-      app: { ...store.settings.app, colorMode: 'light', primaryColor: '#2563EB', layout: 'classic' },
+      app: {
+        ...store.settings.app,
+        colorMode: 'light',
+        primaryColor: '#2563EB',
+        layout: 'classic',
+        contentWidth: 'bounded',
+      },
     })
     core.sessionManager.setState({ initialized: false })
     assert.equal(await core.sessionManager.getState().hydrate(), true)
@@ -256,9 +264,44 @@ test('Account preferences save appearance and account fields, then restore them 
   assert.equal(restored.colorMode, 'dark')
   assert.equal(restored.primaryColor, '#DB2777')
   assert.equal(restored.layout, 'columns')
+  assert.equal(restored.contentWidth, 'full')
   assert.equal(core.useSettingStore.getState().settings.tabbar.enable, true)
   assert.equal(document.querySelector('[data-app-scope]').style.getPropertyValue('--primary'), '#DB2777')
   assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.primaryColor, '#DB2777')
+  assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.contentWidth, 'full')
+})
+
+test('Content width drafts preview immediately, revert on cancel and guard unsaved navigation', async t => {
+  const api = accountPreferencesFixture(t)
+  const savedProfile = structuredClone(api.profile)
+  const { container, router } = await mountAccountPreferences(t)
+  const widthButton = label =>
+    [...container.querySelectorAll('[role="radiogroup"][aria-label="内容宽度"] [role="radio"]')].find(
+      button => button.getAttribute('aria-label') === label,
+    )
+  assert.equal(core.useSettingStore.getState().settings.app.contentWidth, 'bounded')
+  assert.equal(widthButton('限宽居中').getAttribute('aria-checked'), 'true')
+  assert.equal(unloadIsBlocked(), false)
+  await act(async () => widthButton('全屏').click())
+  assert.equal(core.useSettingStore.getState().settings.app.contentWidth, 'full')
+  assert.equal(widthButton('全屏').getAttribute('aria-checked'), 'true')
+  assert.equal(unloadIsBlocked(), true)
+  await act(async () => preferencesButton('取消').click())
+  assert.equal(core.useSettingStore.getState().settings.app.contentWidth, 'bounded')
+  assert.equal(widthButton('限宽居中').getAttribute('aria-checked'), 'true')
+  assert.equal(unloadIsBlocked(), false)
+  await act(async () =>
+    widthButton('限宽居中').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })),
+  )
+  assert.equal(widthButton('全屏').getAttribute('aria-checked'), 'true')
+  assert.equal(document.activeElement, widthButton('全屏'))
+  await act(async () => router.navigate('/other'))
+  assert.equal(router.state.location.pathname, '/preferences')
+  await act(async () => preferencesButton('放弃修改').click())
+  assert.equal(router.state.location.pathname, '/other')
+  assert.equal(core.useSettingStore.getState().settings.app.contentWidth, 'bounded')
+  assert.deepEqual(api.profile, savedProfile)
+  assert.equal(api.requests.length, 0)
 })
 
 test('Failed account preference saves preserve the saved profile and allow retry', async t => {
@@ -599,6 +642,94 @@ test('Page cache freezes router locations, preserves local state, suspends effec
   await act(async () => core.useTabStore.getState().close('/first'))
   assert.equal(container.querySelector('[data-page="/first"]'), null)
 })
+
+for (const layout of ['classic', 'columns']) {
+  test(`${layout} separates content width from page padding and preserves page state`, async t => {
+    const originalSettings = core.useSettingStore.getState().settings
+    core.useSettingStore.getState().setSettings({
+      app: { ...originalSettings.app, layout, contentWidth: 'bounded' },
+    })
+    t.after(async () => {
+      await act(async () => {
+        for (const root of roots.splice(0)) root.unmount()
+        core.useSettingStore.getState().setSettings(originalSettings)
+      })
+    })
+    const app = runtime()
+    let navigate
+    function Page() {
+      navigate = useNavigate()
+      return React.createElement('input', { 'aria-label': 'content-width-page', defaultValue: 'preserved' })
+    }
+    const container = await mount(
+      React.createElement(
+        core.RuntimeContext.Provider,
+        { value: app },
+        React.createElement(
+          MemoryRouter,
+          { initialEntries: ['/dashboard'] },
+          React.createElement(
+            Routes,
+            null,
+            React.createElement(
+              Route,
+              { path: '/', element: React.createElement(core.AppLayout) },
+              React.createElement(Route, { path: '*', element: React.createElement(Page) }),
+            ),
+          ),
+        ),
+      ),
+    )
+    const content = container.querySelector('#main-content > div')
+    const page = content.firstElementChild
+    const input = container.querySelector('[aria-label="content-width-page"]')
+    assert.ok(input)
+    assert.equal(page.parentElement, content)
+    assert.equal(input.parentElement, page)
+    assert.equal(content.classList.contains('max-w-7xl'), true)
+    assert.equal(content.classList.contains('mx-auto'), true)
+    for (const contentWidth of ['full', 'bounded']) {
+      await act(async () => {
+        const store = core.useSettingStore.getState()
+        store.setSettings({ app: { ...store.settings.app, contentWidth } })
+      })
+      assert.equal(content.classList.contains('max-w-7xl'), contentWidth === 'bounded')
+      assert.equal(content.classList.contains('mx-auto'), contentWidth === 'bounded')
+      assert.equal(content.classList.contains('w-full'), true)
+      assert.equal(content.classList.contains('p-4'), false)
+      assert.equal(content.classList.contains('md:p-6'), false)
+      assert.equal(page.classList.contains('p-4'), true)
+      assert.equal(page.classList.contains('md:p-6'), true)
+      assert.equal(container.querySelector('[aria-label="content-width-page"]'), input)
+    }
+    let removePolicy
+    await act(async () => {
+      removePolicy = app.pagePolicies.register({ id: `width-${layout}`, path: '/dashboard', padding: false })
+    })
+    t.after(() => removePolicy())
+    assert.equal(page.classList.contains('p-4'), false)
+    assert.equal(page.classList.contains('md:p-6'), false)
+    await act(async () => {
+      const store = core.useSettingStore.getState()
+      store.setSettings({ app: { ...store.settings.app, contentWidth: 'full' } })
+    })
+    assert.equal(content.classList.contains('max-w-7xl'), false)
+    assert.equal(content.classList.contains('mx-auto'), false)
+    assert.equal(page.classList.contains('p-4'), false)
+    assert.equal(page.classList.contains('md:p-6'), false)
+    assert.equal(container.querySelector('[aria-label="content-width-page"]'), input)
+    await act(async () => navigate('/normal-page'))
+    assert.equal(page.classList.contains('p-4'), true)
+    assert.equal(page.classList.contains('md:p-6'), true)
+    assert.equal(core.useSettingStore.getState().settings.app.contentWidth, 'full')
+    await act(async () => navigate('/dashboard'))
+    assert.equal(page.classList.contains('p-4'), false)
+    assert.equal(page.classList.contains('md:p-6'), false)
+    await act(async () => removePolicy())
+    assert.equal(page.classList.contains('p-4'), true)
+    assert.equal(page.classList.contains('md:p-6'), true)
+  })
+}
 
 test('Unsupported layouts fall back without remounting the page and slot disposal removes extensions', async () => {
   setTabs(['/dashboard'])
