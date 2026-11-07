@@ -1,7 +1,8 @@
 import { useRef } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { NavLink, matchPath } from 'react-router-dom'
-import { useSidebar } from '@/components/reui/primitives/sidebar'
+import { MaIcon } from '@/components/ma-icon'
+import { SidebarMenuSub, SidebarMenuSubItem, useSidebar } from '@/components/reui/primitives/sidebar'
 import { useShell } from '@/layouts/hooks/use-shell'
 import { useTranslate } from '@/hooks/i18n/use-translator'
 import { getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/navigation/menu'
@@ -17,7 +18,12 @@ function MenuBranch({ menu, pathname, onNavigate }: { menu: MenuVo; pathname: st
   const path = getMenuPath(menu)
   const children = (menu.children ?? []).filter(isVisibleMenu)
   const label = getMenuLabel(menu)
-  const content = <span className="truncate">{label}</span>
+  const content = (
+    <>
+      <MaIcon name={menu.icon || menu.meta?.icon || ''} className="size-4" />
+      <span className="truncate">{label}</span>
+    </>
+  )
   if (children.length) {
     return (
       <details
@@ -29,16 +35,13 @@ function MenuBranch({ menu, pathname, onNavigate }: { menu: MenuVo; pathname: st
           {content}
           <ChevronRight className="ml-auto size-3 shrink-0 transition-transform group-open/branch:rotate-90" />
         </summary>
-        <div className="ml-3 space-y-0.5 border-l border-border pl-2">
+        <SidebarMenuSub className="mr-0 gap-0.5 pr-0">
           {children.map(child => (
-            <MenuBranch
-              key={getMenuPath(child) || getMenuLabel(child)}
-              menu={child}
-              pathname={pathname}
-              onNavigate={onNavigate}
-            />
+            <SidebarMenuSubItem key={getMenuPath(child) || getMenuLabel(child)}>
+              <MenuBranch menu={child} pathname={pathname} onNavigate={onNavigate} />
+            </SidebarMenuSubItem>
           ))}
-        </div>
+        </SidebarMenuSub>
       </details>
     )
   }
@@ -100,16 +103,13 @@ export function VerveSectionNavigation({ mobile = false }: { mobile?: boolean })
               <p className="px-3 pt-2 pb-1 text-[11px] leading-[16.5px] font-medium text-foreground/70 uppercase">
                 {group.label}
               </p>
-              <div className="space-y-0.5 px-2">
+              <SidebarMenuSub className="mr-2 gap-0.5 pr-0">
                 {group.items.map(menu => (
-                  <MenuBranch
-                    key={getMenuPath(menu) || getMenuLabel(menu)}
-                    menu={menu}
-                    pathname={routePathname}
-                    onNavigate={onNavigate}
-                  />
+                  <SidebarMenuSubItem key={getMenuPath(menu) || getMenuLabel(menu)}>
+                    <MenuBranch menu={menu} pathname={routePathname} onNavigate={onNavigate} />
+                  </SidebarMenuSubItem>
                 ))}
-              </div>
+              </SidebarMenuSub>
             </div>
           ))}
         </nav>
