@@ -1,5 +1,6 @@
 import { createElement, useEffect, useSyncExternalStore, type ComponentType } from 'react'
 import { Button } from '@/components/reui/primitives/button'
+import { PageLoading } from './page-loading'
 import type { ViewLoader } from './types'
 
 type ViewSnapshot =
@@ -69,5 +70,5 @@ export function AsyncView({ loader }: { loader: ViewLoader }) {
       </div>
     )
   if (snapshot.status === 'ready') return createElement(snapshot.component)
-  return <p className="p-6 text-sm text-muted-foreground">正在加载页面…</p>
+  return <PageLoading />
 }

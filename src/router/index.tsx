@@ -18,6 +18,7 @@ import { useRoute } from '@/hooks/use-route'
 import { reportError } from '@/services/telemetry'
 import { AsyncView } from './async-view'
 import { PageViewport, RoutePage } from './page-viewport'
+import { PageLoading } from './page-loading'
 import { safeInternalTarget } from '@/router/navigation/menu'
 
 const AppLayout = lazy(() => import('@/layouts'))
@@ -50,11 +51,7 @@ function AuthGuard() {
           </button>
         </div>
       )
-    return (
-      <div className="flex min-h-svh items-center justify-center text-sm text-muted-foreground">
-        {t('router.initializing')}
-      </div>
-    )
+    return <PageLoading fullScreen label={t('router.initializing')} />
   }
   return <Outlet />
 }
@@ -143,11 +140,10 @@ export function AppRouter() {
     setRouter(instance)
     return () => instance.dispose()
   }, [])
+  if (!router) return <PageLoading fullScreen />
   return (
-    router && (
-      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">正在加载页面…</p>}>
-        <RouterProvider router={router} />
-      </Suspense>
-    )
+    <Suspense fallback={<PageLoading fullScreen />}>
+      <RouterProvider router={router} />
+    </Suspense>
   )
 }

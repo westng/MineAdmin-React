@@ -21,6 +21,7 @@ import { hasRouteAccess, type AccessSubject } from '@/services/auth/access'
 import { safeInternalTarget } from '@/router/navigation/menu'
 import AccessDeniedPage from './pages/access-denied'
 import NotFoundPage from './pages/not-found'
+import { PageLoading } from './page-loading'
 import type { AppRoute } from './types'
 
 export const MAX_CACHED_PAGES = 8
@@ -83,7 +84,7 @@ export function RoutePage({ route, routes = [] }: { route: AppRoute; routes?: Ap
   if (!canAccess(route)) return <AccessDeniedPage />
   return (
     <ErrorBoundary label="页面" fallback={() => <Unavailable />}>
-      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">正在加载页面…</p>}>
+      <Suspense fallback={<PageLoading />}>
         {route.redirect !== undefined ? (
           <RedirectPage route={route} routes={routes} />
         ) : (

@@ -108,7 +108,7 @@ pnpm run dev
 
 | 变量                      | `.env.example` 示例值   | 用途                                    |
 | ------------------------- | ----------------------- | --------------------------------------- |
-| `VITE_APP_TITLE`          | `MineAdmin`             | 应用默认标题                            |
+| `VITE_APP_TITLE`          | `MineAdmin`             | 应用默认标题，同时用于浏览器标题和刷新加载首屏 |
 | `VITE_APP_PORT`           | `2777`                  | 开发服务器端口                          |
 | `VITE_APP_ROOT_BASE`      | `/`                     | Vite 资源根路径                         |
 | `VITE_APP_ROUTE_MODE`     | `hash`                  | 路由模式：`hash` 或 `history`           |

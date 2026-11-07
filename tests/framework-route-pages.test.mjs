@@ -164,15 +164,42 @@ test('A delayed menu view finishes its first navigation and only loads once', as
   const node = await mount(runtime, '/dashboard')
   await go('/slow')
   assert.match(node.textContent, /正在加载页面/)
+  assert.ok(node.querySelector('[data-layout="default"] [role="status"]'), 'page loading must preserve the shell')
   await act(async () => runtime.navigation.getState().refreshRoutes())
   assert.equal(loads, 1)
   await act(async () => finishLoading({ default: () => h('p', null, 'slow-page-ready') }))
   assert.match(node.textContent, /slow-page-ready/)
   assert.doesNotMatch(node.textContent, /正在加载页面/)
+  assert.equal(node.querySelector('[role="status"]'), null)
   await go('/dashboard')
   await go('/slow')
   assert.match(node.textContent, /slow-page-ready/)
   assert.equal(loads, 1)
+})
+
+test('权限初始化显示全屏 loading，就绪后进入页面，失败后可重试', async () => {
+  const runtime = await app()
+  runtime.settings.getState().setTitle('示例管理台')
+  let attempts = 0
+  runtime.session.setState({
+    initialized: false,
+    hydrate: async () => {
+      attempts++
+    },
+  })
+  const node = await mount(runtime, '/dashboard')
+  assert.equal(node.querySelector('[role="status"] h1').textContent, '示例管理台')
+  assert.match(node.querySelector('[role="status"]').textContent, /正在初始化用户权限/)
+  assert.equal(node.querySelector('[data-layout="default"]'), null)
+  await act(async () => runtime.session.setState({ error: 'Synthetic permission failure' }))
+  assert.equal(node.querySelector('[role="status"]'), null)
+  assert.match(node.querySelector('[role="alert"]').textContent, /Synthetic permission failure/)
+  const previous = attempts
+  await act(async () => node.querySelector('button').click())
+  assert.equal(attempts, previous + 1)
+  await act(async () => runtime.session.setState({ error: null, initialized: true }))
+  assert.match(node.textContent, /default-page/)
+  assert.equal(node.querySelector('[role="status"]'), null)
 })
 
 test('A view that finishes loading while hidden is ready when its cached tab returns', async () => {

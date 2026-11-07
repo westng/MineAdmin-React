@@ -10,6 +10,13 @@ const packageVersion = JSON.parse(readFileSync(new URL('./package.json', import.
 
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  // Match the runtime title before JavaScript starts; insert it as text, never as HTML.
+  const appTitle = (env.VITE_APP_TITLE || 'MineAdmin')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
   const isProduction = mode === 'production'
   const proxyPrefix = env.VITE_PROXY_PREFIX || '/dev'
   const iframeOrigins = (env.VITE_IFRAME_ORIGINS || '')
@@ -43,13 +50,19 @@ export default defineConfig(({ mode, command }) => {
       tailwindcss(),
       {
         name: 'mineadmin-frame-policy',
-        transformIndexHtml: () => [
-          {
-            tag: 'meta',
-            attrs: { 'http-equiv': 'Content-Security-Policy', content: framePolicy },
-            injectTo: 'head-prepend',
-          },
-        ],
+        transformIndexHtml: {
+          order: 'post',
+          handler: html => ({
+            html: html.replaceAll('%APP_TITLE%', () => appTitle),
+            tags: [
+              {
+                tag: 'meta',
+                attrs: { 'http-equiv': 'Content-Security-Policy', content: framePolicy },
+                injectTo: 'head-prepend',
+              },
+            ],
+          }),
+        },
       },
     ],
     build: {
