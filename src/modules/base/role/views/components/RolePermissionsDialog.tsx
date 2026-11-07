@@ -29,9 +29,6 @@ export function RolePermissionsDialog({ ref }: { ref?: Ref<RolePermissionsDialog
     loadValues: async role => {
       if (!role.id) throw new Error(tx('操作失败'))
       const [menuResponse, permissionResponse] = await Promise.all([pageMenus(), getRolePermission(role.id)])
-      for (const response of [menuResponse, permissionResponse]) {
-        if (response.data.code !== 200) throw new Error(response.data.message || tx('权限数据加载失败'))
-      }
       return {
         menus: normalizeMenuTree(extractList<MenuVo>(menuResponse.data.data)),
         permissionNames: extractList<RolePermissionVo>(permissionResponse.data.data)
@@ -41,8 +38,7 @@ export function RolePermissionsDialog({ ref }: { ref?: Ref<RolePermissionsDialog
     },
     onSubmit: async (values, role) => {
       if (!role.id) return false
-      const response = await setRolePermission(role.id, values.permissionNames)
-      if (response.data.code !== 200) throw new Error(response.data.message || tx('操作失败'))
+      await setRolePermission(role.id, values.permissionNames)
     },
     onSuccess: () => message.success(tx('角色权限更新成功')),
     onError: error => message.error(error instanceof Error ? error.message : tx('操作失败')),

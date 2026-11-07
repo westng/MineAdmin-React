@@ -48,7 +48,3 @@ export function downloadBlob(result: Blob | MaDownloadResult, filename?: string)
   // 留出浏览器接管下载的时间；组件卸载不应提前撤销已触发的下载。
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
-
-export function downloadError(reason: unknown): Error {
-  return reason instanceof Error ? reason : new Error(typeof reason === 'string' ? reason : '下载失败，请重试')
-}

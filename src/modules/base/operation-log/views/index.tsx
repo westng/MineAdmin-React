@@ -52,8 +52,7 @@ export default function UserOperationLogPage() {
       okVariant: 'destructive',
       onConfirm: async () => {
         if (!hasAuth('log:userOperation:delete')) return false
-        const response = await userOperationLogApi.delete(selected)
-        if (response.data.code !== 200) throw new Error(response.data.message || tx('日志删除失败'))
+        await userOperationLogApi.delete(selected)
         setSelectedIds([])
         tableRef.current?.getTableRef()?.clearSelection()
         toast.success(tx('已删除 {0} 条日志', { '0': selected.length }))

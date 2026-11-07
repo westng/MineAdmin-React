@@ -12,6 +12,8 @@ const result = await build({
       export { createHttpClient } from './src/services/http/client'
       export { createPluginHost } from './src/provider/plugins/host'
       export { createApi as createUserApi } from './src/modules/base/user/api/user'
+      export { createApi as createWebsiteApi } from './src/modules/base/login/api/website'
+      export { profileSchema } from './src/services/auth/schemas'
       export { createRegistry } from './src/services/registry'
     `,
     resolveDir: process.cwd(),
@@ -26,6 +28,7 @@ const result = await build({
 const compiled = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(compiled, compiled.exports, require)
 const { createAppRuntime, createSessionManager, createHttpClient, createRegistry, createUserApi } = compiled.exports
+const { createWebsiteApi, profileSchema } = compiled.exports
 const storage = (values = new Map()) => ({
   getItem: key => values.get(key) ?? null,
   setItem: (key, value) => values.set(key, value),
@@ -37,6 +40,99 @@ const credentials = account => ({
   expire_at: 60,
 })
 const response = (config, data) => ({ config, data, status: 200, statusText: 'OK', headers: {} })
+
+test('网站配置使用空查询参数，消费者取消后终止最后一个底层请求', async t => {
+  const runtime = createAppRuntime({ storage: storage() })
+  t.after(() => runtime.dispose())
+  const pending = []
+  runtime.http.defaults.adapter = config => new Promise(resolve => pending.push({ config, resolve }))
+  const api = createWebsiteApi(runtime)
+  const first = new AbortController()
+  const second = new AbortController()
+  const firstResult = api.getWebsiteLoginConfig({}, first.signal)
+  const secondResult = createWebsiteApi(runtime).getWebsiteLoginConfig({}, second.signal)
+  const firstRejected = assert.rejects(firstResult, { name: 'AbortError' })
+  const secondRejected = assert.rejects(secondResult, { name: 'AbortError' })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(pending.length, 1)
+  assert.deepEqual(api.getWebsiteLoginConfig.queryOptions().queryKey.at(-1), {})
+  first.abort()
+  await firstRejected
+  assert.equal(pending[0].config.signal.aborted, false)
+  second.abort()
+  await secondRejected
+  assert.equal(pending[0].config.signal.aborted, true)
+  pending[0].resolve(response(pending[0].config, { code: 200, data: { site_name: '迟到的配置' } }))
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(runtime.query.getQueryData(api.getWebsiteLoginConfig.queryOptions().queryKey), undefined)
+})
+
+test('用户资料只在 API 入口解析一次，保留字段并向后传递角色和菜单', async t => {
+  const runtime = createAppRuntime({ storage: storage() })
+  t.after(() => runtime.dispose())
+  const parse = t.mock.method(profileSchema, 'safeParse', profileSchema.safeParse.bind(profileSchema))
+  const profile = { username: 'fixture', nickname: '资料', backend_setting: {}, avatar: '/avatar.png' }
+  runtime.http.defaults.adapter = async config =>
+    response(config, {
+      code: 200,
+      data: config.url.endsWith('/getInfo')
+        ? profile
+        : config.url.endsWith('/roles')
+          ? [{ code: 'viewer' }]
+          : [{ name: 'read:profile' }],
+    })
+  await runtime.session.getState().loginWithTokens(credentials('profile'))
+  assert.equal(await runtime.session.getState().hydrate(), true)
+  assert.equal(parse.mock.calls.length, 1)
+  assert.deepEqual(runtime.session.getState().userInfo, { ...profile, permissions: ['read:profile'] })
+  assert.deepEqual(runtime.session.getState().roles, ['viewer'])
+})
+
+for (const invalidStage of ['/getInfo', '/menus', '/roles']) {
+  test(`认证入口拒绝无效 ${invalidStage} 响应，内部不继续加载`, async t => {
+    const runtime = createAppRuntime({ storage: storage() })
+    t.after(() => runtime.dispose())
+    const calls = []
+    runtime.http.defaults.adapter = async config => {
+      const stage = config.url.slice(config.url.lastIndexOf('/'))
+      calls.push(stage)
+      const data = stage === invalidStage ? { invalid: true } : stage === '/getInfo' ? { username: 'fixture' } : []
+      return response(config, { code: 200, data })
+    }
+    await runtime.session.getState().loginWithTokens(credentials('invalid'))
+    assert.equal(await runtime.session.getState().hydrate(), false)
+    assert.equal(runtime.session.getState().initialized, false)
+    assert.equal(calls.at(-1), invalidStage)
+    assert.equal(calls.length, ['/getInfo', '/menus', '/roles'].indexOf(invalidStage) + 1)
+  })
+}
+
+test('HTTP 边界拒绝失败业务码，失败写入不失效资源且不重试，无 envelope 响应仍可读取', async t => {
+  const runtime = createAppRuntime({ storage: storage() })
+  t.after(() => runtime.dispose())
+  const api = createUserApi(runtime)
+  let reads = 0
+  let writes = 0
+  let failureCode = 422
+  runtime.http.defaults.adapter = async config => {
+    if (config.url === '/plain') return response(config, { items: [] })
+    if (config.method === 'get') {
+      reads++
+      return response(config, { code: 200, data: { list: [{ id: 1 }], total: 1 } })
+    }
+    writes++
+    return response(config, { code: failureCode, message: '写入失败' })
+  }
+  await api.pageUsers({})
+  const key = api.pageUsers.queryOptions({}).queryKey
+  for (failureCode of [422, 0]) {
+    await assert.rejects(api.saveUser(1, { nickname: '新资料' }), error => error.code === failureCode)
+    assert.equal(runtime.query.getQueryState(key).isInvalidated, false)
+  }
+  assert.equal(reads, 1)
+  assert.equal(writes, 2)
+  assert.deepEqual((await runtime.http.get('/plain')).data, { items: [] })
+})
 
 test('认证头只允许发送到 API 来源，Hook 修改目标也不能绕过检查', async () => {
   let redirect = false

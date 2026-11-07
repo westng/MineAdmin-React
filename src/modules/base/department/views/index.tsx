@@ -36,10 +36,6 @@ function departmentUsers(value: unknown): DepartmentUserVo[] {
 
 export default function PermissionDepartmentPageView() {
   const tx = useTextTranslator('base.permission.department.ui')
-  function responseMessage(response: { data?: { message?: string } }) {
-    return response.data?.message || tx('操作失败')
-  }
-
   const departmentApi = useRuntimeFactory(createDepartmentApi)
 
   const localeRevision = useLocaleRevision()
@@ -84,10 +80,8 @@ export default function PermissionDepartmentPageView() {
     canSubmit: department => hasAuth(department?.id ? 'permission:department:update' : 'permission:department:save'),
     onSubmit: async (values, department) => {
       const payload: DepartmentVo = { name: values.name.trim(), parent_id: values.parent_id }
-      const response = department?.id
-        ? await departmentApi.save(department.id, payload)
-        : await departmentApi.create(payload)
-      if (response.data.code !== 200) throw new Error(responseMessage(response))
+      if (department?.id) await departmentApi.save(department.id, payload)
+      else await departmentApi.create(payload)
     },
     onSuccess: async (_values, department) => {
       toast.success(department?.id ? tx('部门更新成功') : tx('部门创建成功'))
@@ -113,8 +107,7 @@ export default function PermissionDepartmentPageView() {
       description: tx('确认删除 {0} 个部门吗？', { '0': ids.length }),
       onConfirm: async () => {
         if (!hasAuth('permission:department:delete')) return false
-        const response = await departmentApi.deleteByIds(ids)
-        if (response.data.code !== 200) throw new Error(responseMessage(response))
+        await departmentApi.deleteByIds(ids)
         toast.success(tx('部门删除成功'))
         await loadDepartments(searchName)
       },

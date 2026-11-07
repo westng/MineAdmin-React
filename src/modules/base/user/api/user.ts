@@ -3,7 +3,7 @@ import type { PageList, ResponseStruct } from '@/types/api'
 import type { UserDepartmentInfo, UserPositionInfo, UserRoleInfo } from '@/services/auth/types'
 
 import type { AppRuntime } from '@/provider/runtime/types'
-import { createResourceQueries as createQueries } from '@/services/query/resource'
+import { createResourceQueries } from '@/services/query/resource'
 
 export interface UserPolicy {
   policy_type: 'DEPT_SELF' | 'DEPT_TREE' | 'ALL' | 'SELF' | 'CUSTOM_DEPT' | 'CUSTOM_FUNC'
@@ -35,10 +35,12 @@ export interface UserVo {
 
 export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'>) {
   const http = runtime.http
-  const createResourceQueries = (module: string, resource: string) =>
-    createQueries(module, resource, runtime.query, () => runtime.session.getState().sessionVersion)
-
-  const queries = createResourceQueries('permission', 'users')
+  const queries = createResourceQueries(
+    'permission',
+    'users',
+    runtime.query,
+    () => runtime.session.getState().sessionVersion,
+  )
 
   const pageUsers = queries.list((params: Partial<UserVo>, querySignal) =>
     http.get<ResponseStruct<PageList<UserVo>>>('/admin/user/list', { params, signal: querySignal }),

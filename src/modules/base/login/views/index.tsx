@@ -81,7 +81,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    void getWebsiteLoginConfig(controller.signal)
+    void getWebsiteLoginConfig({}, controller.signal)
       .then(response => {
         if (!controller.signal.aborted) setBranding(normalizeWebsiteLoginConfig(response.data.data, brandingDefaults))
       })

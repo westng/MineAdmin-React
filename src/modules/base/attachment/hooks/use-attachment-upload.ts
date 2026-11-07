@@ -82,7 +82,6 @@ export function useAttachmentUpload(onUploaded: () => void) {
                   progress: event.total ? Math.min(100, Math.round((event.loaded / event.total) * 100)) : null,
                 }),
             })
-            if (response.data.code !== 200) throw new Error(response.data.message || tx('上传失败'))
             if (!response.data.data?.id) throw new Error(tx('上传响应缺少附件记录，请刷新列表确认后再重试'))
             update(item.id, { status: 'success', progress: 100 })
             successCount += 1

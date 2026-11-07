@@ -32,8 +32,8 @@ export function RoleFormDialog({
     canSubmit: role => hasAuth(role?.id ? 'permission:role:update' : 'permission:role:save'),
     formOptions: { layout: 'grid', grid: { columns: 2, gap: '1rem' } },
     onSubmit: async (values, role) => {
-      const response = role?.id ? await save(role.id, values) : await create(values)
-      if (response.data.code !== 200) throw new Error(response.data.message || tx('操作失败'))
+      if (role?.id) await save(role.id, values)
+      else await create(values)
     },
     onSuccess: async (_values, role) => {
       toast.success(role?.id ? tx('角色更新成功') : tx('角色创建成功'))

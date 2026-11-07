@@ -16,11 +16,8 @@ import { type UserVo } from '../api/user'
 import { UserFormDialog, type UserFormDialogHandle } from './components/UserFormDialog'
 import { UserRoleDialog, type UserRoleDialogHandle } from './components/UserRoleDialog'
 import UserProTable from './components/UserProTable'
-import { createViewData as createFormValuesViewData } from './data/form-values'
 
 export default function PermissionUserPageView() {
-  const { assertUserResponse } = useRuntimeFactory(createFormValuesViewData)
-
   const tx = useTextTranslator('base.permission.user.ui')
 
   const { deleteUsers, resetPassword } = useRuntimeFactory(createUserApi)
@@ -50,7 +47,7 @@ export default function PermissionUserPageView() {
       okVariant: 'destructive',
       onConfirm: async () => {
         if (!hasAuth('permission:user:delete')) return false
-        assertUserResponse(await deleteUsers(ids))
+        await deleteUsers(ids)
         message.success(tx('用户删除成功'))
         await refreshUsers()
       },
@@ -66,7 +63,7 @@ export default function PermissionUserPageView() {
       description: tx('确认将 {0} 的密码重置为初始密码吗？', { '0': user.username || tx('当前用户') }),
       onConfirm: async () => {
         if (!hasAuth('permission:user:password')) return false
-        assertUserResponse(await resetPassword(id))
+        await resetPassword(id)
         message.success(tx('初始密码设置成功'))
       },
     })

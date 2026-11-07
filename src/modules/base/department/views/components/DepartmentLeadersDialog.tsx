@@ -61,8 +61,7 @@ export function DepartmentLeadersDialog({ departmentId, departmentName, onClose,
     busyRef.current = true
     setBusy(true)
     try {
-      const response = await leaderApi.create({ dept_id: departmentId, user_id: [...new Set(userIds)] })
-      if (response.data.code !== 200) throw new Error(response.data.message || tx('负责人添加失败'))
+      await leaderApi.create({ dept_id: departmentId, user_id: [...new Set(userIds)] })
       setPickerOpen(false)
       toast.success(tx('负责人添加成功'))
       await onChanged()
@@ -92,8 +91,7 @@ export function DepartmentLeadersDialog({ departmentId, departmentName, onClose,
         okVariant: 'destructive',
         onConfirm: async () => {
           if (!canAccess('permission:leader:delete')) return false
-          const response = await leaderApi.deleteByDoubleKey(departmentId, [leader.user_id])
-          if (response.data.code !== 200) throw new Error(response.data.message || tx('负责人移除失败'))
+          await leaderApi.deleteByDoubleKey(departmentId, [leader.user_id])
           toast.success(tx('负责人已移除'))
           await tableRef.current?.search()
           await onChanged()

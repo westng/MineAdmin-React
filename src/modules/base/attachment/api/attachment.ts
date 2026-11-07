@@ -3,7 +3,7 @@ import type { AxiosRequestConfig } from 'axios'
 import type { ResponseStruct } from '@/types/api'
 
 import type { AppRuntime } from '@/provider/runtime/types'
-import { createResourceQueries as createQueries } from '@/services/query/resource'
+import { createResourceQueries } from '@/services/query/resource'
 
 export type AttachmentVo = {
   id: number
@@ -37,10 +37,12 @@ export type AttachmentSearchParams = {
 
 export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'>) {
   const http = runtime.http
-  const createResourceQueries = (module: string, resource: string) =>
-    createQueries(module, resource, runtime.query, () => runtime.session.getState().sessionVersion)
-
-  const queries = createResourceQueries('base', 'attachments')
+  const queries = createResourceQueries(
+    'base',
+    'attachments',
+    runtime.query,
+    () => runtime.session.getState().sessionVersion,
+  )
 
   function upload(file: File, options?: Pick<AxiosRequestConfig, 'signal' | 'onUploadProgress' | 'timeout'>) {
     const formData = new FormData()

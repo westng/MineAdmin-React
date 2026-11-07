@@ -99,7 +99,7 @@ export function createHttpClient(options: HttpClientOptions) {
       })
       if (config._sessionVersion !== undefined && config._sessionVersion !== options.session().sessionVersion)
         return Promise.reject(new axios.CanceledError('登录会话已变化'))
-      if (response.data?.code && response.data.code !== 200) {
+      if (response.data?.code !== undefined && response.data.code !== 200) {
         if (response.data.code === 401) {
           const retry = await retryAuthenticatedRequest(response.config)
           if (retry) return retry.response

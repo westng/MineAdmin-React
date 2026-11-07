@@ -8,7 +8,6 @@ import { useMessage } from '@/hooks/ui/use-message'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { extractList } from '@/utils/api-data'
 import { type UserVo } from '../../api/user'
-import { createViewData as createFormValuesViewData } from '../data/form-values'
 import { getRoleFormItems, type RoleForm } from '../data/getRoleFormItems'
 
 export interface UserRoleDialogHandle {
@@ -16,8 +15,6 @@ export interface UserRoleDialogHandle {
 }
 
 export function UserRoleDialog({ ref }: { ref?: Ref<UserRoleDialogHandle> }) {
-  const { assertUserResponse } = useRuntimeFactory(createFormValuesViewData)
-
   const tx = useTextTranslator('base.permission.user.ui')
 
   const { hasAuth } = usePermission()
@@ -30,14 +27,13 @@ export function UserRoleDialog({ ref }: { ref?: Ref<UserRoleDialogHandle> }) {
     loadValues: async user => {
       if (!user.id) throw new Error(tx('操作失败'))
       const selected = await getUserRole(user.id)
-      assertUserResponse(selected)
       return {
         roleCodes: extractList<{ code: string }>(selected.data.data).map(role => role.code),
       }
     },
     onSubmit: async (values, user) => {
       if (!user.id) return false
-      assertUserResponse(await setUserRole(user.id, values.roleCodes))
+      await setUserRole(user.id, values.roleCodes)
     },
     onSuccess: () => message.success(tx('用户角色更新成功')),
     onError: error => message.error(error instanceof Error ? error.message : tx('角色信息加载失败')),

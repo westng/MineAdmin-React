@@ -69,7 +69,6 @@ export function createNavigationManager({
           retry: false,
         })
         if (sequence !== menuSequence) throw new Error('权限加载已取消')
-        if (!Array.isArray(response.data.data)) throw new Error('菜单数据格式错误')
         const { menus, routes } = build(filterMenus(response.data.data))
         await callHooks('registerRoute', routes, menus)
         if (sequence !== menuSequence) throw new Error('权限加载已取消')
@@ -93,10 +92,7 @@ export function createNavigationManager({
           retry: false,
         })
         if (sequence !== roleSequence) throw new Error('权限加载已取消')
-        if (!Array.isArray(response.data.data)) throw new Error('角色数据格式错误')
-        const roles = Array.isArray(response.data.data)
-          ? response.data.data.map(role => role.code).filter((code): code is string => Boolean(code))
-          : []
+        const roles = response.data.data.map(role => role.code)
         set({ roles })
         return roles
       } catch (error) {

@@ -60,8 +60,7 @@ export function useAttachmentActions(refresh: () => void, loading: boolean) {
           break
         }
         try {
-          const response = await deleteById(row.id)
-          if (response.data.code !== 200) throw new Error(response.data.message || tx('删除失败'))
+          await deleteById(row.id)
           deleted.add(row.id)
         } catch (error) {
           errors[row.id] = attachmentError(error, tx('删除失败，请重试'))

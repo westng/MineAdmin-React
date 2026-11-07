@@ -87,8 +87,6 @@ export function createResourceQueries(module: string, resource: string, client: 
       const version = getVersion()
       const response = await write()
       if (version !== getVersion()) throw new DOMException('Session changed', 'AbortError')
-      const envelope = response as { data?: { code?: number } }
-      if (envelope?.data?.code !== undefined && envelope.data.code !== 200) return response
       for (const queryKey of [key(version), ...related.map(([m, r]) => queryKeys.resource(version, m, r))]) {
         await client.cancelQueries({ queryKey })
         await client.invalidateQueries({ queryKey })

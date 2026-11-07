@@ -91,6 +91,8 @@ Ma 组件统一采用公共入口与职责子目录，具体目录、类型归�
 
 `SessionManager` 拥有登录、凭据持久化、并发刷新、会话版本和登出。HTTP 工厂只依赖抽象会话接口，保留现有响应结构、显式 Authorization 和一次重试约定。旧会话的成功响应、401 和刷新结果均不能回写新会话。显式凭据请求不触发管理后台 Token 刷新。
 
+响应中已声明的非成功业务码由 HTTP 边界统一拒绝，包含 `code=0`；无 envelope 的响应继续原样返回。Query 的 `mutate` 以回调正常返回表示成功、rejection 表示失败，不再次解释 HTTP envelope；Base 页面直接处理结果或异常。用户资料、菜单和角色在各自 API 入口执行一次 Schema 解析，Session 和导航消费解析后的类型。自定义 HTTP/API 端口也须遵守这些返回契约。
+
 Query key 以 `['session', sessionVersion, module, resource]` 开头，再附加 list 参数或 detail ID。查询默认新鲜期 30 秒、回收期 5 分钟、最多重试一次；鉴权及常见客户端错误不重试，写操作不自动重试。请求必须消费 `AbortSignal`。切换账号或退出时同步取消查询并清空 QueryClient，不能复用上一账号缓存。
 
 会话资料、权限菜单、角色、网站配置以及 Base 的用户、角色、组织、菜单、日志和附件请求共用 QueryClient。`services/query/resource` 为现有命令式 API 提供适配：读请求按 list/detail key 去重，保留调用时重新获取的语义；写成功后取消旧读并使本资源及显式关联资源失效。单个视图的 AbortSignal 只取消该消费者等待，共享请求继续服务其他消费者；Query 自身的 signal 在失效、退出或账号切换时取消底层请求。普通 CRUD 默认把资源 API 直接交给 MaProTable；组合多个服务器资源或使用受控表格时再使用 Query Hook。

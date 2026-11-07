@@ -1,5 +1,5 @@
 import type { HttpClient } from '@/services/http/client'
-import type { LoginParams, LoginResult, LoginCaptcha, CurrentUserInfo } from '@/services/auth/types'
+import type { LoginParams, LoginResult, LoginCaptcha } from '@/services/auth/types'
 import { captchaSchema, profileSchema, validateResponse } from '@/services/auth/schemas'
 export type * from '@/services/auth/types'
 
@@ -13,10 +13,10 @@ export function createAuthApi(http: HttpClient) {
   }
 
   function getInfo(signal?: AbortSignal) {
-    return http.get<{ data: CurrentUserInfo }>('/admin/passport/getInfo', { signal }).then(response => {
-      validateResponse(profileSchema, response.data.data, 'auth.profile')
-      return response
-    })
+    return http.get<{ data: unknown }>('/admin/passport/getInfo', { signal }).then(response => ({
+      ...response,
+      data: { ...response.data, data: validateResponse(profileSchema, response.data.data, 'auth.profile') },
+    }))
   }
 
   function refreshApi(refreshToken: string, signal?: AbortSignal) {

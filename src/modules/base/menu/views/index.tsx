@@ -78,8 +78,8 @@ export default function PermissionMenuPageView() {
     if (!hasAuth(form.id ? 'permission:menu:save' : 'permission:menu:create')) return
     setLoading(true)
     try {
-      const response = form.id ? await menuApi.save(form.id, toPayload(form)) : await menuApi.create(toPayload(form))
-      if (response.data.code !== 200) throw new Error(response.data.message || tx('保存失败'))
+      if (form.id) await menuApi.save(form.id, toPayload(form))
+      else await menuApi.create(toPayload(form))
       setNotice(tx('{0}{1}成功', { '0': isButton ? '按钮权限' : '菜单', '1': form.id ? '更新' : '创建' }))
       await loadMenus(form.id)
     } catch (error) {
@@ -101,8 +101,7 @@ export default function PermissionMenuPageView() {
       okVariant: 'destructive',
       onConfirm: async () => {
         if (!hasAuth('permission:menu:delete')) return false
-        const response = await menuApi.deleteByIds([id])
-        if (response.data.code !== 200) throw new Error(response.data.message || tx('删除失败'))
+        await menuApi.deleteByIds([id])
         setNotice(tx('{0}删除成功', { '0': isButton ? '按钮权限' : '菜单' }))
         setSelected(null)
         setForm(emptyForm)

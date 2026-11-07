@@ -1,5 +1,5 @@
 import { evaluateAccess } from './access'
-import { tokenSchema, profileSchema, validateResponse } from './schemas'
+import { tokenSchema, validateResponse } from './schemas'
 import { createStore } from 'zustand/vanilla'
 import type { CurrentUserInfo, LoginParams } from './types'
 import type { StorageAdapter } from '@/services/storage'
@@ -43,7 +43,8 @@ export interface SessionPorts {
     login: (data: LoginParams, signal?: AbortSignal) => Promise<{ data: { data: LoginResult } }>
     refresh: (token: string, signal?: AbortSignal) => Promise<{ data: { data: LoginResult } }>
     logout: (token: string) => Promise<unknown>
-    info: () => Promise<{ data: { data: CurrentUserInfo } }>
+    /** API 入口校验资料后，Session 直接消费解析结果。 */
+    info: () => Promise<{ data: { data: Partial<CurrentUserInfo> & Pick<CurrentUserInfo, 'username'> } }>
   }
   menus: {
     clearMenus: () => void
@@ -184,7 +185,7 @@ export function createSessionManager(ports: SessionPorts) {
       const token = get().token
       clearSession()
       // Explicit credentials keep a delayed logout tied to the old session.
-      const request = token ? ports.api.logout(token).catch(() => undefined) : Promise.resolve()
+      const request = token ? ports.api.logout(token) : Promise.resolve()
       await Promise.allSettled([request, ports.callHooks('logout')])
     },
     setUserInfo: userInfo => {
@@ -219,7 +220,7 @@ export function createSessionManager(ports: SessionPorts) {
       try {
         const response = await ports.api.info()
         if (!isCurrent()) return false
-        const userInfo = validateResponse(profileSchema, response.data.data, 'session') as CurrentUserInfo
+        const userInfo = response.data.data
         step = '菜单加载'
         const menus = await ports.menus.refreshMenus()
         if (!isCurrent()) return false
@@ -305,19 +306,13 @@ export function createSessionManager(ports: SessionPorts) {
     return evaluateAccess({ permission: expected }, { permissions: values, roles: [], userInfo: null })
   }
 
-  function collectPermissions(
-    menus: Array<{
-      name?: string
-      code?: string
-      children?: Array<{ name?: string; code?: string; children?: unknown[] }>
-    }>,
-  ) {
+  function collectPermissions(menus: PermissionMenu[]) {
     const permissions: string[] = []
     const visit = (items: typeof menus) => {
       items.forEach(item => {
         if (item.name) permissions.push(item.name)
         if (item.code) permissions.push(item.code)
-        if (Array.isArray(item.children)) visit(item.children as typeof menus)
+        if (item.children) visit(item.children)
       })
     }
     visit(menus)

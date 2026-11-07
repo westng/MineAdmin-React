@@ -15,10 +15,6 @@ interface PasswordFormProps {
 
 export function PasswordForm({ onSuccess, onCancel }: PasswordFormProps) {
   const tx = useTextTranslator('base.user-center.ui')
-  function responseMessage(response: { data?: { code?: number; message?: string } }) {
-    return response.data?.message || tx('操作失败')
-  }
-
   const { updateCurrentUser } = useRuntimeFactory(createProfileApi)
 
   const localeRevision = useLocaleRevision()
@@ -48,12 +44,11 @@ export function PasswordForm({ onSuccess, onCancel }: PasswordFormProps) {
     setSaving(true)
     setMessage(null)
     try {
-      const response = await updateCurrentUser({
+      await updateCurrentUser({
         old_password: oldPassword,
         new_password: newPassword,
         new_password_confirmation: confirmation,
       })
-      if (response.data.code !== 200) throw new Error(responseMessage(response))
       setOldPassword('')
       setNewPassword('')
       setConfirmation('')

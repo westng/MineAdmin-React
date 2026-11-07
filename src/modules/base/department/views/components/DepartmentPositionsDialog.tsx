@@ -50,8 +50,8 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
     canSubmit: position => hasAuth(position?.id ? 'permission:position:update' : 'permission:position:save'),
     onSubmit: async (values, position) => {
       const payload = { dept_id: departmentId, name: values.name.trim() }
-      const response = position?.id ? await api.save(position.id, payload) : await api.create(payload)
-      if (response.data.code !== 200) throw new Error(response.data.message || tx('岗位保存失败'))
+      if (position?.id) await api.save(position.id, payload)
+      else await api.create(payload)
     },
     onSuccess: async (_values, position) => {
       toast.success(position?.id ? tx('岗位更新成功') : tx('岗位创建成功'))
@@ -73,8 +73,7 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
         okVariant: 'destructive',
         onConfirm: async () => {
           if (!hasAuth('permission:position:delete')) return false
-          const response = await api.deleteByIds([id])
-          if (response.data.code !== 200) throw new Error(response.data.message || tx('岗位删除失败'))
+          await api.deleteByIds([id])
           toast.success(tx('岗位删除成功'))
           await refresh()
         },

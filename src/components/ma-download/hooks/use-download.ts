@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { MaDownloadProps } from '../types'
-import { downloadBlob, downloadError, downloadUrl } from '../utils/download-utils'
+import { downloadBlob, downloadUrl } from '../utils/download-utils'
 
 /** 管理单次下载生命周期；请求与鉴权通过调用方注入。 */
 export function useDownload(props: MaDownloadProps) {
@@ -46,7 +46,7 @@ export function useDownload(props: MaDownloadProps) {
       triggered = true
     } catch (reason) {
       if (!controller.signal.aborted && active.current === controller) {
-        failure = downloadError(reason)
+        failure = reason instanceof Error ? reason : new Error(typeof reason === 'string' ? reason : '下载失败，请重试')
         setError(failure.message || '下载失败，请重试')
       }
     } finally {

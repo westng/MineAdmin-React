@@ -24,7 +24,7 @@ export interface UserFormDialogHandle {
 export function UserFormDialog({ ref, onSaved }: { ref?: Ref<UserFormDialogHandle>; onSaved: () => Promise<void> }) {
   const { getFormItems } = useRuntimeFactory(createFormItemsViewData)
 
-  const { assertUserResponse, toUserForm, toUserPayload } = useRuntimeFactory(createFormValuesViewData)
+  const { toUserForm, toUserPayload } = useRuntimeFactory(createFormValuesViewData)
 
   const tx = useTextTranslator('base.permission.user.ui')
 
@@ -67,7 +67,8 @@ export function UserFormDialog({ ref, onSaved }: { ref?: Ref<UserFormDialogHandl
     formOptions: { layout: 'grid', grid: { columns: 2, gap: '1.25rem' }, containerClass: 'pb-1' },
     onSubmit: async (values, user) => {
       const payload = toUserPayload(values)
-      assertUserResponse(user?.id ? await saveUser(user.id, payload) : await createUser(payload))
+      if (user?.id) await saveUser(user.id, payload)
+      else await createUser(payload)
     },
     onSuccess: async (_values, user) => {
       message.success(user?.id ? tx('用户更新成功') : tx('用户创建成功'))

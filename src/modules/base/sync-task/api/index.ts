@@ -52,10 +52,8 @@ export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'
     () => runtime.session.getState().sessionVersion,
   )
   const base = '/admin/sync/tasks'
-  async function get<T>(url: string, signal: AbortSignal, params?: Record<string, unknown>) {
-    const response = await runtime.http.get<ResponseStruct<T>>(url, { signal, params })
-    if (response.data.code !== 200) throw new Error(response.data.message || '同步记录加载失败')
-    return response
+  function get<T>(url: string, signal: AbortSignal, params?: Record<string, unknown>) {
+    return runtime.http.get<ResponseStruct<T>>(url, { signal, params })
   }
   return {
     detailOptions: (id: string) =>
@@ -75,13 +73,10 @@ export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'
     attempts: (id: string, unitId: string, signal: AbortSignal) =>
       get<SyncAttempt[]>(`${base}/${id}/units/${unitId}/attempts`, signal),
     action: (id: string, action: 'retry' | 'cancel', requestKey: string) =>
-      resource.mutate(async () => {
-        const response = await runtime.http.post<ResponseStruct<{ task_id: string; task_no: string } | null>>(
-          `${base}/${id}/${action}`,
-          { request_key: requestKey },
-        )
-        if (response.data.code !== 200) throw new Error(response.data.message || '操作失败')
-        return response
-      }),
+      resource.mutate(() =>
+        runtime.http.post<ResponseStruct<{ task_id: string; task_no: string } | null>>(`${base}/${id}/${action}`, {
+          request_key: requestKey,
+        }),
+      ),
   }
 }

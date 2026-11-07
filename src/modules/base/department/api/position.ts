@@ -1,7 +1,7 @@
 import type { PageList, ResponseStruct } from '@/types/api'
 
 import type { AppRuntime } from '@/provider/runtime/types'
-import { createResourceQueries as createQueries } from '@/services/query/resource'
+import { createResourceQueries } from '@/services/query/resource'
 
 export interface PositionVo {
   id?: number
@@ -13,10 +13,12 @@ export interface PositionVo {
 
 export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'>) {
   const http = runtime.http
-  const createResourceQueries = (module: string, resource: string) =>
-    createQueries(module, resource, runtime.query, () => runtime.session.getState().sessionVersion)
-
-  const queries = createResourceQueries('permission', 'positions')
+  const queries = createResourceQueries(
+    'permission',
+    'positions',
+    runtime.query,
+    () => runtime.session.getState().sessionVersion,
+  )
 
   const page = queries.list(
     (params: { name?: string; dept_id?: number; page?: number; page_size?: number }, querySignal) =>

@@ -57,10 +57,6 @@ function ReadonlyInput({ id, value }: { id: string; value: string }) {
 
 export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
   const tx = useTextTranslator('base.user-center.ui')
-  function responseMessage(response: { data?: { code?: number; message?: string } }) {
-    return response.data?.message || tx('操作失败')
-  }
-
   const { upload } = useRuntimeFactory(createAttachmentApi)
   const { updateCurrentUser } = useRuntimeFactory(createProfileApi)
 
@@ -94,8 +90,7 @@ export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
     setMessage(null)
     try {
       const nextSigned = signed.trim()
-      const response = await updateCurrentUser({ nickname: nextNickname, signed: nextSigned })
-      if (response.data.code !== 200) throw new Error(responseMessage(response))
+      await updateCurrentUser({ nickname: nextNickname, signed: nextSigned })
       onUserInfoChange({ ...userInfo, nickname: nextNickname, signed: nextSigned })
       setMessage({ type: 'success', text: tx('资料保存成功') })
     } catch (error) {
@@ -125,11 +120,9 @@ export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
     setMessage(null)
     try {
       const uploadResponse = await upload(file)
-      if (uploadResponse.data.code !== 200) throw new Error(responseMessage(uploadResponse))
       const avatar = uploadResponse.data.data?.url
       if (!avatar) throw new Error(tx('头像上传成功，但未返回图片地址'))
-      const updateResponse = await updateCurrentUser({ avatar })
-      if (updateResponse.data.code !== 200) throw new Error(responseMessage(updateResponse))
+      await updateCurrentUser({ avatar })
       onUserInfoChange({ ...userInfo, avatar })
       setMessage({ type: 'success', text: tx('头像更新成功') })
     } catch (error) {
@@ -144,8 +137,7 @@ export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
     setUploading(true)
     setMessage(null)
     try {
-      const response = await updateCurrentUser({ avatar: '' })
-      if (response.data.code !== 200) throw new Error(responseMessage(response))
+      await updateCurrentUser({ avatar: '' })
       onUserInfoChange({ ...userInfo, avatar: null })
       setMessage({ type: 'success', text: tx('头像已移除') })
     } catch (error) {

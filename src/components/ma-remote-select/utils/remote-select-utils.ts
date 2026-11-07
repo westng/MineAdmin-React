@@ -28,13 +28,8 @@ export function getDisabled(item: unknown, fieldNames: MaRemoteSelectFieldNames)
   return Boolean(configured ?? item.disabled)
 }
 
-export function getResponseBody(response: unknown): unknown {
-  if (isRecord(response) && 'data' in response) return response.data
-  return response
-}
-
 export function defaultResponseMap(response: unknown, page: number, pageSize: number): MaRemoteSelectPage<unknown> {
-  const body = getResponseBody(response)
+  const body = isRecord(response) && 'data' in response ? response.data : response
   if (Array.isArray(body)) return { items: body, hasMore: false }
   if (!isRecord(body)) return { items: [], hasMore: false }
 

@@ -285,10 +285,6 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   const { settingsModes } = useRuntimeFactory(createSettingsViewData)
 
   const tx = useTextTranslator('base.account-settings.ui')
-  function responseMessage(response: { data?: { code?: number; message?: string } }) {
-    return response.data?.message || tx('操作失败')
-  }
-
   const { updateCurrentUser } = useRuntimeFactory(createProfileApi)
 
   const localeRevision = useLocaleRevision()
@@ -375,8 +371,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
     try {
       const nextAppSettings = { ...appSettings, layout: selectedLayout }
       const backendSetting = mergeAccountSettings(activeUserInfo, settings, nextAppSettings, tabbarEnabled)
-      const response = await updateCurrentUser({ backend_setting: backendSetting })
-      if (response.data.code !== 200) throw new Error(responseMessage(response))
+      await updateCurrentUser({ backend_setting: backendSetting })
       const nextUserInfo = { ...(activeUserInfo || {}), backend_setting: backendSetting }
       onUserInfoChange?.(nextUserInfo)
       if (!userInfo) setStoreUserInfo(nextUserInfo)

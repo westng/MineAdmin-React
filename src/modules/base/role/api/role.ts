@@ -1,7 +1,7 @@
 import type { PageList, ResponseStruct } from '@/types/api'
 
 import type { AppRuntime } from '@/provider/runtime/types'
-import { createResourceQueries as createQueries } from '@/services/query/resource'
+import { createResourceQueries } from '@/services/query/resource'
 
 export type RoleVo = {
   id?: number
@@ -17,10 +17,12 @@ export type RolePermissionVo = { id: number; name: string }
 
 export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'>) {
   const http = runtime.http
-  const createResourceQueries = (module: string, resource: string) =>
-    createQueries(module, resource, runtime.query, () => runtime.session.getState().sessionVersion)
-
-  const queries = createResourceQueries('permission', 'roles')
+  const queries = createResourceQueries(
+    'permission',
+    'roles',
+    runtime.query,
+    () => runtime.session.getState().sessionVersion,
+  )
 
   const page = queries.list(
     (params: { name?: string; code?: string; status?: number; [key: string]: unknown }, querySignal) =>

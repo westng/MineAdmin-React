@@ -1,7 +1,7 @@
 import type { ResponseStruct } from '@/types/api'
 
 import type { AppRuntime } from '@/provider/runtime/types'
-import { createResourceQueries as createQueries } from '@/services/query/resource'
+import { createResourceQueries } from '@/services/query/resource'
 
 export interface PermissionUpdateParams {
   nickname?: string
@@ -15,10 +15,12 @@ export interface PermissionUpdateParams {
 
 export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'>) {
   const http = runtime.http
-  const createResourceQueries = (module: string, resource: string) =>
-    createQueries(module, resource, runtime.query, () => runtime.session.getState().sessionVersion)
-
-  const queries = createResourceQueries('auth', 'profile')
+  const queries = createResourceQueries(
+    'auth',
+    'profile',
+    runtime.query,
+    () => runtime.session.getState().sessionVersion,
+  )
 
   function updateCurrentUser(data: PermissionUpdateParams) {
     return queries.mutate(() => http.post<ResponseStruct<null>>('/admin/permission/update', data))

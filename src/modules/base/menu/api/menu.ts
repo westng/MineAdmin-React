@@ -4,14 +4,16 @@ import type { MenuVo } from './permission'
 export type { MenuVo } from './permission'
 
 import type { AppRuntime } from '@/provider/runtime/types'
-import { createResourceQueries as createQueries } from '@/services/query/resource'
+import { createResourceQueries } from '@/services/query/resource'
 
 export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'>) {
   const http = runtime.http
-  const createResourceQueries = (module: string, resource: string) =>
-    createQueries(module, resource, runtime.query, () => runtime.session.getState().sessionVersion)
-
-  const queries = createResourceQueries('permission', 'menus')
+  const queries = createResourceQueries(
+    'permission',
+    'menus',
+    runtime.query,
+    () => runtime.session.getState().sessionVersion,
+  )
 
   const page = queries.list((_params: Record<string, never>, querySignal) =>
     http.get<ResponseStruct<MenuVo[]>>('/admin/menu/list', { signal: querySignal }),

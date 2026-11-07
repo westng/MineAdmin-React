@@ -1,7 +1,7 @@
 import type { PageList, ResponseStruct } from '@/types/api'
 
 import type { AppRuntime } from '@/provider/runtime/types'
-import { createResourceQueries as createQueries } from '@/services/query/resource'
+import { createResourceQueries } from '@/services/query/resource'
 
 export interface DepartmentUserVo {
   id?: number
@@ -29,10 +29,12 @@ export interface DepartmentVo {
 
 export function createApi(runtime: Pick<AppRuntime, 'http' | 'query' | 'session'>) {
   const http = runtime.http
-  const createResourceQueries = (module: string, resource: string) =>
-    createQueries(module, resource, runtime.query, () => runtime.session.getState().sessionVersion)
-
-  const queries = createResourceQueries('permission', 'departments')
+  const queries = createResourceQueries(
+    'permission',
+    'departments',
+    runtime.query,
+    () => runtime.session.getState().sessionVersion,
+  )
 
   const page = queries.list((params: { name?: string }, querySignal) =>
     http.get<ResponseStruct<PageList<DepartmentVo>>>('/admin/department/list?level=1', {

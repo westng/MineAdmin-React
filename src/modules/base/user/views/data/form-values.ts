@@ -1,4 +1,3 @@
-import { createTextTranslator } from '@/services/i18n/translator'
 import type { UserVo } from '../../api/user'
 import { type UserForm } from './getFormItems'
 import { createViewData as createFormItemsViewData } from './getFormItems'
@@ -6,7 +5,6 @@ import type { AppRuntime } from '@/provider/runtime/types'
 export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
   const { emptyForm } = createFormItemsViewData(runtime)
 
-  const tx = createTextTranslator(runtime, 'base.permission.user.ui')
   function toUserForm(user: UserVo | null): UserForm {
     if (!user) return structuredClone(emptyForm)
     return {
@@ -49,8 +47,5 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
     delete payload.policy_func
     return payload
   }
-  function assertUserResponse(response: { data: { code: number; message?: string } }) {
-    if (response.data.code !== 200) throw new Error(response.data.message || tx('操作失败'))
-  }
-  return { toUserForm, toUserPayload, assertUserResponse }
+  return { toUserForm, toUserPayload }
 }

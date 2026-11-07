@@ -55,8 +55,7 @@ export default function PermissionRolePageView() {
       description: tx('确认删除 {0} 个角色吗？', { '0': ids.length }),
       onConfirm: async () => {
         if (!hasAuth('permission:role:delete')) return false
-        const response = await deleteByIds(ids)
-        if (response.data.code !== 200) throw new Error(response.data.message || tx('操作失败'))
+        await deleteByIds(ids)
         toast.success(tx('角色删除成功'))
         clearSelection()
       },
