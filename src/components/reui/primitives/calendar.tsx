@@ -136,11 +136,26 @@ function CalendarDayButton({
   day,
   modifiers,
   locale,
+  ref: forwardedRef,
   ...props
-}: React.ComponentProps<typeof DayButton> & { locale?: Partial<Locale> }) {
+}: React.ComponentProps<typeof DayButton> & { locale?: Partial<Locale>; ref?: React.Ref<HTMLButtonElement> }) {
   const defaultClassNames = getDefaultClassNames()
 
   const ref = React.useRef<HTMLButtonElement>(null)
+  const setRef = React.useCallback(
+    (node: HTMLButtonElement | null) => {
+      ref.current = node
+      const cleanup = typeof forwardedRef === 'function' ? forwardedRef(node) : undefined
+      if (forwardedRef && typeof forwardedRef !== 'function') forwardedRef.current = node
+      return () => {
+        ref.current = null
+        if (typeof cleanup === 'function') cleanup()
+        else if (typeof forwardedRef === 'function') forwardedRef(null)
+        else if (forwardedRef) forwardedRef.current = null
+      }
+    },
+    [forwardedRef],
+  )
   React.useEffect(() => {
     if (modifiers.focused) ref.current?.focus()
   }, [modifiers.focused])
@@ -162,6 +177,7 @@ function CalendarDayButton({
         className,
       )}
       {...props}
+      ref={setRef}
     />
   )
 }

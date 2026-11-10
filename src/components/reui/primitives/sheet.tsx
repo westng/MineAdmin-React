@@ -101,7 +101,9 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn('text-base font-medium text-foreground', className)}
+      className={state =>
+        cn('text-base font-medium text-foreground', typeof className === 'function' ? className(state) : className)
+      }
       {...props}
     />
   )
@@ -111,7 +113,9 @@ function SheetDescription({ className, ...props }: SheetPrimitive.Description.Pr
   return (
     <SheetPrimitive.Description
       data-slot="sheet-description"
-      className={cn('text-sm text-muted-foreground', className)}
+      className={state =>
+        cn('text-sm text-muted-foreground', typeof className === 'function' ? className(state) : className)
+      }
       {...props}
     />
   )

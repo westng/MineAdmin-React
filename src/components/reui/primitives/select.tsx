@@ -164,7 +164,9 @@ function SelectLabel({ className, ...props }: SelectPrimitive.GroupLabel.Props) 
   return (
     <SelectPrimitive.GroupLabel
       data-slot="select-label"
-      className={cn('px-1.5 py-1 text-xs text-muted-foreground', className)}
+      className={state =>
+        cn('px-1.5 py-1 text-xs text-muted-foreground', typeof className === 'function' ? className(state) : className)
+      }
       {...props}
     />
   )
@@ -198,7 +200,12 @@ function SelectSeparator({ className, ...props }: SelectPrimitive.Separator.Prop
   return (
     <SelectPrimitive.Separator
       data-slot="select-separator"
-      className={cn('pointer-events-none -mx-1 my-1 h-px bg-border', className)}
+      className={state =>
+        cn(
+          'pointer-events-none -mx-1 my-1 h-px bg-border',
+          typeof className === 'function' ? className(state) : className,
+        )
+      }
       {...props}
     />
   )
@@ -208,10 +215,12 @@ function SelectScrollUpButton({ className, ...props }: React.ComponentProps<type
   return (
     <SelectPrimitive.ScrollUpArrow
       data-slot="select-scroll-up-button"
-      className={cn(
-        "top-0 z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={state =>
+        cn(
+          "top-0 z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
+          typeof className === 'function' ? className(state) : className,
+        )
+      }
       {...props}
     >
       <ChevronUpIcon />
@@ -223,10 +232,12 @@ function SelectScrollDownButton({ className, ...props }: React.ComponentProps<ty
   return (
     <SelectPrimitive.ScrollDownArrow
       data-slot="select-scroll-down-button"
-      className={cn(
-        "bottom-0 z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={state =>
+        cn(
+          "bottom-0 z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
+          typeof className === 'function' ? className(state) : className,
+        )
+      }
       {...props}
     >
       <ChevronDownIcon />
