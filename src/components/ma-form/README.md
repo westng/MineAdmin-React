@@ -272,3 +272,7 @@ formRef.current?.clearValidate(['account'])
 - [MineAdmin MaForm 官方文档](https://doc.mineadmin.com/libs/ma-form/latest/)
 
 跨组件字段适配可从公共入口导入 `readFormLabel`、`resolveFormProp`，分别读取字段标签与解析动态字段属性；实现保留在 `utils/form-utils.ts`。
+
+## 缓存页面与操作状态
+
+默认控件和校验提示 ID 包含稳定表单实例前缀，多个表单的同名字段和带标点的字段路径不会发生 ID 冲突。显式 renderProps.id 仍生效，原生输入的标签与校验提示会关联该 ID。只读或禁用控件不显示清除入口，清除处理也不会修改模型。

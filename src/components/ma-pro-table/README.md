@@ -383,3 +383,7 @@ await tableRef.current?.refresh()
 | `utils/`      | 转换与状态工厂 | pro-table-utils.ts, toolbars.ts         |
 
 使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。
+
+## 缓存页面与操作状态
+
+Query 模式为普通函数 API 使用表格实例内的数据源身份。通过 changeApi 切换来源后立即使用新来源的请求与订阅，旧响应不能覆盖当前数据。带 queryOptions 的资源 API 仍直接透传资源查询，共用原缓存键、失效与订阅者取消规则。等价内联配置不会自动重复请求，声明式切换仍使用 requestKey。

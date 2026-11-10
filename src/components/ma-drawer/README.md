@@ -74,3 +74,7 @@ Sheet 使用 Base UI Dialog 原语。`MaDrawerProps<Payload>` 保留 Root 的所
 | `types/` | 公共及内部类型 | index.ts |
 
 使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。
+
+## 缓存页面与操作状态
+
+每次打开拥有独立的异步操作会话。关闭后重开，前一次操作的返回值、错误以及 action context 的 close/setLoading 都不能影响新抽屉；当前会话仍遵守原有自动关闭与取消事件约定。

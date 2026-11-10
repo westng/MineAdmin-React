@@ -40,3 +40,7 @@ MaForm 中声明 `render: 'Upload'`，通过 `renderProps` 提供配置。单文
 <MaUpload value={avatar} onChange={setAvatar} request={uploadFile}
   accept="image/*" listType="picture" maxSize={5 * 1024 * 1024} previewSize={40} />
 ```
+
+## 缓存页面与操作状态
+
+Activity 隐藏、禁用或切换单/多文件模式会取消当前上传，并同步清除 uploading 与文件名状态、通知 onUploadingChange(false)。恢复后可重新选择文件；取消请求的迟到响应不写入文件列表，也不改变新上传的状态。

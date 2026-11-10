@@ -165,3 +165,7 @@ function remove(row: User) {
 | `types/` | 公共及内部类型 | index.ts |
 
 使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。
+
+## 缓存页面与操作状态
+
+打开会话的异步操作只影响启动时的会话；关闭、重开或 Activity 暂停后，旧的 close/setLoading/错误回调不会影响当前弹窗。`useMaFormDialog` 在 Activity 恢复后保留草稿，被取消的回填会重试；已启动的保存不会重复执行，隐藏期间完成的结果在恢复时收敛并执行一次反馈。真实销毁后不再回填或执行反馈。`useMaConfirm` 同样会在隐藏期间记录完成状态，恢复后可以发起下一次确认。

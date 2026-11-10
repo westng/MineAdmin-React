@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { MaConfirmOptions } from '../types'
 import type { MaDialogProps } from '../types'
 
@@ -8,15 +8,29 @@ export function useMaConfirm({ onError }: { onError: (error: unknown) => void })
   const [loading, setLoading] = useState(false)
   const pending = useRef(false)
   const mounted = useRef(true)
+  const currentRequest = useRef<MaConfirmOptions | null>(null)
+  const deferredError = useRef<{ request: MaConfirmOptions; error: unknown } | null>(null)
+  const reportError = useRef(onError)
+  useLayoutEffect(() => {
+    reportError.current = onError
+  }, [onError])
   useEffect(() => {
     mounted.current = true
+    const failure = deferredError.current
+    deferredError.current = null
+    if (failure && currentRequest.current === failure.request) reportError.current(failure.error)
     return () => {
       mounted.current = false
     }
   }, [])
 
   function open(nextRequest: MaConfirmOptions) {
-    if (!pending.current) setRequest(nextRequest)
+    if (!pending.current) {
+      currentRequest.current = nextRequest
+      deferredError.current = null
+      setLoading(false)
+      setRequest(nextRequest)
+    }
   }
 
   const dialogProps: MaDialogProps = {
@@ -29,7 +43,10 @@ export function useMaConfirm({ onError }: { onError: (error: unknown) => void })
     showFullscreenButton: false,
     onOpenChange: (nextOpen, details) => {
       if (pending.current) details.cancel()
-      else if (!nextOpen) setRequest(null)
+      else if (!nextOpen) {
+        currentRequest.current = null
+        setRequest(null)
+      }
     },
     onOk: async () => {
       if (!request || pending.current) return false
@@ -37,12 +54,18 @@ export function useMaConfirm({ onError }: { onError: (error: unknown) => void })
       setLoading(true)
       try {
         const result = await request.onConfirm()
-        if (mounted.current && result !== false) setRequest(null)
+        if (currentRequest.current === request && result !== false) {
+          currentRequest.current = null
+          setRequest(null)
+        }
       } catch (error) {
-        if (mounted.current) onError(error)
+        if (currentRequest.current === request) {
+          if (mounted.current) reportError.current(error)
+          else deferredError.current = { request, error }
+        }
       } finally {
         pending.current = false
-        if (mounted.current) setLoading(false)
+        setLoading(false)
       }
       return false
     },

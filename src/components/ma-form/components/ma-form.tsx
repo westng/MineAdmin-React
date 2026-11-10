@@ -141,6 +141,7 @@ function MaFormInner<T extends MaModel>(
   const loading = externalLoading || submitting
   const [errors, setErrors] = React.useState<Record<string, string[]>>({})
   const formElementRef = React.useRef<HTMLFormElement>(null)
+  const formId = React.useId()
   const [initialValues, setInitialValues] = React.useState<T>(() =>
     structuredClone({ ...(defaultValue ?? {}), ...(modelValue ?? {}) } as T),
   )
@@ -431,8 +432,12 @@ function MaFormInner<T extends MaModel>(
           const accessibleLabel = typeof label === 'string' || typeof label === 'number' ? String(label) : undefined
           const itemProps = item.itemProps ?? {}
           const fieldError = prop ? errors[prop] : undefined
-          const errorId = prop ? `${prop.replace(/[^a-zA-Z0-9_-]/g, '-')}-error` : undefined
-          const labelTarget = getLabelTarget(item, prop)
+          const controlId =
+            typeof item.renderProps?.id === 'string'
+              ? item.renderProps.id
+              : `${formId}-${encodeURIComponent(prop ?? 'item')}-${itemIndex}`
+          const errorId = prop ? `${controlId}-error` : undefined
+          const labelTarget = getLabelTarget(item, controlId)
           const labelPosition = options.labelPosition ?? 'top'
           const horizontalLabel = labelPosition === 'left' || labelPosition === 'right'
           const labelWidth = typeof options.labelWidth === 'number' ? `${options.labelWidth}px` : options.labelWidth
@@ -445,7 +450,7 @@ function MaFormInner<T extends MaModel>(
                 value={value}
                 disabled={Boolean(options.disabled || loading || item.renderProps?.disabled)}
                 setValue={context.setValue}
-                id={prop}
+                id={controlId}
                 ariaLabel={accessibleLabel}
                 ariaInvalid={Boolean(fieldError?.length)}
                 ariaDescribedBy={fieldError?.length ? errorId : undefined}
@@ -486,7 +491,7 @@ function MaFormInner<T extends MaModel>(
               <FieldContent>
                 {typeof item.render === 'function' && React.isValidElement(rendered)
                   ? React.cloneElement(rendered, {
-                      id: prop,
+                      id: controlId,
                       'aria-label':
                         (rendered.props as { 'aria-label'?: string | undefined })['aria-label'] ?? accessibleLabel,
                       'aria-invalid': Boolean(fieldError?.length),

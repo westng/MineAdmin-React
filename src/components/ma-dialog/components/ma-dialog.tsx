@@ -1,4 +1,4 @@
-import { useCallback, useImperativeHandle, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
 import {
@@ -67,6 +67,16 @@ function MaDialog<Payload = unknown>({
   const [cancelLoading, setCancelLoading] = useState(false)
   const isOpen = openProp ?? internalOpen
   const fullscreen = fullscreenProp ?? internalFullscreen
+  const sessionRef = useRef<{ busy: boolean } | null>(null)
+  useLayoutEffect(() => {
+    sessionRef.current = isOpen ? { busy: false } : null
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 新打开会话和Activity恢复必须清理已失效操作的本地状态。
+    setOkLoading(false)
+    setCancelLoading(false)
+    return () => {
+      sessionRef.current = null
+    }
+  }, [isOpen])
   const actionLoading = loading || okLoading || cancelLoading
   const { enabled: dragEnabled, getPopupStyle, headerProps } = useMaDialogDrag({ open: isOpen, draggable, fullscreen })
 
@@ -76,6 +86,7 @@ function MaDialog<Payload = unknown>({
       if (eventDetails.isCanceled) return
       if (openProp === undefined) setInternalOpen(nextOpen)
       if (!nextOpen) {
+        sessionRef.current = null
         setOkLoading(false)
         setCancelLoading(false)
       }
@@ -95,18 +106,28 @@ function MaDialog<Payload = unknown>({
 
   const runAction = useCallback(
     (action: MaDialogAction, handler: MaDialogProps['onOk'] | MaDialogProps['onCancel']) => {
-      if (!handler || actionLoading) {
+      const session = sessionRef.current
+      if (!session) return
+      if (!handler || actionLoading || session.busy) {
         if (!handler) close()
         return
       }
-      const setActionLoading = action === 'ok' ? setOkLoading : setCancelLoading
-      const context: MaDialogActionContext = { close, setLoading: setActionLoading }
+      const current = () => sessionRef.current === session
+      const actionClose = () => {
+        if (current()) close()
+      }
+      const setActionLoading = (value: boolean) => {
+        if (!current()) return
+        session.busy = value
+        ;(action === 'ok' ? setOkLoading : setCancelLoading)(value)
+      }
+      const context: MaDialogActionContext = { close: actionClose, setLoading: setActionLoading }
       let result: ReturnType<NonNullable<typeof handler>>
       try {
         result = handler(context)
       } catch (error) {
         setActionLoading(false)
-        onActionError?.(error, action)
+        if (current()) onActionError?.(error, action)
         return
       }
       if (result instanceof Promise) {
@@ -114,15 +135,15 @@ function MaDialog<Payload = unknown>({
         void result
           .then(value => {
             setActionLoading(false)
-            if (value !== false) close()
+            if (value !== false) actionClose()
           })
           .catch(error => {
             setActionLoading(false)
-            onActionError?.(error, action)
+            if (current()) onActionError?.(error, action)
           })
         return
       }
-      if (result !== false) close()
+      if (result !== false) actionClose()
     },
     [actionLoading, close, onActionError],
   )

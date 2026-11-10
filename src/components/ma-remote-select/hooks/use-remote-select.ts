@@ -105,7 +105,7 @@ export function useRemoteSelect<T>({
           data,
           signal: controller.signal,
         })
-        if (requestId !== requestIdRef.current) return
+        if (requestId !== requestIdRef.current || controller.signal.aborted) return
 
         const result = responseMap ? responseMap(response.data) : defaultResponseMap(response.data, page, pageSize)
         const nextOptions = normalizeOptions(result.items)
@@ -123,7 +123,10 @@ export function useRemoteSelect<T>({
         if (requestId !== requestIdRef.current || controller.signal.aborted || isCanceledError(loadError)) return
         setError(getErrorMessage(loadError))
       } finally {
-        if (requestId === requestIdRef.current) setLoading(false)
+        if (requestId === requestIdRef.current) {
+          abortRef.current = null
+          setLoading(false)
+        }
       }
     },
     [
@@ -180,7 +183,10 @@ export function useRemoteSelect<T>({
         if (requestId !== echoRequestIdRef.current || controller.signal.aborted || isCanceledError(loadError)) return
         setEchoError(getErrorMessage(loadError))
       } finally {
-        if (requestId === echoRequestIdRef.current) setEchoLoading(false)
+        if (requestId === echoRequestIdRef.current) {
+          echoAbortRef.current = null
+          setEchoLoading(false)
+        }
       }
     },
     [
@@ -214,7 +220,7 @@ export function useRemoteSelect<T>({
   useEffect(() => {
     if (!open) return
     const loadedKey = `${url}|${paramsKey}|${query}`
-    if (loadedKeyRef.current === loadedKey && query === '') return
+    if (loadedKeyRef.current === loadedKey) return
     const timer = window.setTimeout(
       () => {
         pageRef.current = 1
@@ -228,9 +234,14 @@ export function useRemoteSelect<T>({
   useEffect(
     () => () => {
       abortRef.current?.abort()
+      abortRef.current = null
       requestIdRef.current += 1
+      if (echoAbortRef.current) echoAttemptRef.current = null
       echoAbortRef.current?.abort()
+      echoAbortRef.current = null
       echoRequestIdRef.current += 1
+      setLoading(false)
+      setEchoLoading(false)
     },
     [],
   )

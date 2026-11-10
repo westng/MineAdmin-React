@@ -141,6 +141,8 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
   const pageSizeRef = React.useRef(pageSize)
   const autoRequestedRef = React.useRef<string | undefined>(undefined)
   const requestSequenceRef = React.useRef(0)
+  const apiIdentitiesRef = React.useRef(new WeakMap<MaProTableApi, number>())
+  const apiSequenceRef = React.useRef(0)
   const requestControllerRef = React.useRef<AbortController | null>(null)
   const completedRequestRef = React.useRef<{ key: string; page: number; size: number } | null>(null)
   const columnsRef = React.useRef(columns)
@@ -247,9 +249,16 @@ function MaProTableInner<T extends MaModel, S extends MaModel = T>(
     try {
       const parameters = requestOptions.paramsTransform?.(params) ?? params
       const load = (signal: AbortSignal) => Promise.resolve(requestOptions.api(parameters, signal))
+      let sourceId = apiIdentitiesRef.current.get(requestOptions.api)
+      if (sourceId === undefined) {
+        sourceId = ++apiSequenceRef.current
+        apiIdentitiesRef.current.set(requestOptions.api, sourceId)
+      }
+      // 普通函数按实例内来源隔离；资源API仍直接使用其queryOptions共享缓存。
+      const queryKey = JSON.stringify([requestOptionsSignature(requestOptions), sourceId])
       const response = await (requestStore
         ? requestStore.request(
-            requestOptionsSignature(requestOptions),
+            queryKey,
             parameters,
             load,
             controller.signal,

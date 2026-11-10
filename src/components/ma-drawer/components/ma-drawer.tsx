@@ -1,4 +1,4 @@
-import { useCallback, useImperativeHandle, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@/components/reui/primitives/button'
 import { Separator } from '@/components/reui/primitives/separator'
 import {
@@ -58,6 +58,16 @@ function MaDrawer<Payload = unknown>({
   const [okLoading, setOkLoading] = useState(false)
   const [cancelLoading, setCancelLoading] = useState(false)
   const isOpen = openProp ?? internalOpen
+  const sessionRef = useRef<{ busy: boolean } | null>(null)
+  useLayoutEffect(() => {
+    sessionRef.current = isOpen ? { busy: false } : null
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 新打开会话和Activity恢复必须清理已失效操作的本地状态。
+    setOkLoading(false)
+    setCancelLoading(false)
+    return () => {
+      sessionRef.current = null
+    }
+  }, [isOpen])
   const actionLoading = loading || okLoading || cancelLoading
   const {
     enabled: resizeEnabled,
@@ -76,6 +86,7 @@ function MaDrawer<Payload = unknown>({
       if (eventDetails.isCanceled) return
       if (openProp === undefined) setInternalOpen(nextOpen)
       if (!nextOpen) {
+        sessionRef.current = null
         setOkLoading(false)
         setCancelLoading(false)
       }
@@ -87,18 +98,28 @@ function MaDrawer<Payload = unknown>({
 
   const runAction = useCallback(
     (action: MaDrawerAction, handler: MaDrawerProps['onOk'] | MaDrawerProps['onCancel']) => {
-      if (!handler || actionLoading) {
+      const session = sessionRef.current
+      if (!session) return
+      if (!handler || actionLoading || session.busy) {
         if (!handler) close()
         return
       }
-      const setActionLoading = action === 'ok' ? setOkLoading : setCancelLoading
-      const context: MaDrawerActionContext = { close, setLoading: setActionLoading }
+      const current = () => sessionRef.current === session
+      const actionClose = () => {
+        if (current()) close()
+      }
+      const setActionLoading = (value: boolean) => {
+        if (!current()) return
+        session.busy = value
+        ;(action === 'ok' ? setOkLoading : setCancelLoading)(value)
+      }
+      const context: MaDrawerActionContext = { close: actionClose, setLoading: setActionLoading }
       let result: ReturnType<NonNullable<typeof handler>>
       try {
         result = handler(context)
       } catch (error) {
         setActionLoading(false)
-        onActionError?.(error, action)
+        if (current()) onActionError?.(error, action)
         return
       }
       if (result instanceof Promise) {
@@ -106,15 +127,15 @@ function MaDrawer<Payload = unknown>({
         void result
           .then(value => {
             setActionLoading(false)
-            if (value !== false) close()
+            if (value !== false) actionClose()
           })
           .catch(error => {
             setActionLoading(false)
-            onActionError?.(error, action)
+            if (current()) onActionError?.(error, action)
           })
         return
       }
-      if (result !== false) close()
+      if (result !== false) actionClose()
     },
     [actionLoading, close, onActionError],
   )

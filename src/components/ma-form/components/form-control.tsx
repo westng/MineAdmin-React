@@ -112,7 +112,7 @@ export function FormControl<T extends MaFormModel>({
   item,
   value,
   disabled,
-  setValue,
+  setValue: commitValue,
   id,
   ariaLabel,
   ariaInvalid,
@@ -120,6 +120,10 @@ export function FormControl<T extends MaFormModel>({
 }: FormControlProps<T>): React.ReactNode {
   const rawProps = item.renderProps ?? {}
   const rawAccessibilityProps = rawProps as Record<string, unknown>
+  const readOnly = Boolean(rawAccessibilityProps.readOnly)
+  const setValue = (next: unknown) => {
+    if (!disabled && !readOnly) commitValue(next)
+  }
   const component = item.component ?? item.render ?? 'Input'
   const ariaLabelValue =
     typeof rawAccessibilityProps['aria-label'] === 'string'
@@ -210,6 +214,7 @@ export function FormControl<T extends MaFormModel>({
     const canClear = Boolean(
       clearable &&
       !disabled &&
+      !readOnly &&
       (rootProps.multiple
         ? Array.isArray(value) && value.length > 0
         : value !== undefined && value !== null && value !== ''),
@@ -269,6 +274,7 @@ export function FormControl<T extends MaFormModel>({
             onClick={event => {
               event.preventDefault()
               event.stopPropagation()
+              if (disabled || readOnly) return
               const next = rootProps.multiple ? [] : null
               onChange?.(next)
               setValue(next)
@@ -419,7 +425,9 @@ export function FormControl<T extends MaFormModel>({
     )
   } else if (component === 'Textarea') {
     const { clearable = true, onChange, ...controlProps } = props as MaFormControlPropsMap['Textarea']
-    const canClear = Boolean(clearable && !disabled && value !== undefined && value !== null && value !== '')
+    const canClear = Boolean(
+      clearable && !disabled && !readOnly && value !== undefined && value !== null && value !== '',
+    )
     control = (
       <div className="relative w-full">
         <Textarea
@@ -438,7 +446,9 @@ export function FormControl<T extends MaFormModel>({
     )
   } else {
     const { clearable = true, onChange, ...controlProps } = props as MaFormControlPropsMap['Input']
-    const canClear = Boolean(clearable && !disabled && value !== undefined && value !== null && value !== '')
+    const canClear = Boolean(
+      clearable && !disabled && !readOnly && value !== undefined && value !== null && value !== '',
+    )
     control = (
       <div className="relative w-full">
         <Input

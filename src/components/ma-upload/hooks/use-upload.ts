@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { MaUploadProps } from '../types'
 import type { UploadFileMetadata } from '../types/internal'
 import { normalizeUploadValue, readUploadedUrl, uploadErrorMessage, validateUploadFiles } from '../utils/upload-utils'
@@ -28,19 +28,19 @@ export function useUpload(props: MaUploadProps) {
     latest.current = props
     valuesRef.current = values
   }, [props, values])
+  const cancel = useCallback(() => {
+    const pending = controllerRef.current
+    if (!pending) return
+    controllerRef.current = null
+    pending.abort()
+    setUploading(false)
+    setActiveName('')
+    latest.current.onUploadingChange?.(false)
+  }, [])
   useEffect(() => {
-    if (unavailable) controllerRef.current?.abort()
-  }, [unavailable])
-  useEffect(
-    () => () => {
-      const pending = controllerRef.current
-      controllerRef.current = null
-      pending?.abort()
-      if (pending) latest.current.onUploadingChange?.(false)
-    },
-    [],
-  )
-  useEffect(() => () => controllerRef.current?.abort(), [multiple])
+    if (unavailable) cancel()
+    return cancel
+  }, [unavailable, multiple, cancel])
 
   function changeValues(next: string[]) {
     valuesRef.current = next

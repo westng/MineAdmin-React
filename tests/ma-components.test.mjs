@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { compile } from 'tailwindcss'
 import { Window } from 'happy-dom'
-import { Activity, act, createElement, createRef, useState } from 'react'
+import { Activity, Fragment, act, createElement, createRef, useState } from 'react'
 
 const dom = new Window({
   url: 'http://localhost',
@@ -949,7 +949,7 @@ test('MaForm 不将下拉或弹层控件的标签点击转发为控件点击', a
   const input = view.container.querySelector('input[aria-label="名称"]')
   const select = view.container.querySelector('[data-slot="select-trigger"]')
   const selectLabel = [...view.container.querySelectorAll('label')].find(node => node.textContent.trim() === '状态')
-  assert.equal(input.id, 'name')
+  assert.equal(view.container.querySelector('label').htmlFor, input.id)
   assert.equal(selectLabel.getAttribute('for'), null)
   assert.equal(select.getAttribute('aria-expanded'), 'false')
   await click(selectLabel)
@@ -2826,7 +2826,7 @@ test('MaForm 声明式 DictSelect 和 Upload 回填模型，公共控件不需�
   }
   const view = await mount(t, FormFixture, {})
   const trigger = view.container.querySelector('[data-slot="select-trigger"]')
-  assert.equal(trigger.id, 'platform')
+  assert.ok(trigger.id.endsWith('-platform-0'))
   await click(trigger)
   await click([...document.querySelectorAll('[role="option"]')].find(node => node.textContent.includes('抖音')))
   assert.equal(values.at(-1).platform, 'DY')
@@ -3223,4 +3223,455 @@ test('MaProTable cancels hidden Activity work and resumes without accepting late
   })
   assert.equal(pending[2].signal.aborted, true)
   await act(async () => pending[3].resolve({ list: [], total: 0 }))
+})
+
+const activitySettle = () =>
+  act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 20))
+  })
+async function mountActivity(t, Component) {
+  const view = await mount(t, Activity, { mode: 'visible', children: createElement(Component) })
+  return {
+    container: view.container,
+    render: async mode => {
+      await view.render({ mode: mode ?? 'visible', children: mode === null ? null : createElement(Component) })
+      await activitySettle()
+    },
+  }
+}
+
+for (const name of ['MaDialog', 'MaDrawer']) {
+  test(`Ma Activity: ${name} late success cannot close a different reopened record`, async t => {
+    const pending = deferred()
+    const closes = []
+    function Fixture() {
+      const [record, setRecord] = useState('A')
+      const [open, setOpen] = useState(true)
+      return createElement(
+        Fragment,
+        null,
+        createElement(
+          'button',
+          {
+            onClick: () => {
+              setRecord('B')
+              setOpen(true)
+            },
+          },
+          'Open record B',
+        ),
+        createElement(
+          compiled.exports[name],
+          {
+            open,
+            title: `Record ${record}`,
+            okText: 'Save record',
+            closeProps: { 'aria-label': 'Close review overlay' },
+            onOpenChange: value => {
+              if (!value) closes.push(record)
+              setOpen(value)
+            },
+            onOk: () => pending.promise,
+          },
+          createElement('input', { value: record, readOnly: true }),
+        ),
+      )
+    }
+    await mountActivity(t, Fixture)
+    await click(button(document, 'Save record'))
+    assert.equal(button(document, 'Save record').disabled, true)
+    await click(document.querySelector('button[aria-label="Close review overlay"]'))
+    await activitySettle()
+    assert.deepEqual(closes, ['A'])
+    await click(button(document, 'Open record B'))
+    await activitySettle()
+    assert.equal(document.querySelector('[role="dialog"] input').value, 'B')
+    await act(async () => pending.resolve())
+    await activitySettle()
+    assert.deepEqual(closes, ['A'])
+    assert.equal(document.querySelector('[role="dialog"] input').value, 'B')
+    assert.equal(button(document, 'Save record').disabled, false)
+  })
+}
+
+test('Ma Activity: cached form retains its draft and submits after Activity resumes', async t => {
+  let editor
+  const writes = []
+  function Fixture() {
+    editor = compiled.exports.useMaFormDialog({
+      defaultValues: () => ({ name: 'Synthetic draft' }),
+      onSubmit: values => {
+        writes.push(values.name)
+        return false
+      },
+      onError: error => {
+        throw error
+      },
+    })
+    return createElement(
+      compiled.exports.MaDialog,
+      { ...editor.dialogProps, title: 'Edit record', okText: 'Save record' },
+      createElement(compiled.exports.MaForm, {
+        ...editor.formProps,
+        key: editor.formKey,
+        items: [{ prop: 'name', label: 'Name', itemProps: { rules: { required: true } } }],
+      }),
+    )
+  }
+  const view = await mountActivity(t, Fixture)
+  await act(async () => editor.open(undefined))
+  await activitySettle()
+  await click(button(document, 'Save record'))
+  assert.deepEqual(writes, ['Synthetic draft'])
+  await view.render('hidden')
+  await view.render('visible')
+  assert.equal(editor.dialogProps.open, true)
+  assert.equal(button(document, 'Save record').disabled, false)
+  assert.equal(document.querySelector('[role="dialog"] input').value, 'Synthetic draft')
+  await click(button(document, 'Save record'))
+  await activitySettle()
+  assert.deepEqual(writes, ['Synthetic draft', 'Synthetic draft'])
+  assert.equal(editor.dialogProps.open, true)
+})
+
+test('Ma Activity: confirmation completed while hidden settles on resume', async t => {
+  let confirmation
+  const pending = deferred()
+  let writes = 0
+  function Fixture() {
+    confirmation = compiled.exports.useMaConfirm({
+      onError: error => {
+        throw error
+      },
+    })
+    return createElement(compiled.exports.MaDialog, {
+      ...confirmation.dialogProps,
+      title: 'Confirm record',
+      okText: 'Confirm review',
+    })
+  }
+  const view = await mountActivity(t, Fixture)
+  await act(async () =>
+    confirmation.open({
+      title: 'Confirm record',
+      onConfirm: () => {
+        writes++
+        return pending.promise
+      },
+    }),
+  )
+  await click(button(document, 'Confirm review'))
+  assert.equal(writes, 1)
+  assert.equal(confirmation.dialogProps.loading, true)
+  await view.render('hidden')
+  await act(async () => pending.resolve())
+  await view.render('visible')
+  assert.equal(confirmation.dialogProps.open, false)
+  assert.equal(confirmation.dialogProps.loading, false)
+  await act(async () =>
+    confirmation.open({
+      title: 'Next record',
+      onConfirm: () => {
+        writes++
+      },
+    }),
+  )
+  assert.equal(button(document, 'Confirm review').disabled, false)
+  await click(button(document, 'Confirm review'))
+  assert.equal(writes, 2)
+})
+
+test('Ma Activity upload: Activity cancellation restores controls and permits a new upload', async t => {
+  const pending = deferred()
+  const states = []
+  let signal
+  function Fixture() {
+    return createElement(compiled.exports.MaUpload, {
+      request: (_file, options) => {
+        signal = options.signal
+        return pending.promise
+      },
+      onUploadingChange: value => states.push(value),
+    })
+  }
+  const view = await mountActivity(t, Fixture)
+  const input = view.container.querySelector('input[type="file"]')
+  Object.defineProperty(input, 'files', { configurable: true, value: [new File(['synthetic'], 'review.txt')] })
+  await act(async () => input.dispatchEvent(new dom.Event('change', { bubbles: true })))
+  assert.equal(view.container.querySelector('button').disabled, true)
+  await view.render('hidden')
+  assert.equal(signal.aborted, true)
+  await act(async () => pending.resolve('/synthetic/review.txt'))
+  await view.render('visible')
+  assert.deepEqual(states, [true, false])
+  assert.equal(view.container.querySelector('button').disabled, false)
+  assert.equal(view.container.querySelector('[aria-busy]').getAttribute('aria-busy'), 'false')
+  assert.equal(view.container.querySelector('[data-upload-file]'), null)
+  const nextInput = view.container.querySelector('input[type="file"]')
+  Object.defineProperty(nextInput, 'files', { configurable: true, value: [new File(['new'], 'new.txt')] })
+  await act(async () => nextInput.dispatchEvent(new dom.Event('change', { bubbles: true })))
+  assert.equal(signal.aborted, false)
+  assert.deepEqual(states, [true, false, true, false])
+  assert.ok(view.container.querySelector('[data-upload-file]'))
+})
+
+for (const control of ['Input', 'Password', 'Textarea', 'Select']) {
+  test(`Ma readonly: ${control} read-only controls cannot clear their value`, async t => {
+    const ref = createRef()
+    function Fixture() {
+      return createElement(compiled.exports.MaForm, {
+        ref,
+        defaultValue: { field: 'synthetic' },
+        items: [
+          {
+            prop: 'field',
+            label: 'Read only',
+            render: control,
+            renderProps: {
+              readOnly: true,
+              ...(control === 'Select' ? { options: [{ label: 'Synthetic', value: 'synthetic' }] } : {}),
+            },
+          },
+        ],
+      })
+    }
+    const view = await mountActivity(t, Fixture)
+    assert.equal(ref.current.getValues().field, 'synthetic')
+    if (control !== 'Select') assert.equal(view.container.querySelector('input,textarea').readOnly, true)
+    assert.equal(view.container.querySelector('button[aria-label="清除"]'), null)
+    assert.equal(ref.current.getValues().field, 'synthetic')
+  })
+}
+
+test('Ma labels: same field in two forms has distinct controls and matching labels', async t => {
+  function Fixture() {
+    return createElement(
+      Fragment,
+      null,
+      createElement(compiled.exports.MaForm, {
+        defaultValue: { name: 'First' },
+        items: [{ prop: 'name', label: 'First form name' }],
+      }),
+      createElement(compiled.exports.MaForm, {
+        defaultValue: { name: 'Second' },
+        items: [{ prop: 'name', label: 'Second form name' }],
+      }),
+    )
+  }
+  const view = await mountActivity(t, Fixture)
+  const [first, second] = view.container.querySelectorAll('input')
+  const labels = view.container.querySelectorAll('label')
+  assert.notEqual(first.id, second.id)
+  assert.equal(labels[0].control, first)
+  assert.equal(labels[1].htmlFor, second.id)
+  assert.equal(labels[1].control, second)
+})
+
+test('MaRemoteSelect retries a canceled second page after Activity resumes', async t => {
+  const secondPage = deferred()
+  const requests = []
+  const request = async config => {
+    requests.push(config)
+    if (config.params.page === 1) return { data: { items: [{ value: 'one', label: 'First option' }], total: 2 } }
+    return secondPage.promise
+  }
+  function Fixture() {
+    return createElement(compiled.exports.MaRemoteSelect, {
+      url: '/synthetic/options',
+      request,
+      pageSize: 1,
+      'aria-label': 'Remote review',
+    })
+  }
+  const view = await mountActivity(t, Fixture)
+  await click(document.querySelector('button[aria-label="Remote review"]'))
+  await activitySettle()
+  assert.equal(requests.length, 1)
+  assert.match(document.body.textContent, /First option/)
+  const list = document.querySelector('[role="listbox"]')
+  assert.ok(list)
+  await act(async () => list.dispatchEvent(new dom.Event('scroll')))
+  await activitySettle()
+  assert.equal(requests.length, 2)
+  assert.equal(requests[1].params.page, 2)
+  await view.render('hidden')
+  assert.equal(requests[1].signal.aborted, true)
+  await act(async () => secondPage.resolve({ data: { items: [{ value: 'two', label: 'Second option' }], total: 2 } }))
+  await view.render('visible')
+  assert.equal(requests.length, 2)
+  assert.doesNotMatch(document.body.textContent, /正在加载/)
+  assert.doesNotMatch(document.body.textContent, /Second option/)
+  const resumedList = document.querySelector('[role="listbox"]')
+  assert.ok(resumedList)
+  await act(async () => resumedList.dispatchEvent(new dom.Event('scroll')))
+  await activitySettle()
+  assert.equal(requests.length, 3)
+  assert.equal(requests[2].params.page, 2)
+  assert.match(document.body.textContent, /Second option/)
+})
+
+for (const name of ['MaDialog', 'MaDrawer']) {
+  test(`${name} ignores old loading, close and error callbacks while the next action runs`, async t => {
+    const first = deferred(),
+      second = deferred(),
+      failures = [],
+      contexts = []
+    let setOpen, setRecord
+    function Fixture() {
+      const [open, changeOpen] = useState(true),
+        [record, changeRecord] = useState('A')
+      setOpen = changeOpen
+      setRecord = changeRecord
+      return createElement(compiled.exports[name], {
+        open,
+        title: record,
+        okText: 'Save new action',
+        onOpenChange: changeOpen,
+        onActionError: error => failures.push(error),
+        onOk: context => {
+          contexts.push(context)
+          return record === 'A' ? first.promise : second.promise
+        },
+      })
+    }
+    await mountActivity(t, Fixture)
+    await click(button(document, 'Save new action'))
+    await act(async () => setOpen(false))
+    await act(async () => {
+      setRecord('B')
+      setOpen(true)
+    })
+    await click(button(document, 'Save new action'))
+    await act(async () => {
+      contexts[0].setLoading(false)
+      contexts[0].close()
+      first.reject(new Error('old action error'))
+    })
+    assert.equal(button(document, 'Save new action').disabled, true)
+    assert.deepEqual(failures, [])
+    assert.ok(document.querySelector('[role="dialog"]'))
+    await act(async () => second.resolve())
+    assert.equal(document.querySelector('[role="dialog"]'), null)
+  })
+}
+
+for (const end of ['resume', 'destroy']) {
+  test(`form submission completed during Activity absence: ${end}`, async t => {
+    const pending = deferred(),
+      successes = [],
+      errors = []
+    let editor,
+      writes = 0
+    function Fixture() {
+      editor = compiled.exports.useMaFormDialog({
+        defaultValues: () => ({ name: 'Draft' }),
+        onSubmit: () => {
+          writes++
+          return pending.promise
+        },
+        onSuccess: values => successes.push(values),
+        onError: error => errors.push(error),
+      })
+      return createElement(
+        MaDialog,
+        { ...editor.dialogProps, title: 'Draft', okText: 'Save draft' },
+        createElement(MaForm, { ...editor.formProps, items: [{ prop: 'name', label: 'Name' }] }),
+      )
+    }
+    const view = await mountActivity(t, Fixture)
+    await act(async () => editor.open(undefined))
+    await click(button(document, 'Save draft'))
+    assert.equal(writes, 1)
+    await view.render(end === 'destroy' ? null : 'hidden')
+    await act(async () => pending.resolve())
+    assert.deepEqual(successes, [])
+    assert.deepEqual(errors, [])
+    if (end === 'resume') {
+      await view.render('visible')
+      assert.equal(editor.saving, false)
+      assert.equal(editor.dialogProps.open, false)
+      assert.deepEqual(successes, [{ name: 'Draft' }])
+      await view.render('hidden')
+      await view.render('visible')
+      assert.equal(successes.length, 1)
+      assert.equal(writes, 1)
+    }
+  })
+}
+
+test('form load canceled by Activity restarts on resume and ignores the old response', async t => {
+  const pending = [],
+    errors = []
+  let editor
+  function Fixture() {
+    editor = compiled.exports.useMaFormDialog({
+      defaultValues: () => ({ name: '' }),
+      loadValues: (_data, signal) => {
+        const request = deferred()
+        pending.push({ ...request, signal })
+        return request.promise
+      },
+      onSubmit: () => false,
+      onError: error => errors.push(error),
+    })
+    return createElement(
+      MaDialog,
+      { ...editor.dialogProps, title: 'Load', okText: 'Save loaded' },
+      createElement(MaForm, { ...editor.formProps, items: [{ prop: 'name', label: 'Name' }] }),
+    )
+  }
+  const view = await mountActivity(t, Fixture)
+  await act(async () => editor.open(undefined))
+  await view.render('hidden')
+  assert.equal(pending[0].signal.aborted, true)
+  await view.render('visible')
+  assert.equal(pending.length, 2)
+  await act(async () => pending[1].resolve({ name: 'Current' }))
+  await act(async () => pending[0].resolve({ name: 'Old' }))
+  assert.equal(document.querySelector('[role="dialog"] input').value, 'Current')
+  assert.equal(editor.ready, true)
+  assert.deepEqual(errors, [])
+})
+
+test('MaForm explicit IDs and colliding punctuation paths keep distinct labels and error descriptions', async t => {
+  const first = createRef(),
+    second = createRef()
+  function Fixture() {
+    return createElement(
+      Fragment,
+      null,
+      createElement(MaForm, {
+        ref: first,
+        items: [
+          { prop: 'a.b', label: 'Nested', itemProps: { rules: { required: true } } },
+          { prop: 'a-b', label: 'Hyphen', itemProps: { rules: { required: true } } },
+        ],
+      }),
+      createElement(MaForm, {
+        ref: second,
+        items: [
+          {
+            prop: 'a.b',
+            label: 'Explicit',
+            renderProps: { id: 'explicit-field' },
+            itemProps: { rules: { required: true } },
+          },
+        ],
+      }),
+    )
+  }
+  const view = await mountActivity(t, Fixture)
+  await act(async () => {
+    await first.current.validate()
+    await second.current.validate()
+  })
+  const inputs = [...view.container.querySelectorAll('input')],
+    labels = [...view.container.querySelectorAll('label')]
+  assert.equal(new Set(inputs.map(input => input.id)).size, 3)
+  assert.equal(inputs[2].id, 'explicit-field')
+  for (let i = 0; i < inputs.length; i++) {
+    assert.equal(labels[i].control, inputs[i])
+    assert.ok(document.getElementById(inputs[i].getAttribute('aria-describedby')))
+  }
+  assert.equal(new Set(inputs.map(input => input.getAttribute('aria-describedby'))).size, 3)
 })
