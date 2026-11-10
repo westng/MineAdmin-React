@@ -658,6 +658,8 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
 /** What the `[]`-dep callbacks would otherwise close over. One ref, one
  * effect, so "the last committed render" is defined in exactly one place. */
 interface CascaderLatest<T> {
+  disabled: boolean
+  readOnly: boolean
   index: CascaderIndex<T>
   state: CascaderStateContextValue<T>
   mode: CascaderMode
@@ -1526,6 +1528,8 @@ function Cascader<T>({
    * handlers may read it. Anything used during render is memoised instead.
    */
   const latest = React.useRef<CascaderLatest<T>>({
+    disabled: !!disabled,
+    readOnly: !!readOnly,
     index,
     state: stateValue,
     mode,
@@ -1545,6 +1549,8 @@ function Cascader<T>({
 
   React.useEffect(() => {
     latest.current = {
+      disabled: !!disabled,
+      readOnly: !!readOnly,
       index,
       state: stateValue,
       mode,
@@ -1699,6 +1705,7 @@ function Cascader<T>({
       node: CascaderNode<T> | null,
       reason: CascaderChangeReason
     ) => {
+      if (latest.current.disabled || latest.current.readOnly) return
       const {
         selectedValues: current,
         multiple: currentMultiple,
@@ -1761,6 +1768,7 @@ function Cascader<T>({
 
   const commit = React.useCallback(
     (node: CascaderNode<T>) => {
+      if (latest.current.disabled || latest.current.readOnly || node.disabled || !latest.current.isSelectable(node)) return
       const {
         multiple: currentMultiple,
         cascade: currentCascade,
@@ -2000,10 +2008,12 @@ function Cascader<T>({
    * change or a highlight, which is what makes `React.memo` on `CascaderItem`
    * hold while the user types. Destructured off `loader` so the memo depends
    * on its `[]`-dep callbacks, not the object it republishes per load. */
-  const { active: hasLoader, loadMore, retryLevel, prefetchNode } = loader
+  const { active: hasLoader, loadMore, retryLevel, retrySearch, prefetchNode } = loader
 
   const actionsValue = React.useMemo<CascaderActionsContextValue<T>>(
     () => ({
+      disabled: !!disabled,
+      readOnly: !!readOnly,
       index,
       mode,
       multiple,
@@ -2027,6 +2037,7 @@ function Cascader<T>({
       hasLoader,
       loadMore,
       retryLevel,
+      retrySearch,
       invalidateLevel,
       getIndex,
       getState,
@@ -2051,6 +2062,8 @@ function Cascader<T>({
       selectedDescendantCount,
     }),
     [
+      disabled,
+      readOnly,
       index,
       mode,
       multiple,
@@ -2074,6 +2087,7 @@ function Cascader<T>({
       hasLoader,
       loadMore,
       retryLevel,
+      retrySearch,
       invalidateLevel,
       getIndex,
       getState,
@@ -2820,7 +2834,7 @@ function CascaderEmpty({
   skeletonRows,
   ...props
 }: CascaderEmptyProps) {
-  const { labels, retryLevel } = useCascaderActions()
+  const { labels, retryLevel, retrySearch } = useCascaderActions()
   const { query, path, searchState } = useCascaderState()
   // The level whose emptiness is on screen; tree always shows the root.
   const levelKey = path.length ? path[path.length - 1] : CASCADER_ROOT_KEY
@@ -2841,7 +2855,7 @@ function CascaderEmpty({
           data-slot="cascader-retry"
           /* A real button because this lives OUTSIDE the listbox; a focusable
              element inside a `role="option"` is `nested-interactive`. */
-          onClick={() => retryLevel(levelKey)}
+          onClick={() => query.trim() && searchState ? retrySearch() : retryLevel(levelKey)}
           className="text-foreground hover:bg-accent focus-visible:ring-ring/50 rounded-md px-2 py-0.5 font-medium outline-hidden transition-colors focus-visible:ring-2"
         >
           {labels.retry}

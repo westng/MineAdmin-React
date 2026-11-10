@@ -191,6 +191,8 @@ const CascaderItem = React.memo(function CascaderItem({
 }: CascaderItemProps) {
   // The ACTIONS context only: the state context republishes on every keystroke.
   const {
+    disabled,
+    readOnly,
     index: treeIndex,
     mode,
     labels,
@@ -254,8 +256,8 @@ const CascaderItem = React.memo(function CascaderItem({
 
   const handleClick = React.useCallback(
     (event: CascaderRowEvent) => {
+      if (disabled || readOnly || node.disabled) return
       onClick?.(event)
-      if (node.disabled) return
       if (branch && !selectable) {
         veto(event)
         navigate(node)
@@ -328,8 +330,8 @@ const CascaderItem = React.memo(function CascaderItem({
 
   const handleButtonClick = React.useCallback(
     (event: CascaderRowEvent) => {
+      if (disabled || readOnly || node.disabled) return
       onClick?.(event)
-      if (node.disabled) return
       if (branch && !selectable) {
         // Button rows only exist in the columns trail, where `depth` is the
         // column's own depth, so navigating replaces the trail from here.
@@ -338,7 +340,7 @@ const CascaderItem = React.memo(function CascaderItem({
       }
       if (selectable) commit(node)
     },
-    [onClick, node, branch, selectable, navigateAt, depth, commit]
+    [onClick, disabled, readOnly, node, branch, selectable, navigateAt, depth, commit]
   )
 
   // The paging row's press, never a selection, whatever `selectable` says.
@@ -774,11 +776,11 @@ const CascaderItem = React.memo(function CascaderItem({
         {...shared}
         /* Focus stays in the search input; the trail uses ArrowLeft. */
         tabIndex={-1}
-        disabled={node.disabled}
-        aria-disabled={node.disabled || undefined}
         onClick={handleButtonClick}
         onMouseDown={handleButtonMouseDown}
         {...buttonProps}
+        disabled={node.disabled || disabled || readOnly || buttonProps.disabled}
+        aria-disabled={node.disabled || disabled || readOnly || buttonProps.disabled || undefined}
       >
         {body}
       </button>

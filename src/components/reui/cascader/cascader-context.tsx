@@ -105,6 +105,8 @@ export function useCascaderState<T = unknown>(): CascaderStateContextValue<T> {
  * return the previous commit's answer, so each is memoised on its own input.
  */
 export interface CascaderActionsContextValue<T = unknown> {
+  disabled: boolean
+  readOnly: boolean
   index: CascaderIndex<T>
   mode: CascaderMode
   multiple: boolean
@@ -147,6 +149,7 @@ export interface CascaderActionsContextValue<T = unknown> {
   /** Next page of a level. Latched: a page with nothing new is not re-asked. */
   loadMore: (parentKey: string) => void
   retryLevel: (parentKey: string) => void
+  retrySearch: () => void
   /**
    * Evicts one level's async cache, `null` for the root, so membership reads
    * never-loaded. A level that is on screen when evicted refetches at once.

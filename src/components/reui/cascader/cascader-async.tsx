@@ -111,6 +111,7 @@ export interface CascaderLoader<T = unknown> {
   loadMore: (parentKey: string) => void
   /** Refires a failed level. No-ops unless that level is in an error state. */
   retryLevel: (parentKey: string) => void
+  retrySearch: () => void
   /** Schedules a speculative fetch. Safe to call on every highlight move. */
   prefetchNode: (node: CascaderNode<T> | null | undefined) => void
   /**
@@ -252,6 +253,8 @@ function withChain<T>(
 /* -------------------------------------------------------------------------- */
 
 interface CascaderLoaderLatest<T> {
+  enabled: boolean
+  query: string
   base: CascaderIndex<T>
   store: CascaderLoaderStore<T>
   getChildren?: CascaderGetChildren<T>
@@ -304,6 +307,8 @@ export function useCascaderLoader<T = unknown>({
    * already sees the current commit.
    */
   const latest = React.useRef<CascaderLoaderLatest<T>>({
+    enabled,
+    query,
     base,
     store,
     getChildren,
@@ -316,6 +321,8 @@ export function useCascaderLoader<T = unknown>({
 
   React.useEffect(() => {
     latest.current = {
+      enabled,
+      query,
       base,
       store,
       getChildren,
@@ -408,10 +415,10 @@ export function useCascaderLoader<T = unknown>({
       )
 
       const settle = () => {
-        if (inflight.current.get(key) === signature)
-          inflight.current.delete(key)
         if (controllers.current.get(key) === controller) {
           controllers.current.delete(key)
+          if (inflight.current.get(key) === signature)
+            inflight.current.delete(key)
         }
       }
 
@@ -625,6 +632,11 @@ export function useCascaderLoader<T = unknown>({
     [abortKey, remember]
   )
 
+  const retrySearch = React.useCallback(() => {
+    const { enabled: active, query: text, onSearch: searcher } = latest.current
+    if (active && searcher && text.trim()) runSearch(text.trim())
+  }, [runSearch])
+
   /* --------------------------------- resolve ------------------------------- */
 
   const runResolve = React.useCallback(
@@ -677,6 +689,11 @@ export function useCascaderLoader<T = unknown>({
     for (const controller of controllers.current.values()) controller.abort()
     controllers.current.clear()
     inflight.current.clear()
+    // Release only canceled requests. A completed no-progress page keeps its latch.
+    for (const key of keys) {
+      moreLatch.current.delete(key)
+      if (key.startsWith(RESOLVE_PREFIX)) attempted.current.delete(key.slice(RESOLVE_PREFIX.length))
+    }
 
     const holder = timers.current
     if (holder.prefetch) {
@@ -691,7 +708,7 @@ export function useCascaderLoader<T = unknown>({
         const state = prev.states.get(key)
         if (!state?.loading) continue
         states = states ?? new Map(prev.states)
-        if ((prev.pages.get(key)?.length ?? 0) > 0) {
+        if (prev.pages.has(key)) {
           states.set(key, { ...state, loading: false })
         } else {
           // No entry AT ALL: membership is what says "loaded", so a stranded
@@ -742,22 +759,9 @@ export function useCascaderLoader<T = unknown>({
     cancelAll()
   }, [enabled, cancelAll])
 
-  React.useEffect(() => {
-    const active = controllers.current
-    const holder = timers.current
-    const pending = inflight.current
-    const ids = requestIds.current
-    return () => {
-      for (const controller of active.values()) controller.abort()
-      active.clear()
-      // Cleared WITH the controllers, for StrictMode's dev remount: a stale
-      // inflight signature would make `runLoad` skip the refetch forever. The
-      // aborted promises are stale-guarded, so emptying the ids is safe.
-      pending.clear()
-      ids.clear()
-      if (holder.prefetch) clearTimeout(holder.prefetch)
-    }
-  }, [])
+  // Activity disconnects effects but retains refs and state. Use the same
+  // cancellation path as closing so unfinished levels remain retryable.
+  React.useEffect(() => () => cancelAll(), [cancelAll])
 
   /* ------------------------------- the effects ----------------------------- */
 
@@ -791,7 +795,7 @@ export function useCascaderLoader<T = unknown>({
       clearTimeout(timer)
       abortKey(SEARCH_KEY)
     }
-  }, [hasSearch, enabled, trimmed, searchDebounce, abortKey, runSearch])
+  }, [hasSearch, enabled, trimmed, searchDebounce, loadKey, abortKey, runSearch])
 
   React.useEffect(() => {
     if (!enabled || !hasResolve) return
@@ -836,6 +840,7 @@ export function useCascaderLoader<T = unknown>({
       ensureLevel,
       loadMore,
       retryLevel,
+      retrySearch,
       invalidateLevel,
       prefetchNode,
     }),
@@ -847,6 +852,7 @@ export function useCascaderLoader<T = unknown>({
       ensureLevel,
       loadMore,
       retryLevel,
+      retrySearch,
       invalidateLevel,
       prefetchNode,
     ]
