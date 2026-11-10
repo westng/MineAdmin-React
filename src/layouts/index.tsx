@@ -1,4 +1,3 @@
-import type { ShellPagePolicy } from './slots'
 import { useRuntime } from '@/hooks/runtime/use-runtime'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
@@ -18,7 +17,6 @@ import { ShellProvider } from './shell-provider'
 import { ShellSlotOutlet } from './slot-outlet'
 import type { LayoutDefinition } from './registry'
 import { useSettingStore } from '@/store/settings/use-settings'
-import type { AppSettings } from '@/store/settings/types'
 import { VerveHeader } from './verve'
 import { VerveSectionNavigation, VerveSectionToggle } from './verve/section-navigation'
 import { VerveNavigationProvider } from './verve/navigation-provider'
@@ -64,105 +62,32 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
   const policy = policies.find(item => item.path === location.pathname)
   const Navigation = layout.navigation
   const HeaderNavigation = layout.headerNavigation
-  if (layout.shell === 'inset')
-    return renderInsetLayout({ layout, location, policy, t, sidebarDefaultOpen, contentWidth })
+  const inset = layout.shell === 'inset'
 
+  // Keep the Outlet's ancestors stable so layout previews preserve page state and navigation blockers.
   return (
     <SidebarProvider
       data-layout={layout.id}
       defaultOpen={sidebarDefaultOpen}
-      className="flex h-svh min-h-0 flex-col overflow-hidden [--sidebar-accent:color-mix(in_oklab,var(--color-primary)_5%,transparent)] [--sidebar-accent-foreground:var(--color-primary)]"
+      className={cn(
+        'flex h-svh min-h-0 flex-col overflow-hidden',
+        inset
+          ? 'bg-muted/20 [--sidebar-accent:color-mix(in_oklab,var(--foreground)_5%,transparent)] [--sidebar-accent-foreground:var(--foreground)]'
+          : '[--sidebar-accent:color-mix(in_oklab,var(--color-primary)_5%,transparent)] [--sidebar-accent-foreground:var(--color-primary)]',
+      )}
       style={
         {
-          '--sidebar-width': '260px',
-          '--sidebar-width-icon': '62px',
+          '--sidebar-width': inset ? '63px' : '260px',
+          '--sidebar-width-icon': inset ? '47px' : '62px',
           '--header-height': '50px',
-          '--shell-header-height': HeaderNavigation ? '94px' : '50px',
+          '--shell-header-height': !inset && HeaderNavigation ? '94px' : '50px',
           minHeight: 0,
         } as CSSProperties
       }
     >
       <TooltipProvider>
         <HeaderActionsProvider>
-          <a
-            href="#main-content"
-            onClick={focusMainContent}
-            className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2"
-          >
-            {t('shell.skipContent')}
-          </a>
-          <Header className="shrink-0" />
-          {HeaderNavigation && (
-            <div className="h-11 shrink-0 overflow-hidden">
-              <HeaderNavigation />
-            </div>
-          )}
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <ErrorBoundary label={tx('导航')}>
-              <Navigation />
-            </ErrorBoundary>
-            <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />
-            <SidebarInset className="min-w-0 min-h-0 flex-1 overflow-hidden">
-              <Tabbar />
-              <main
-                id="main-content"
-                tabIndex={-1}
-                className={cn(
-                  'mine-main flex min-h-0 flex-1 flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-                  policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
-                )}
-              >
-                <div className={cn('w-full', contentWidth !== 'full' && 'mx-auto max-w-7xl')}>
-                  <div className={cn('w-full', policy?.padding !== false && 'p-4 md:p-6')}>
-                    <Outlet />
-                  </div>
-                </div>
-              </main>
-            </SidebarInset>
-            <AiAgents />
-          </div>
-        </HeaderActionsProvider>
-        <BackTop />
-        <ShellSlotOutlet slot="shell.overlays" pathname={location.pathname} />
-      </TooltipProvider>
-    </SidebarProvider>
-  )
-}
-
-function renderInsetLayout({
-  layout,
-  location,
-  policy,
-  t,
-  sidebarDefaultOpen,
-  contentWidth,
-}: {
-  layout: LayoutDefinition
-  location: ReturnType<typeof useLocation>
-  policy: ShellPagePolicy | undefined
-  t: ReturnType<typeof useTranslate>
-  sidebarDefaultOpen: boolean
-  contentWidth: AppSettings['contentWidth']
-}) {
-  const Navigation = layout.navigation
-
-  return (
-    <SidebarProvider
-      data-layout={layout.id}
-      defaultOpen={sidebarDefaultOpen}
-      className="flex h-svh min-h-0 overflow-hidden bg-muted/20 [--sidebar-accent:color-mix(in_oklab,var(--foreground)_5%,transparent)] [--sidebar-accent-foreground:var(--foreground)]"
-      style={
-        {
-          '--sidebar-width': '63px',
-          '--sidebar-width-icon': '47px',
-          '--header-height': '50px',
-          minHeight: 0,
-        } as CSSProperties
-      }
-    >
-      <TooltipProvider>
-        <HeaderActionsProvider>
-          <VerveNavigationProvider>
+          <VerveNavigationProvider className={cn('flex-col overflow-hidden', inset && 'verve-shell')}>
             <a
               href="#main-content"
               onClick={focusMainContent}
@@ -170,32 +95,50 @@ function renderInsetLayout({
             >
               {t('shell.skipContent')}
             </a>
-            <ErrorBoundary label={t('导航')}>
-              <Navigation />
-            </ErrorBoundary>
-            <SidebarInset className="min-h-0 min-w-0 flex-1 overflow-hidden border border-border shadow-none md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-0">
-              <VerveHeader />
-              <div className="flex min-h-0 flex-1 overflow-hidden">
-                <VerveSectionNavigation />
-                <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />
-                <main
-                  id="main-content"
-                  tabIndex={-1}
-                  className={cn(
-                    'mine-main flex min-h-0 min-w-0 flex-1 flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-                    policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
-                  )}
-                >
-                  <div className={cn('w-full', contentWidth !== 'full' && 'mx-auto max-w-7xl')}>
-                    <div className={cn('w-full', policy?.padding !== false && 'p-4 md:p-6')}>
-                      <Outlet />
-                    </div>
-                  </div>
-                </main>
-                <AiAgents />
+            {!inset && <Header className="shrink-0" />}
+            {!inset && HeaderNavigation && (
+              <div className="h-11 shrink-0 overflow-hidden">
+                <HeaderNavigation />
               </div>
-            </SidebarInset>
-            <VerveSectionToggle />
+            )}
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <ErrorBoundary label={tx('导航')}>
+                <Navigation />
+              </ErrorBoundary>
+              {!inset && <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />}
+              <SidebarInset
+                className={cn(
+                  'min-h-0 min-w-0 flex-1 overflow-hidden',
+                  inset &&
+                    'border border-border shadow-none md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-0',
+                )}
+              >
+                {inset && <VerveHeader />}
+                <div className="flex min-h-0 flex-1 overflow-hidden">
+                  {inset && <VerveSectionNavigation />}
+                  {inset && <ShellSlotOutlet slot="shell.pane" pathname={location.pathname} />}
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                    {!inset && <Tabbar />}
+                    <main
+                      id="main-content"
+                      tabIndex={-1}
+                      className={cn(
+                        'mine-main flex min-h-0 min-w-0 flex-1 flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                        policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
+                      )}
+                    >
+                      <div className={cn('w-full', contentWidth !== 'full' && 'mx-auto max-w-7xl')}>
+                        <div className={cn('w-full', policy?.padding !== false && 'p-4 md:p-6')}>
+                          <Outlet />
+                        </div>
+                      </div>
+                    </main>
+                  </div>
+                  <AiAgents />
+                </div>
+              </SidebarInset>
+            </div>
+            {inset && <VerveSectionToggle />}
             <BackTop />
             <ShellSlotOutlet slot="shell.overlays" pathname={location.pathname} />
           </VerveNavigationProvider>

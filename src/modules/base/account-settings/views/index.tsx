@@ -303,7 +303,6 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   const layouts = useSyncExternalStore(layoutRegistry.subscribe, layoutRegistry.getSnapshot, layoutRegistry.getSnapshot)
   const [settings, setSettings] = useState(() => readAccountSettings(activeUserInfo))
   const [tabbarEnabled, setTabbarEnabled] = useState(() => readTabbarEnabled(activeUserInfo, tabbarEnabledInStore))
-  const [selectedLayout, setSelectedLayout] = useState(appSettings.layout)
   const [savedSettings, setSavedSettings] = useState(() => ({
     account: readAccountSettings(activeUserInfo),
     app: savedAppearanceSettings(activeUserInfo, appSettings),
@@ -316,7 +315,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
     tabbarEnabled !== savedSettings.tabbarEnabled ||
     appSettings.colorMode !== savedSettings.app.colorMode ||
     appSettings.primaryColor !== savedSettings.app.primaryColor ||
-    selectedLayout !== savedSettings.app.layout ||
+    appSettings.layout !== savedSettings.app.layout ||
     appSettings.contentWidth !== savedSettings.app.contentWidth
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -339,7 +338,6 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   function discardChanges() {
     setSettings(savedSettings.account)
     setTabbarEnabled(savedSettings.tabbarEnabled)
-    setSelectedLayout(savedSettings.app.layout)
     const currentSettings = runtime.settings.getState().settings
     setSystemSettings({
       app: { ...currentSettings.app, ...savedSettings.app },
@@ -353,7 +351,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   }
 
   function updateLayout(layout: string) {
-    setSelectedLayout(layout)
+    setSystemSettings({ app: { ...runtime.settings.getState().settings.app, layout } })
   }
 
   function updateContentWidth(contentWidth: AppSettings['contentWidth']) {
@@ -368,19 +366,14 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
   async function saveSettings(leaveAfterSave = false) {
     setSaving(true)
     try {
-      const nextAppSettings = { ...appSettings, layout: selectedLayout }
+      const nextAppSettings = { ...appSettings }
       const backendSetting = mergeAccountSettings(activeUserInfo, settings, nextAppSettings, tabbarEnabled)
       await updateCurrentUser({ backend_setting: backendSetting })
       const nextUserInfo = { ...(activeUserInfo || {}), backend_setting: backendSetting }
       onUserInfoChange?.(nextUserInfo)
       if (!userInfo) setStoreUserInfo(nextUserInfo)
       setSavedSettings({ account: settings, app: appearanceSettings(nextAppSettings), tabbarEnabled })
-      // Continue the blocked navigation before applying a layout that may remount this page.
       if (leaveAfterSave && blocker.state === 'blocked') blocker.proceed()
-      setSystemSettings({
-        app: { ...runtime.settings.getState().settings.app, layout: selectedLayout },
-        tabbar: { ...runtime.settings.getState().settings.tabbar, enable: tabbarEnabled },
-      })
       toast.success(tx('账号设置已保存'))
       return true
     } catch (error) {
@@ -459,12 +452,12 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
                 </IconTile>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{tx('布局')}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择布局后，点击下方“保存设置”生效。')}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择后即时预览，保存设置后保留。')}</p>
                 </div>
                 <PreviewPicker
                   label={tx('布局')}
                   options={layouts.filter(layout => layout.enabled !== false)}
-                  value={layoutRegistry.resolve(selectedLayout).id}
+                  value={layoutRegistry.resolve(appSettings.layout).id}
                   onChange={updateLayout}
                   renderPreview={kind => <LayoutPreview kind={kind} />}
                 />

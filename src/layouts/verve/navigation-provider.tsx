@@ -2,8 +2,12 @@ import { useState, type CSSProperties, type PropsWithChildren } from 'react'
 import { useShell } from '@/layouts/hooks/use-shell'
 import { findMenuTrail, getMenuPath, isVisibleMenu } from '@/router/navigation/menu'
 import { VerveNavigationContext } from './navigation-context'
+import { cn } from '@/utils/cn'
 
-export function VerveNavigationProvider({ children }: PropsWithChildren) {
+export function VerveNavigationProvider({
+  children,
+  className = 'verve-shell',
+}: PropsWithChildren<{ className?: string }>) {
   const { menus, pathname } = useShell()
   const [selection, setSelection] = useState<{ path: string | null; pathname: string }>()
   const [width, setWidth] = useState(200)
@@ -27,7 +31,7 @@ export function VerveNavigationProvider({ children }: PropsWithChildren) {
       }}
     >
       <div
-        className="verve-shell flex min-h-0 w-full flex-1"
+        className={cn('flex min-h-0 min-w-0 w-full flex-1', className)}
         style={{ '--verve-section-width': `${width}px` } as CSSProperties}
       >
         {children}

@@ -336,7 +336,7 @@ test('Unsaved preferences warn on unload and allow continuing or discarding befo
   await act(async () => container.querySelector('[role="switch"][aria-label="是否多设备登录"]').click())
   assert.equal(unloadIsBlocked(), true)
   assert.deepEqual(api.profile, savedProfile)
-  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
   await act(async () => router.navigate('/other'))
   assert.equal(router.state.location.pathname, '/preferences')
   assert.ok(preferencesButton('保存并离开'))
@@ -410,7 +410,7 @@ test('Unsaved layout changes revert to the server setting after refresh', async 
   const api = accountPreferencesFixture(t)
   await mountAccountPreferences(t)
   await act(async () => document.querySelector('[role="radio"][aria-label="分栏导航"]').click())
-  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
+  assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
   assert.equal(api.profile.backend_setting.app.layout, 'classic')
   await act(async () => {
     core.sessionManager.setState({ initialized: false })
@@ -419,38 +419,44 @@ test('Unsaved layout changes revert to the server setting after refresh', async 
   assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
 })
 
-test('Layout drafts survive in the application shell and save before leaving', async t => {
-  const api = accountPreferencesFixture(t)
-  const app = { ...runtime(), session: core.sessionManager }
-  let navigate
-  function Preferences() {
-    navigate = useNavigate()
-    return React.createElement(core.AccountSettingsPage)
-  }
-  app.testStaticRoutes = [
-    { name: 'preferences', path: '/preferences', element: React.createElement(Preferences) },
-    { name: 'other', path: '/other', element: React.createElement('p', null, 'other-page') },
-  ]
-  setMenus(app, [])
-  window.history.replaceState(null, '', '/#/preferences')
-  const container = await mount(
-    React.createElement(core.RuntimeContext.Provider, { value: app }, React.createElement(core.AppRouter)),
-  )
-  const layout = container.querySelector('[role="radio"][aria-label="分栏导航"]')
-  assert.ok(layout, container.textContent.slice(0, 400))
-  await act(async () => layout.click())
-  assert.equal(container.querySelector('[role="radio"][aria-label="分栏导航"]').getAttribute('aria-checked'), 'true')
-  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
-  assert.equal(unloadIsBlocked(), true)
-  await act(async () => navigate('/other'))
-  assert.equal(window.location.hash, '#/preferences')
-  await act(async () => preferencesButton('保存并离开').click())
-  assert.equal(window.location.hash, '#/other')
-  assert.match(container.textContent, /other-page/)
-  assert.equal(api.profile.backend_setting.app.layout, 'columns')
-  assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
-  assert.equal(unloadIsBlocked(), false)
-})
+for (const leaveAction of ['保存并离开', '放弃修改']) {
+  test(`Layout drafts survive in the application shell before ${leaveAction}`, async t => {
+    const api = accountPreferencesFixture(t)
+    const app = { ...runtime(), session: core.sessionManager }
+    let navigate
+    function Preferences() {
+      navigate = useNavigate()
+      return React.createElement(core.AccountSettingsPage)
+    }
+    app.testStaticRoutes = [
+      { name: 'preferences', path: '/preferences', element: React.createElement(Preferences) },
+      { name: 'other', path: '/other', element: React.createElement('p', null, 'other-page') },
+    ]
+    setMenus(app, [])
+    window.history.replaceState(null, '', '/#/preferences')
+    const container = await mount(
+      React.createElement(core.RuntimeContext.Provider, { value: app }, React.createElement(core.AppRouter)),
+    )
+    const layout = container.querySelector('[role="radio"][aria-label="分栏导航"]')
+    assert.ok(layout, container.textContent.slice(0, 400))
+    await act(async () => layout.click())
+    assert.equal(container.querySelector('[role="radio"][aria-label="分栏导航"]').getAttribute('aria-checked'), 'true')
+    assert.equal(core.useSettingStore.getState().settings.app.layout, 'columns')
+    assert.equal(container.querySelector('[data-layout]').dataset.layout, 'columns')
+    assert.equal(unloadIsBlocked(), true)
+    await act(async () => navigate('/other'))
+    assert.equal(window.location.hash, '#/preferences')
+    await act(async () => preferencesButton(leaveAction).click())
+    assert.equal(window.location.hash, '#/other')
+    assert.match(container.textContent, /other-page/)
+    const expectedLayout = leaveAction === '保存并离开' ? 'columns' : 'classic'
+    assert.equal(api.profile.backend_setting.app.layout, expectedLayout)
+    assert.equal(core.useSettingStore.getState().settings.app.layout, expectedLayout)
+    assert.equal(container.querySelector('[data-layout]').dataset.layout, expectedLayout)
+    assert.equal(api.requests.includes('/admin/permission/update'), leaveAction === '保存并离开')
+    assert.equal(unloadIsBlocked(), false)
+  })
+}
 
 test('Legacy profiles without a server primary color retain their cached color', async t => {
   const api = accountPreferencesFixture(t)
@@ -785,7 +791,7 @@ test('Unsupported layouts fall back without remounting the page and slot disposa
   assert.doesNotMatch(container.textContent, /extension-content/)
 })
 
-test('Classic parent menus stay manually collapsed and reveal nested active routes after navigation', async t => {
+test('Classic parent menus inherit descendant selection while preserving manual collapse', async t => {
   const settings = core.useSettingStore.getState().settings
   core.useSettingStore.setState({ settings: { ...settings, app: { ...settings.app, layout: 'classic' } } })
   t.after(() => core.useSettingStore.setState({ settings }))
@@ -834,15 +840,27 @@ test('Classic parent menus stay manually collapsed and reveal nested active rout
   await settle()
   const page = container.querySelector('[aria-label="parent-menu-page"]')
   assert.equal(trigger('Reports').getAttribute('aria-expanded'), 'true')
+  assert.equal(trigger('Reports').hasAttribute('data-active'), true)
+  assert.equal(trigger('Operations').hasAttribute('data-active'), false)
   await act(async () => trigger('Reports').click())
   await settle()
   assert.equal(trigger('Reports').getAttribute('aria-expanded'), 'false', 'active branch must stay manually closed')
+  assert.equal(
+    trigger('Reports').hasAttribute('data-active'),
+    true,
+    'collapsing keeps the selected ancestor highlighted',
+  )
   await act(async () => app.session.setState({ userInfo: { username: 'alice', nickname: 'Updated' } }))
   await settle()
   assert.equal(trigger('Reports').getAttribute('aria-expanded'), 'false', 'unrelated shell updates must not reopen it')
   await act(async () => trigger('Operations').click())
   await settle()
   assert.equal(trigger('Operations').getAttribute('aria-expanded'), 'true')
+  assert.equal(
+    trigger('Operations').hasAttribute('data-active'),
+    false,
+    'opening a different branch does not select it',
+  )
   await act(async () => trigger('Operations').click())
   await settle()
   assert.equal(trigger('Operations').getAttribute('aria-expanded'), 'false')
@@ -851,9 +869,29 @@ test('Classic parent menus stay manually collapsed and reveal nested active rout
   await settle()
   assert.equal(trigger('Reports').getAttribute('aria-expanded'), 'true')
   assert.equal(trigger('Audits').getAttribute('aria-expanded'), 'true', 'all ancestors must reveal the active leaf')
+  assert.equal(trigger('Reports').hasAttribute('data-active'), true, 'top-level selection follows the menu tree')
+  assert.equal(trigger('Audits').hasAttribute('data-active'), true, 'intermediate selection follows the menu tree')
+  assert.equal(trigger('Operations').hasAttribute('data-active'), false)
+  assert.equal(container.querySelector('a[href="/archive/daily"]').hasAttribute('data-active'), true)
+  assert.equal(container.querySelector('a[href="/archive/daily"]').getAttribute('aria-current'), 'page')
+  assert.equal(container.querySelector('a[href="/reports/summary"]').hasAttribute('data-active'), false)
   await act(async () => trigger('Audits').click())
   await settle()
   assert.equal(trigger('Audits').getAttribute('aria-expanded'), 'false')
+  assert.equal(trigger('Audits').hasAttribute('data-active'), true)
+  assert.equal(trigger('Reports').hasAttribute('data-active'), true)
+  await act(async () => navigate('/operations/history'))
+  await settle()
+  assert.equal(trigger('Operations').hasAttribute('data-active'), true)
+  assert.equal(trigger('Reports').hasAttribute('data-active'), false, 'leaving a branch clears ancestor selection')
+  assert.equal(trigger('Audits').hasAttribute('data-active'), false)
+  await act(async () => navigate('/operations/history-other'))
+  await settle()
+  assert.equal(container.querySelector('a[href="/operations/history"]').hasAttribute('data-active'), false)
+  await act(async () => navigate('/other'))
+  await settle()
+  assert.equal(trigger('Operations').hasAttribute('data-active'), false)
+  assert.equal(container.querySelector('[aria-label="parent-menu-page"]'), page)
 })
 
 test('Column navigation preserves the page and filters inaccessible menus', async () => {
@@ -1516,7 +1554,7 @@ for (const fixture of [
   })
 }
 
-test('Layout selection preserves earlier account and tab drafts until save', async t => {
+test('Layout selection previews immediately and preserves drafts through switching, failure and cancel', async t => {
   const api = accountPreferencesFixture(t)
   const app = { ...runtime(), session: core.sessionManager }
   app.testStaticRoutes = [
@@ -1529,20 +1567,70 @@ test('Layout selection preserves earlier account and tab drafts until save', asy
   )
   const accountToggle = () => container.querySelector('[role="switch"][aria-label="是否多设备登录"]')
   const tabToggle = () => container.querySelector('[role="switch"][aria-label="是否开启标签页"]')
+  const originalToggle = accountToggle()
+  const main = container.querySelector('#main-content')
   assert.ok(accountToggle(), container.textContent.slice(0, 400))
   await act(async () => accountToggle().click())
   await act(async () => tabToggle().click())
   assert.equal(accountToggle().getAttribute('aria-checked'), 'true')
   assert.equal(tabToggle().getAttribute('aria-checked'), 'true')
   assert.equal(api.requests.filter(url => url === '/admin/permission/update').length, 0)
-  await act(async () => container.querySelector('[role="radio"][aria-label="分栏导航"]').click())
-  assert.equal(core.useSettingStore.getState().settings.app.layout, 'classic')
+  for (const [label, layout] of [
+    ['分栏导航', 'columns'],
+    ['经典布局', 'classic'],
+    ['分栏导航', 'columns'],
+  ]) {
+    const option = container.querySelector(`[role="radio"][aria-label="${label}"]`)
+    await act(async () => {
+      option.focus()
+      option.click()
+    })
+    assert.equal(core.useSettingStore.getState().settings.app.layout, layout)
+    assert.equal(container.querySelector('[data-layout]').dataset.layout, layout)
+    assert.equal(container.querySelector('#main-content'), main)
+    assert.equal(accountToggle(), originalToggle)
+    assert.equal(document.activeElement, option)
+    assert.equal(option.getAttribute('aria-checked'), 'true')
+    assert.equal(accountToggle().getAttribute('aria-checked'), 'true')
+    assert.equal(tabToggle().getAttribute('aria-checked'), 'true')
+    assert.equal(unloadIsBlocked(), true)
+  }
+  assert.equal(api.profile.backend_setting.app.layout, 'classic')
+  assert.equal(api.requests.filter(url => url === '/admin/permission/update').length, 0)
+  api.failSave = true
+  await act(async () => preferencesButton('保存设置').click())
+  assert.equal(api.profile.backend_setting.app.layout, 'classic')
+  assert.equal(container.querySelector('[data-layout]').dataset.layout, 'columns')
   assert.equal(accountToggle().getAttribute('aria-checked'), 'true')
   assert.equal(tabToggle().getAttribute('aria-checked'), 'true')
+  assert.equal(unloadIsBlocked(), true)
+  api.failSave = false
   await act(async () => preferencesButton('保存设置').click())
   assert.equal(api.profile.backend_setting.app.layout, 'columns')
   assert.equal(api.profile.backend_setting.account.multiDeviceLogin, true)
   assert.equal(api.profile.backend_setting.tabbar.enable, true)
+  assert.equal(unloadIsBlocked(), false)
+  await act(async () => container.querySelector('[role="radio"][aria-label="经典布局"]').click())
+  assert.equal(container.querySelector('[data-layout]').dataset.layout, 'classic')
+  await act(async () => accountToggle().click())
+  await act(async () => tabToggle().click())
+  await act(async () => preferencesButton('取消').click())
+  assert.equal(container.querySelector('[data-layout]').dataset.layout, 'columns')
+  assert.equal(accountToggle(), originalToggle)
+  assert.equal(accountToggle().getAttribute('aria-checked'), 'true')
+  assert.equal(tabToggle().getAttribute('aria-checked'), 'true')
+  assert.equal(unloadIsBlocked(), false)
+  const classicOption = container.querySelector('[role="radio"][aria-label="经典布局"]')
+  const columnsOption = container.querySelector('[role="radio"][aria-label="分栏导航"]')
+  await act(async () => columnsOption.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })))
+  assert.equal(container.querySelector('[data-layout]').dataset.layout, 'classic')
+  assert.equal(document.activeElement, classicOption)
+  assert.equal(unloadIsBlocked(), true)
+  await act(async () => classicOption.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })))
+  assert.equal(container.querySelector('[data-layout]').dataset.layout, 'columns')
+  assert.equal(document.activeElement, columnsOption)
+  assert.equal(accountToggle(), originalToggle)
+  assert.equal(unloadIsBlocked(), false)
 })
 
 test('Delayed profile save preserves a completed avatar removal', async t => {

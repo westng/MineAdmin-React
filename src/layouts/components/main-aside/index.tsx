@@ -185,6 +185,7 @@ function MenuTree({
   const localeRevision = useLocaleRevision()
   void localeRevision
   const { isMobile, setOpenMobile } = useSidebar()
+  const activeParents = new Set(getActiveParentPaths(items, pathname))
   const onNavigate = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (
       isMobile &&
@@ -201,7 +202,8 @@ function MenuTree({
   function renderItems(levelItems: MenuItem[], nested: boolean): React.ReactNode {
     return levelItems.map(item => {
       const hasChildren = Boolean(item.children?.length)
-      const isActive = pathname === item.to || (!item.end && pathname.startsWith(`${item.to}/`))
+      const isActive =
+        activeParents.has(item.to) || pathname === item.to || (!item.end && pathname.startsWith(`${item.to}/`))
       const leaf = (
         <>
           {showRootIcons && !nested && <NavigationIconView icon={item.icon} />}
