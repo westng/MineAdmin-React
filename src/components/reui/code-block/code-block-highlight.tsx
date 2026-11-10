@@ -958,7 +958,7 @@ const SGR_RE = /\x1b\[([0-9;]*)m/g
    this regex once matched SGR too and silently stripped every colour. */
 const OTHER_ESCAPES_RE =
   // eslint-disable-next-line no-control-regex
-  /\x1b(?:\[(?![0-9;]*m)[0-9;?]*[A-Za-z]|\][^\x07]*(?:\x07|\x1b\\)|[()][0-9A-B])/g
+  /\x1b(?:\[(?![0-9;]*m)[0-9;?]*[A-Za-z]|\](?:[^\x07\x1b]|\x1b(?!\\))*(?:\x07|\x1b\\|$)|[()][0-9A-B])/g
 
 type AnsiStyle = {
   color?: string
@@ -978,10 +978,11 @@ type AnsiStyle = {
  */
 export function ansiToLines(text: string, startLine = 1): CodeBlockLine[] {
   const clean = normalizeCode(text).replace(OTHER_ESCAPES_RE, "")
+  // SGR belongs to the stream, not a row; an unterminated OSC tail is omitted.
+  const style: AnsiStyle = {}
 
   return clean.split("\n").map((raw, index) => {
     const tokens: CodeBlockToken[] = []
-    const style: AnsiStyle = {}
     let plain = ""
     let last = 0
 
@@ -1084,80 +1085,74 @@ export type CodeBlockPatchFile = {
 export function parseUnifiedDiff(patch: string): CodeBlockPatchFile[] {
   const files: CodeBlockPatchFile[] = []
   let current: CodeBlockPatchFile | null = null
+  let oldPath: string | null = null
   let oldNumber = 0
   let newNumber = 0
+  let oldRemaining = 0
+  let newRemaining = 0
+  let inHunk = false
   let width = 4
 
-  const push = (
-    text: string,
-    state: CodeBlockLineState | undefined,
-    gutter: string
-  ) => {
-    if (!current) return
-    current.lines.push({
-      number: current.lines.length + 1,
-      text,
-      tokens: [{ content: text }],
-      state,
-      gutter,
-    })
+  const startFile = (file: string) => {
+    const entry: CodeBlockPatchFile = { file, lines: [], added: 0, removed: 0, hunks: [] }
+    files.push(entry)
+    return entry
   }
-  const pad = (value: number | null) =>
-    (value === null ? "" : String(value)).padStart(width)
+  const push = (text: string, state: CodeBlockLineState | undefined, gutter: string) => {
+    if (!current) return
+    current.lines.push({ number: current.lines.length + 1, text, tokens: [{ content: text }], state, gutter })
+  }
+  const pad = (value: number | null) => (value === null ? "" : String(value)).padStart(width)
 
   for (const raw of normalizeCode(patch).split("\n")) {
     const fileHeader = raw.match(/^diff --git a\/(.+) b\/(.+)$/)
-    const plusHeader = raw.match(/^\+\+\+ (?:b\/)?(.+)$/)
-    if (fileHeader || plusHeader) {
-      const name = fileHeader ? fileHeader[2] : plusHeader![1]
-      if (name !== "/dev/null" && (!current || current.file !== name)) {
-        current = { file: name, lines: [], added: 0, removed: 0, hunks: [] }
-        files.push(current)
-      }
+    if (fileHeader) {
+      current = startFile(fileHeader[2])
+      oldPath = fileHeader[1]
+      inHunk = false
       continue
     }
-    if (
-      /^(---|index |old mode|new mode|new file|deleted file|similarity|rename |Binary )/.test(
-        raw
-      )
-    ) {
-      continue
-    }
-
     const hunk = raw.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/)
     if (hunk && current) {
       oldNumber = Number(hunk[1])
       newNumber = Number(hunk[3])
-      width = Math.max(
-        String(oldNumber + Number(hunk[2] ?? 0)).length,
-        String(newNumber + Number(hunk[4] ?? 0)).length,
-        2
-      )
+      oldRemaining = Number(hunk[2] ?? 1)
+      newRemaining = Number(hunk[4] ?? 1)
+      inHunk = oldRemaining > 0 || newRemaining > 0
+      width = Math.max(String(oldNumber + oldRemaining).length, String(newNumber + newRemaining).length, 2)
       current.hunks.push({ header: raw, at: current.lines.length + 1 })
-      push(
-        hunk[5].trim() || raw,
-        { level: "info" },
-        `${"·".padStart(width)} ${"·".padStart(width)}`
-      )
+      push(hunk[5].trim() || raw, { level: "info" }, `${"·".padStart(width)} ${"·".padStart(width)}`)
       continue
     }
-    if (!current || (!raw && files.length === 0)) continue
-
-    if (raw.startsWith("+")) {
-      push(raw.slice(1), { diff: "add" }, `${pad(null)} ${pad(newNumber)}`)
-      newNumber += 1
-      current.added += 1
-    } else if (raw.startsWith("-")) {
-      push(raw.slice(1), { diff: "remove" }, `${pad(oldNumber)} ${pad(null)}`)
-      oldNumber += 1
-      current.removed += 1
-    } else if (raw.startsWith(" ") || raw === "") {
-      if (current.lines.length === 0 && raw === "") continue
-      push(raw.slice(1), undefined, `${pad(oldNumber)} ${pad(newNumber)}`)
-      oldNumber += 1
-      newNumber += 1
+    if (inHunk && current) {
+      // Within a hunk, --- / +++ are ordinary removed/added content.
+      if (raw.startsWith("+")) {
+        push(raw.slice(1), { diff: "add" }, `${pad(null)} ${pad(newNumber++)}`)
+        newRemaining -= 1
+        current.added += 1
+      } else if (raw.startsWith("-")) {
+        push(raw.slice(1), { diff: "remove" }, `${pad(oldNumber++)} ${pad(null)}`)
+        oldRemaining -= 1
+        current.removed += 1
+      } else if (raw.startsWith(" ")) {
+        push(raw.slice(1), undefined, `${pad(oldNumber++)} ${pad(newNumber++)}`)
+        oldRemaining -= 1
+        newRemaining -= 1
+      }
+      inHunk = oldRemaining > 0 || newRemaining > 0
+      continue
+    }
+    const oldHeader = raw.match(/^--- (?:a\/)?([^\t]+)(?:\t.*)?$/)
+    if (oldHeader) { oldPath = oldHeader[1]; continue }
+    const newHeader = raw.match(/^\+\+\+ (?:b\/)?([^\t]+)(?:\t.*)?$/)
+    if (newHeader) {
+      const file = newHeader[1] === "/dev/null" ? oldPath : newHeader[1]
+      if (file && file !== "/dev/null") {
+        if (current && current.lines.length === 0 && current.hunks.length === 0) current.file = file
+        else current = startFile(file)
+      }
+      continue
     }
   }
-
   return files
 }

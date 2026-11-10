@@ -648,7 +648,7 @@ const CodeBlockLineRow = memo(function CodeBlockLineRow({
             aria-label={`Unfold ${hiddenCount} hidden lines`}
             onClick={(event) => {
               event.stopPropagation()
-              onToggleFold?.(line.number)
+              if (foldRegion) onToggleFold?.(foldRegion.start)
             }}
             /* Same centring as the fold toggle: chip height matches the fold
                channel and the translate makes up the difference to the line
@@ -779,8 +779,8 @@ function CodeBlock({
   const deferredSource = useDeferredValue(source)
 
   const plainLines = useMemo(
-    () => toPlainLines(deferredSource, startLine),
-    [deferredSource, startLine]
+    () => toPlainLines(source, startLine),
+    [source, startLine]
   )
 
   /* The result is tagged with the exact inputs that produced it. Without the
@@ -889,18 +889,23 @@ function CodeBlock({
        for one highlight pass instead of showing the previous document. */
     if (
       highlighted.spec !== specKey ||
-      !deferredSource.startsWith(highlighted.source)
+      !source.startsWith(highlighted.source)
     ) {
       return plainLines
     }
-    if (highlighted.lines.length >= plainLines.length) return highlighted.lines
-    return [...highlighted.lines, ...plainLines.slice(highlighted.lines.length)]
+    if (highlighted.source === source) return highlighted.lines
+    // Only complete, unchanged lines are reusable. The old tail may still grow.
+    const completeLines = highlighted.source.split("\n").length - 1
+    return plainLines.map((line, index) => {
+      const prior = highlighted.lines[index]
+      return index < completeLines && prior?.text === line.text ? prior : line
+    })
   }, [
     linesProp,
     shouldHighlight,
     highlighted,
     plainLines,
-    deferredSource,
+    source,
     specKey,
   ])
 
