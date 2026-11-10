@@ -9,6 +9,7 @@ import type {
 } from "react"
 import { createPortal } from "react-dom"
 import { useDataGrid } from "@/components/reui/data-grid/data-grid"
+import { getDataGridTableRowSections } from "@/components/reui/data-grid/data-grid-table"
 import type {
   DataGridCellChange,
   DataGridCellRejection,
@@ -335,7 +336,7 @@ function getDataGridActiveBound<TData extends object>(
 
 /**
  * Resolves the cell one visual step away from a given cell: selectable
- * columns for horizontal, RENDERED row order for vertical. The feature's
+ * columns for horizontal, the full current-page/pinned model for vertical. The feature's
  * own move/extend resolve rows through the page slice and stall on pinned
  * rows (a bottom-pinned draft), while id-addressed cells work everywhere.
  * "edge" means the step is at the grid boundary; null means the position
@@ -343,9 +344,10 @@ function getDataGridActiveBound<TData extends object>(
  */
 function getDataGridStepTarget<TData extends object>(
   table: DataGridTableInstance<TData>,
-  viewport: HTMLElement,
+  _viewport: HTMLElement,
   from: { rowId: string; columnId: string },
-  direction: "up" | "down" | "left" | "right"
+  direction: "up" | "down" | "left" | "right",
+  rowsPinnable = false
 ): { rowId: string; columnId: string } | "edge" | null {
   if (direction === "left" || direction === "right") {
     const selectable = getDataGridDisplayOrderedColumns(table).filter(
@@ -358,9 +360,8 @@ function getDataGridStepTarget<TData extends object>(
     const next = selectable[index + (direction === "right" ? 1 : -1)]
     return next ? { rowId: from.rowId, columnId: next.id } : "edge"
   }
-  const renderedIds = Array.from(
-    viewport.querySelectorAll("tbody tr[data-row-id]")
-  ).map((row) => row.getAttribute("data-row-id"))
+  const { topRows, centerRows, bottomRows } = getDataGridTableRowSections(table, rowsPinnable)
+  const renderedIds = [...topRows, ...centerRows, ...bottomRows].map(row => row.id)
   const index = renderedIds.indexOf(from.rowId)
   if (index === -1) return null
   const nextId = renderedIds[index + (direction === "down" ? 1 : -1)]
@@ -377,7 +378,8 @@ function getDataGridStepTarget<TData extends object>(
 function extendDataGridSelection<TData extends object>(
   table: DataGridTableInstance<TData>,
   viewport: HTMLElement,
-  direction: "up" | "down" | "left" | "right"
+  direction: "up" | "down" | "left" | "right",
+  rowsPinnable = false
 ): { rowId: string; columnId: string } | null {
   // The range's active corner: focus stays the anchor, so the corner is
   // the bound's opposite one. Returned to the caller so the view can
@@ -424,7 +426,7 @@ function extendDataGridSelection<TData extends object>(
     rowId: focused.row.id,
     columnId: focused.column.id,
   }
-  const target = getDataGridStepTarget(table, viewport, active, direction)
+  const target = getDataGridStepTarget(table, viewport, active, direction, rowsPinnable)
   if (!target || target === "edge") return null
   table.selectCellRange(
     {
@@ -744,6 +746,8 @@ function startDataGridFillSession<TData extends object>(options: {
   onCellsChange: ((details: DataGridCellsChangeDetails<TData>) => void) | null
 }) {
   const { table, viewport, onCellsChange } = options
+  const ownerDocument = viewport.ownerDocument
+  let finished = false
   // Fill over a multi-region selection is undefined territory; Excel refuses
   // it too.
   if (table.getCellSelectionBounds().length > 1) return
@@ -898,7 +902,7 @@ function startDataGridFillSession<TData extends object>(options: {
   }
 
   const handleMove = (event: MouseEvent) => {
-    const element = document.elementFromPoint(event.clientX, event.clientY)
+    const element = ownerDocument.elementFromPoint(event.clientX, event.clientY)
     const cellElement = element?.closest?.("td[data-col-id]")
     const rowElement = cellElement?.closest?.("tr[data-row-id]")
     if (!cellElement || !rowElement || !viewport.contains(cellElement)) return
@@ -928,13 +932,16 @@ function startDataGridFillSession<TData extends object>(options: {
   }
 
   const finish = (commit: boolean) => {
-    document.removeEventListener("mousemove", handleMove)
-    document.removeEventListener("mouseup", handleUp)
-    document.removeEventListener("keydown", handleKey, true)
+    if (finished) return
+    finished = true
+    mutationObserver.disconnect()
+    ownerDocument.removeEventListener("mousemove", handleMove)
+    ownerDocument.removeEventListener("mouseup", handleUp)
+    ownerDocument.removeEventListener("keydown", handleKey, true)
     clearPreview()
     previewOutline.remove()
     viewport.removeAttribute("data-cell-filling")
-    if (!commit || !extension || !onCellsChange) return
+    if (!commit || !viewport.isConnected || !extension || !onCellsChange) return
     const targets = getExtensionTargets()
     if (!targets || !targets.rowEntries.length) return
 
@@ -1036,9 +1043,13 @@ function startDataGridFillSession<TData extends object>(options: {
     finish(false)
   }
 
-  document.addEventListener("mousemove", handleMove)
-  document.addEventListener("mouseup", handleUp)
-  document.addEventListener("keydown", handleKey, true)
+  const mutationObserver = new MutationObserver(() => finish(false))
+  const body = viewport.querySelector("tbody")
+  if (body) mutationObserver.observe(body, { childList: true, subtree: true, characterData: true })
+  ownerDocument.addEventListener("mousemove", handleMove)
+  ownerDocument.addEventListener("mouseup", handleUp)
+  ownerDocument.addEventListener("keydown", handleKey, true)
+  return () => finish(false)
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1128,6 +1139,35 @@ function DataGridCellSelection<TData extends object>({
 
     const getTable = () => context.table
     const getOnCellsChange = () => context.props.onCellsChange ?? null
+    let disposed = false
+    let cancelFill: (() => void) | undefined
+    let scrollRequest = 0
+    let clipboardRequest = 0
+    const commitCut = (details: DataGridCellsChangeDetails<TData> | null) => {
+      const onCellsChange = getOnCellsChange()
+      if (disposed || !viewport.isConnected || !details || !onCellsChange) return
+      const current = getTable()
+      const rows = new Map(
+        current.getRowsInDisplayOrder().map((row) => [row.id, row])
+      )
+      const columns = new Map(
+        getDataGridDisplayOrderedColumns(current).map((column) => [column.id, column])
+      )
+      const unchanged = details.changes.every((change) => {
+        const row = rows.get(change.rowId)
+        const column = columns.get(change.columnId)
+        if (
+          !row || row.original !== change.row || !column ||
+          column.columnDef.enableCellSelection === false
+        ) return false
+        const edit = getDataGridWritableCellEdit<TData>(column, row.original)
+        return !!edit && Object.is(edit.clearValue ?? null, change.value) && Object.is(
+          row.getAllCellsByColumnId()[change.columnId]?.getValue(),
+          change.previousValue
+        )
+      })
+      if (unchanged) onCellsChange(details)
+    }
     // "single" collapses every grow gesture to the focused cell.
     const isRangeSelectionEnabled = () =>
       context.props.tableLayout?.cellSelectionMode !== "single"
@@ -1159,43 +1199,38 @@ function DataGridCellSelection<TData extends object>({
     const scrollFocusedIntoView = (
       targetRowIndex?: number,
       rowCount?: number,
-      // A Shift-extend grows away from the focused cell, which stays the
-      // anchor; the caller names the range's active corner so the view
-      // follows the growing edge instead of snapping back to the anchor.
       explicitCell?: { rowId: string; columnId: string }
     ) => {
-      const queryScrollCell = () =>
-        explicitCell
-          ? viewport.querySelector(
-              `tr[data-row-id="${CSS.escape(explicitCell.rowId)}"] td[data-col-id="${CSS.escape(explicitCell.columnId)}"]`
-            )
-          : viewport.querySelector("td[data-cell-focused]")
-      // After the atom write React still has to commit the data attributes;
-      // rAF lands after that commit. Instant, because the app-level
-      // scroll-smooth would otherwise animate every keystroke.
-      requestAnimationFrame(() => {
-        const cell = queryScrollCell()
+      const focused = getTable().getFocusedCell()
+      const target = explicitCell ?? (focused ? { rowId: focused.row.id, columnId: focused.column.id } : null)
+      if (!target) return
+      const request = ++scrollRequest
+      const current = () => !disposed && viewport.isConnected && request === scrollRequest
+      const queryCell = () => viewport.querySelector<HTMLElement>(
+        `tr[data-row-id="${CSS.escape(target.rowId)}"] td[data-col-id="${CSS.escape(target.columnId)}"]`
+      )
+      const settle = (attempts: number) => {
+        if (!current()) return
+        const cell = queryCell()
         syncActiveDescendant()
-        if (cell || targetRowIndex == null || !rowCount) {
-          scrollTdIntoView(cell)
-          return
-        }
-        // Virtualization: the jump target is not mounted, so there is no td
-        // to scroll to. The spacer rows keep scrollHeight proportional to
-        // the row count, so estimate the offset, let the virtualizer mount
-        // the region, then finish with a precise nearest-scroll.
+        if (cell) scrollTdIntoView(cell)
+        else if (attempts > 0) requestAnimationFrame(() => settle(attempts - 1))
+      }
+      requestAnimationFrame(() => {
+        if (!current()) return
+        const cell = queryCell()
+        if (cell) { scrollTdIntoView(cell); syncActiveDescendant(); return }
+        const reveal = context.rowScrollers?.get(viewport)
+        if (reveal?.(target.rowId)) { requestAnimationFrame(() => settle(4)); return }
+        const rows = getTable().getRowsInDisplayOrder()
+        const index = targetRowIndex ?? rows.findIndex(row => row.id === target.rowId)
+        const count = rowCount ?? rows.length
+        if (index < 0 || count === 0) return
         let scroller: HTMLElement | null = viewport
-        while (scroller && scroller.scrollHeight <= scroller.clientHeight) {
-          scroller = scroller.parentElement
-        }
+        while (scroller && scroller.scrollHeight <= scroller.clientHeight) scroller = scroller.parentElement
         if (!scroller) return
-        scroller.scrollTop =
-          ((targetRowIndex + 0.5) / rowCount) * scroller.scrollHeight -
-          scroller.clientHeight / 2
-        requestAnimationFrame(() => {
-          scrollTdIntoView(queryScrollCell())
-          syncActiveDescendant()
-        })
+        scroller.scrollTop = ((index + 0.5) / count) * scroller.scrollHeight - scroller.clientHeight / 2
+        requestAnimationFrame(() => settle(4))
       })
     }
 
@@ -1450,7 +1485,8 @@ function DataGridCellSelection<TData extends object>({
             table,
             viewport,
             { rowId: focused.row.id, columnId: focused.column.id },
-            direction
+            direction,
+            context.props.tableLayout?.rowsPinnable
           )
         : null
       if (target === "edge") return
@@ -1600,19 +1636,15 @@ function DataGridCellSelection<TData extends object>({
           event.key === "x" || event.key === "X" || event.code === "KeyX"
         if (isCopy || isCut) {
           event.preventDefault()
-          void writeSelectionToClipboard().then((written) => {
-            if (!written) return
+          const request = ++clipboardRequest
+          // Capture the source before clipboard I/O or user callbacks can change selection.
+          const details = isCut
+            ? buildDataGridClearDetails<TData>(getTable(), "cut", true, viewport)
+            : null
+          void writeSelectionToClipboard(request).then((written) => {
+            if (!written || disposed || request !== clipboardRequest) return
             context.props.onCellsCopy?.({ ...written, cut: isCut })
-            if (!isCut) return
-            const onCellsChange = getOnCellsChange()
-            if (!onCellsChange) return
-            const details = buildDataGridClearDetails<TData>(
-              getTable(),
-              "cut",
-              true,
-              viewport
-            )
-            if (details) onCellsChange(details)
+            if (isCut && request === clipboardRequest) commitCut(details)
           })
           return
         }
@@ -1659,6 +1691,7 @@ function DataGridCellSelection<TData extends object>({
               focused &&
               lastRenderedId &&
               focused.row.id === lastRenderedId &&
+              getDataGridStepTarget(table, viewport, { rowId: focused.row.id, columnId: focused.column.id }, "down", context.props.tableLayout?.rowsPinnable) === "edge" &&
               focusFirstIn(getAppendedRows()[0])
             ) {
               event.preventDefault()
@@ -1666,7 +1699,7 @@ function DataGridCellSelection<TData extends object>({
             }
           }
           if (event.shiftKey && isRangeSelectionEnabled()) {
-            const corner = extendDataGridSelection(table, viewport, direction)
+            const corner = extendDataGridSelection(table, viewport, direction, context.props.tableLayout?.rowsPinnable)
             event.preventDefault()
             scrollFocusedIntoView(undefined, undefined, corner ?? undefined)
             return
@@ -1680,7 +1713,8 @@ function DataGridCellSelection<TData extends object>({
                 table,
                 viewport,
                 { rowId: focused.row.id, columnId: focused.column.id },
-                direction
+                direction,
+                context.props.tableLayout?.rowsPinnable
               )
             : null
           if (target === "edge") {
@@ -1818,7 +1852,7 @@ function DataGridCellSelection<TData extends object>({
     // would silently do nothing on macOS, Windows and Linux alike. The
     // async API needs a secure context; the execCommand fallback covers
     // the rest with the TSV flavor alone.
-    const writeSelectionToClipboard = async (): Promise<{
+    const writeSelectionToClipboard = async (request: number): Promise<{
       text: string
       grid: string[][]
     } | null> => {
@@ -1847,6 +1881,7 @@ function DataGridCellSelection<TData extends object>({
       } catch {
         // Denied or unavailable; the legacy path below still applies.
       }
+      if (disposed || request !== clipboardRequest || !viewport.isConnected) return null
       const doc = viewport.ownerDocument
       const scratch = doc.createElement("textarea")
       scratch.value = text
@@ -1878,21 +1913,20 @@ function DataGridCellSelection<TData extends object>({
 
     const handleCopy = (event: ClipboardEvent) => {
       if (isDataGridEditableTarget(event.target)) return
+      ++clipboardRequest
       copySelection(event, false)
     }
 
     const handleCut = (event: ClipboardEvent) => {
       if (isDataGridEditableTarget(event.target)) return
-      if (!copySelection(event, true)) return
-      const onCellsChange = getOnCellsChange()
-      if (!onCellsChange) return
+      const request = ++clipboardRequest
       const details = buildDataGridClearDetails<TData>(
         getTable(),
         "cut",
         true,
         viewport
       )
-      if (details) onCellsChange(details)
+      if (copySelection(event, true) && request === clipboardRequest) commitCut(details)
     }
 
     const handlePaste = (event: ClipboardEvent) => {
@@ -2070,7 +2104,8 @@ function DataGridCellSelection<TData extends object>({
       // plain range drag from the handle.
       event.preventDefault()
       event.stopPropagation()
-      startDataGridFillSession<TData>({
+      cancelFill?.()
+      cancelFill = startDataGridFillSession<TData>({
         table: getTable(),
         viewport,
         onCellsChange: getOnCellsChange(),
@@ -2158,6 +2193,10 @@ function DataGridCellSelection<TData extends object>({
     setViewportEl(viewport)
 
     return () => {
+      disposed = true
+      cancelFill?.()
+      ++scrollRequest
+      ++clipboardRequest
       if (keyboard) {
         if (previousTabIndex === null) focusTarget.removeAttribute("tabindex")
         else focusTarget.setAttribute("tabindex", previousTabIndex)
@@ -2403,6 +2442,7 @@ function DataGridCellEditorOverlay({
     measureDataGridCellEditorStyle(viewport)
   )
   const finishedRef = useRef(false)
+  const composingRef = useRef(false)
 
   // The caret belongs at the END of the value (the Excel F2 convention);
   // a textarea would otherwise open with it at position 0. Set on mount,
@@ -2452,6 +2492,7 @@ function DataGridCellEditorOverlay({
   const handleKeyDown = (
     event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
+    if (composingRef.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
     const element = event.currentTarget
     if (event.key === "Escape") {
       event.preventDefault()
@@ -2498,6 +2539,8 @@ function DataGridCellEditorOverlay({
         rows={1}
         style={style}
         className={cn(sharedClassName, "field-sizing-content overflow-hidden")}
+        onCompositionStart={() => { composingRef.current = true }}
+        onCompositionEnd={() => { composingRef.current = false }}
         onKeyDown={handleKeyDown}
         onBlur={(event) => finish(event.currentTarget, true, null, false)}
       />
@@ -2510,6 +2553,8 @@ function DataGridCellEditorOverlay({
         defaultValue={session.initialValue}
         style={style}
         className={sharedClassName}
+        onCompositionStart={() => { composingRef.current = true }}
+        onCompositionEnd={() => { composingRef.current = false }}
         onKeyDown={handleKeyDown}
         onBlur={(event) => finish(event.currentTarget, true, null, false)}
       />

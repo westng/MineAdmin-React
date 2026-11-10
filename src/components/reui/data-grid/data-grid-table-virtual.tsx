@@ -310,7 +310,10 @@ interface DataGridTableVirtualProps<TData extends object> {
   scrollToColumnIndex?: number
   footerContent?: ReactNode
   renderHeader?: boolean
+  /** Keep stable within one query; a new callback starts a new loading source. */
   onFetchMore?: () => void
+  /** Explicit query/cursor identity when loaded row ids do not change. */
+  fetchMoreKey?: unknown
   isFetchingMore?: boolean
   hasMore?: boolean
   fetchMoreOffset?: number
@@ -669,12 +672,13 @@ function DataGridTableVirtual<TData extends object>({
   footerContent,
   renderHeader = true,
   onFetchMore,
+  fetchMoreKey,
   isFetchingMore = false,
   hasMore,
   fetchMoreOffset = 0,
   virtualizerOptions,
 }: DataGridTableVirtualProps<TData>) {
-  const { i18n, table, props } = useDataGrid<TData>()
+  const { i18n, table, props, rowScrollers } = useDataGrid<TData>()
   const mergedHeaderGroups = getDataGridTableMergedHeaderGroups(table)
   const hasRightPinnedColumns = hasDataGridTableRightPinnedColumns(table)
   const centerVisibleColumns = table.getCenterVisibleLeafColumns()
@@ -769,6 +773,20 @@ function DataGridTableVirtual<TData extends object>({
     ...virtualizerOptionsRest,
   }) as DataGridTableVirtualizerInstance
 
+  const rowIndices = useMemo(() => new Map(centerRows.map((row, index) => [row.id, index])), [centerRows])
+  useEffect(() => {
+    const viewport = viewportElements.containerElement
+    if (!viewport || !rowScrollers || !isVirtualizationEnabled) return
+    const reveal = (rowId: string) => {
+      const index = rowIndices.get(rowId)
+      if (index === undefined) return false
+      virtualizer.scrollToIndex(index, { align: "auto", behavior: "auto" })
+      return true
+    }
+    rowScrollers.set(viewport, reveal)
+    return () => { if (rowScrollers.get(viewport) === reveal) rowScrollers.delete(viewport) }
+  }, [rowScrollers, rowIndices, isVirtualizationEnabled, virtualizer, viewportElements.containerElement])
+
   // Horizontal offsets invert in RTL; the virtualizer must be told.
   const isRtl = useMemo(
     () =>
@@ -853,11 +871,14 @@ function DataGridTableVirtual<TData extends object>({
   const lastScrollRequestRef = useRef<DataGridTableVirtualScrollRequest | null>(
     null
   )
-  // Latch onFetchMore per row count: virtualItems gets a new identity every
-  // scroll frame, so without it the effect fires duplicate page requests
-  // before the consumer flips isFetchingMore, and loops at end-of-data when
-  // hasMore is never set.
-  const fetchMoreFiredAtCountRef = useRef<number | null>(null)
+  // An unchanged query/window fires once. A new source with the same count
+  // must still be allowed to request its next page.
+  const fetchScope = useMemo(() => JSON.stringify([
+    centerRows.map(row => row.id), table.state.sorting, table.state.columnFilters,
+    table.state.globalFilter, table.state.pagination,
+  ]), [centerRows, table.state.sorting, table.state.columnFilters, table.state.globalFilter, table.state.pagination])
+  const fetchIdentity = useMemo(() => ({ key: fetchMoreKey, onFetchMore, scope: fetchScope }), [fetchMoreKey, onFetchMore, fetchScope])
+  const fetchMoreFiredRef = useRef<typeof fetchIdentity | null>(null)
   const lastColumnScrollRequestRef =
     useRef<DataGridTableColumnScrollRequest | null>(null)
 
@@ -1028,14 +1049,15 @@ function DataGridTableVirtual<TData extends object>({
     const lastItem = virtualItems[virtualItems.length - 1]
     if (!lastItem) return
 
-    if (fetchMoreFiredAtCountRef.current === centerRows.length) return
+    if (fetchMoreFiredRef.current === fetchIdentity) return
 
     if (lastItem.index >= centerRows.length - 1 - resolvedFetchMoreOffset) {
-      fetchMoreFiredAtCountRef.current = centerRows.length
+      fetchMoreFiredRef.current = fetchIdentity
       onFetchMore?.()
     }
   }, [
     centerRows.length,
+    fetchIdentity,
     hasMore,
     isFetchingMore,
     isInfiniteMode,

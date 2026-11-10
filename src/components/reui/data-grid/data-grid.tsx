@@ -377,6 +377,8 @@ export interface DataGridContextProps<TData extends object> {
   isLoading: boolean
   /** Stable per-grid prefix for the DOM ids ARIA relations point at. */
   gridId: string
+  /** Viewport-owned virtual row revealers; shared without publishing scroll state. */
+  rowScrollers?: WeakMap<HTMLElement, (rowId: string) => boolean>
   /** The merged label set; components read `i18n.labels.<key>`. */
   i18n: DataGridI18nConfig
   /**
@@ -392,7 +394,7 @@ export interface DataGridContextProps<TData extends object> {
  * renderers always agree on the same encoding.
  */
 export function toDataGridDomId(value: string): string {
-  return value.replace(/[^\w-]/g, "_")
+  return Array.from(value, character => character.codePointAt(0)!.toString(16)).join("_")
 }
 
 export type DataGridAutoSizeController = {
@@ -627,7 +629,7 @@ export interface DataGridCopyDetails {
   text: string
   /** The same content as a row-major grid of formatted fields. */
   grid: string[][]
-  /** True when the write came from a cut, which clears the region next. */
+  /** True for cut intent; only unchanged source cells are cleared after clipboard success. */
   cut: boolean
 }
 
@@ -884,6 +886,7 @@ function DataGridProvider<TData extends object>({
   // getter below without the memoized context value depending on unstable
   // Stable for the grid's lifetime; ARIA ids and relations hang off it.
   const gridId = useId()
+  const rowScrollers = useRef(new WeakMap<HTMLElement, (rowId: string) => boolean>())
   // ReactNode/function prop identities (inline emptyMessage/onRowClick would
   // otherwise publish a new context value on every consumer render - at
   // mousemove rate during a resize drag, piercing the body-rows memo).
@@ -977,6 +980,7 @@ function DataGridProvider<TData extends object>({
       recordCount: props.recordCount,
       isLoading: props.isLoading || false,
       gridId,
+      rowScrollers: rowScrollers.current,
       autoSize,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
