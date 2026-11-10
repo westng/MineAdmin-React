@@ -28,12 +28,13 @@ import {
 } from "@/components/reui/event-calendar/event-calendar-event"
 import {
   getDayKey,
-  getDayTotalMinutes,
+  getDayTimeBounds,
   getRangeKey,
   packTimedSegments,
   resolveOffDay,
   snapMinutes,
   toZoned,
+  wallTimeToMinutes,
   zonedStartOfDay,
 } from "@/components/reui/event-calendar/event-calendar-lib"
 import type {
@@ -135,6 +136,8 @@ function EventCalendarTimeGrid({
     view,
   ])
 
+  const referenceDayMs = (days[0] ?? visibleRange.start).getTime()
+
   // Initial scroll to scrollToHour + api.scrollToTime registration (contained)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -150,21 +153,18 @@ function EventCalendarTimeGrid({
     )
     const slotPx = slotRow?.getBoundingClientRect().height || 64
     const pxPerMinute = slotPx / interval
-    const scrollTo = (minutes: number) => {
-      // keep the hour label above the target line visible (it hangs -top-2)
+    const scrollTo = (time: Date | number) => {
+      const targetDay = typeof time === "number" ? new Date(referenceDayMs) : time
+      const { boundsStartMin } = getDayTimeBounds(targetDay, settings.timeZone, startHour, endHour)
+      const minutes = typeof time === "number"
+        ? wallTimeToMinutes(targetDay, time, settings.timeZone)
+        : (time.getTime() - zonedStartOfDay(time, settings.timeZone).getTime()) / 60000
       viewport?.scrollTo({
-        top: Math.max(0, (minutes - startHour * 60) * pxPerMinute - 12),
+        top: Math.max(0, (minutes - boundsStartMin) * pxPerMinute - 12),
       })
     }
     scrollTo(viewConfig.scrollToHour * 60)
-    instance.internals.registerScrollHandler((time) => {
-      const minutes =
-        typeof time === "number"
-          ? time
-          : toZoned(time, settings.timeZone).getHours() * 60 +
-            toZoned(time, settings.timeZone).getMinutes()
-      scrollTo(minutes)
-    })
+    instance.internals.registerScrollHandler(scrollTo)
     // Classic (width-consuming) scrollbars squeeze the scrolling track while
     // the header/all-day rows outside keep full width, drifting the column
     // borders. Mirror the measured gutter onto those rows via a CSS var -
@@ -193,6 +193,8 @@ function EventCalendarTimeGrid({
     instance,
     settings.timeZone,
     startHour,
+    endHour,
+    referenceDayMs,
     interval,
     viewConfig.scrollToHour,
     // scrollbars custom<->native swaps the scroller DOM: re-bind the
@@ -202,12 +204,11 @@ function EventCalendarTimeGrid({
 
   // Gutter slots in minutes from the zoned day start
   const slots = useMemo(() => {
+    const { boundsStartMin, boundsEndMin } = getDayTimeBounds(new Date(referenceDayMs), settings.timeZone, startHour, endHour)
     const result: number[] = []
-    for (let m = startHour * 60; m < endHour * 60; m += interval) {
-      result.push(m)
-    }
+    for (let m = boundsStartMin; m < boundsEndMin; m += interval) result.push(m)
     return result
-  }, [startHour, endHour, interval])
+  }, [referenceDayMs, settings.timeZone, startHour, endHour, interval])
 
   // Section-level all-day segments for renderAllDaySection - reads the same
   // per-day index buckets the cells subscribe to; inert (stable empty array,
@@ -239,6 +240,7 @@ function EventCalendarTimeGrid({
         days={days}
         slots={slots}
         startHour={startHour}
+        endHour={endHour}
         interval={interval}
       />
       <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns }}>
@@ -832,16 +834,19 @@ function EventCalendarTimeGutter({
   days,
   slots,
   startHour,
+  endHour,
   interval,
 }: {
   days: Date[]
   slots: number[]
   startHour: number
+  endHour: number
   interval: number
 }) {
   const settings = useEventCalendarSettings()
   const viewConfig = useEventCalendarViewConfig()
   const referenceDay = days[0] ?? new Date()
+  const { boundsStartMin, boundsEndMin } = getDayTimeBounds(referenceDay, settings.timeZone, startHour, endHour)
   const labelFormat =
     interval % 60 === 0
       ? settings.i18n.formats.timeGutter
@@ -864,17 +869,17 @@ function EventCalendarTimeGutter({
         const label =
           viewConfig.renderTimeGutterSlot?.({
             time,
-            hour: Math.floor(minutes / 60),
-            minute: minutes % 60,
+            hour: time.getHours(),
+            minute: time.getMinutes(),
           }) ??
-          (minutes > startHour * 60
+          (minutes > boundsStartMin
             ? format(time, labelFormat, { locale: settings.locale })
             : null)
         return (
           <div
             key={minutes}
             className="relative"
-            style={{ height: `calc(var(--ec-hour-height) * ${interval / 60})` }}
+            style={{ height: `calc(var(--ec-hour-height) * ${Math.min(interval, boundsEndMin - minutes) / 60})` }}
           >
             {label != null && (
               <span
@@ -941,9 +946,7 @@ function EventCalendarDayColumn({
   const timeZone = settings.timeZone
   const dayStart = zonedStartOfDay(day, timeZone)
   const dayEnd = addDays(toZoned(dayStart, timeZone), 1)
-  const totalMinutes = getDayTotalMinutes(day, timeZone)
-  const boundsStartMin = startHour * 60
-  const boundsEndMin = Math.min(endHour * 60, totalMinutes)
+  const { totalMinutes, boundsStartMin, boundsEndMin } = getDayTimeBounds(day, timeZone, startHour, endHour)
   const boundsMinutes = Math.max(60, boundsEndMin - boundsStartMin)
 
   // Minute window of a proposal intersecting THIS day, or null
@@ -1290,8 +1293,9 @@ function EventCalendarNowIndicator({
 
   const dayStart = zonedStartOfDay(now, timeZone)
   const minutes = differenceInMinutes(now, dayStart)
-  if (minutes < startHour * 60 || minutes > endHour * 60) return null
-  const top = minutes / 60 - startHour
+  const { boundsStartMin, boundsEndMin } = getDayTimeBounds(now, timeZone, startHour, endHour)
+  if (minutes < boundsStartMin || minutes >= boundsEndMin) return null
+  const top = (minutes - boundsStartMin) / 60
 
   if (viewConfig.renderNowIndicator) {
     return (

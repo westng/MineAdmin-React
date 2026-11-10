@@ -50,6 +50,22 @@ function getDayTotalMinutes(dayStart: Date, timeZone: string): number {
   return differenceInMinutes(next, dayStart)
 }
 
+/** Convert a local clock boundary to elapsed minutes from that day's midnight. */
+function wallTimeToMinutes(day: Date, minutes: number, timeZone: string): number {
+  const start = zonedStartOfDay(day, timeZone)
+  const boundary = toZoned(start, timeZone)
+  boundary.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0)
+  return differenceInMinutes(boundary, start)
+}
+
+/** Grid geometry, event segments and pointer mapping all use elapsed minutes. */
+function getDayTimeBounds(day: Date, timeZone: string, startHour: number, endHour: number) {
+  const totalMinutes = getDayTotalMinutes(zonedStartOfDay(day, timeZone), timeZone)
+  const boundsStartMin = Math.max(0, Math.min(totalMinutes, wallTimeToMinutes(day, startHour * 60, timeZone)))
+  const boundsEndMin = Math.max(boundsStartMin, Math.min(totalMinutes, wallTimeToMinutes(day, endHour * 60, timeZone)))
+  return { totalMinutes, boundsStartMin, boundsEndMin }
+}
+
 function snapMinutes(minutes: number, snap: number): number {
   return Math.round(minutes / snap) * snap
 }
@@ -651,6 +667,7 @@ export {
   flattenResources,
   getDayKey,
   getDayTotalMinutes,
+  getDayTimeBounds,
   getRangeKey,
   getViewDateRange,
   isBarOccurrence,
@@ -664,6 +681,7 @@ export {
   spansMultipleDays,
   stepDate,
   toZoned,
+  wallTimeToMinutes,
   zonedStartOfDay,
 }
 export type {

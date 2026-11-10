@@ -23,11 +23,12 @@ import {
 import {
   flattenResources,
   getDayKey,
-  getDayTotalMinutes,
+  getDayTimeBounds,
   packTimedSegments,
   resolveOffDay,
   snapMinutes,
   toZoned,
+  wallTimeToMinutes,
   zonedStartOfDay,
 } from "@/components/reui/event-calendar/event-calendar-lib"
 import {
@@ -91,6 +92,8 @@ function EventCalendarResourceView({
     [settings.resources]
   )
 
+  const referenceDayMs = day.getTime()
+
   // Initial scroll + api.scrollToTime (same contract as the time grid)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -105,21 +108,18 @@ function EventCalendarResourceView({
     )
     const slotPx = slotRow?.getBoundingClientRect().height || 64
     const pxPerMinute = slotPx / interval
-    const scrollTo = (minutes: number) => {
-      // keep the hour label above the target line visible (it hangs -top-2)
+    const scrollTo = (time: Date | number) => {
+      const targetDay = typeof time === "number" ? new Date(referenceDayMs) : time
+      const { boundsStartMin } = getDayTimeBounds(targetDay, settings.timeZone, startHour, endHour)
+      const minutes = typeof time === "number"
+        ? wallTimeToMinutes(targetDay, time, settings.timeZone)
+        : (time.getTime() - zonedStartOfDay(time, settings.timeZone).getTime()) / 60000
       viewport?.scrollTo({
-        top: Math.max(0, (minutes - startHour * 60) * pxPerMinute - 12),
+        top: Math.max(0, (minutes - boundsStartMin) * pxPerMinute - 12),
       })
     }
     scrollTo(viewConfig.scrollToHour * 60)
-    instance.internals.registerScrollHandler((time) => {
-      const minutes =
-        typeof time === "number"
-          ? time
-          : toZoned(time, settings.timeZone).getHours() * 60 +
-            toZoned(time, settings.timeZone).getMinutes()
-      scrollTo(minutes)
-    })
+    instance.internals.registerScrollHandler(scrollTo)
     // Classic (width-consuming) scrollbars squeeze the scrolling track while
     // the header/all-day rows outside keep full width, drifting the column
     // borders. Mirror the measured gutter onto those rows via a CSS var -
@@ -148,6 +148,8 @@ function EventCalendarResourceView({
     instance,
     settings.timeZone,
     startHour,
+    endHour,
+    referenceDayMs,
     interval,
     viewConfig.scrollToHour,
     // scrollbars custom<->native swaps the scroller DOM: re-bind the
@@ -156,12 +158,11 @@ function EventCalendarResourceView({
   ])
 
   const slots = useMemo(() => {
+    const { boundsStartMin, boundsEndMin } = getDayTimeBounds(new Date(referenceDayMs), settings.timeZone, startHour, endHour)
     const result: number[] = []
-    for (let m = startHour * 60; m < endHour * 60; m += interval) {
-      result.push(m)
-    }
+    for (let m = boundsStartMin; m < boundsEndMin; m += interval) result.push(m)
     return result
-  }, [startHour, endHour, interval])
+  }, [referenceDayMs, settings.timeZone, startHour, endHour, interval])
 
   // All-day segments for renderAllDaySection - the same index bucket the
   // cells read; inert (stable empty array, so the subscription never
@@ -194,6 +195,7 @@ function EventCalendarResourceView({
         days={[day]}
         slots={slots}
         startHour={startHour}
+        endHour={endHour}
         interval={interval}
       />
       <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns }}>
@@ -372,12 +374,10 @@ function EventCalendarResourceAllDayCell({
     if (!covered) return null
     return drag.valid ? "valid" : "invalid"
   })
-  // Slot-draft highlight, mirroring the time-grid all-day cell. The dnd
-  // layer's all-day create branch does not plumb resourceId into the draft,
-  // so every resource cell covering the day highlights together.
+  // The draft stays attached to the resource where selection began.
   const inDraft = useEventCalendarSelector<unknown, boolean>((state) => {
     const draft = state.slotDraft
-    if (!draft || !draft.allDay) return false
+    if (!draft || !draft.allDay || draft.resourceId !== resource.id) return false
     return draft.start < dayEnd && draft.end > dayStart
   })
   return (
@@ -387,6 +387,7 @@ function EventCalendarResourceAllDayCell({
       // finds no cells and dragging an all-day chip silently converts it to
       // a timed event via the column branch
       data-ec-day={dayStart.getTime()}
+      data-ec-resource={resource.id}
       data-drop-target={isDropTarget ?? undefined}
       data-off={isOff || undefined}
       className={cn(
@@ -483,9 +484,7 @@ function EventCalendarResourceColumn({
 
   const timeZone = settings.timeZone
   const dayStart = zonedStartOfDay(day, timeZone)
-  const totalMinutes = getDayTotalMinutes(day, timeZone)
-  const boundsStartMin = startHour * 60
-  const boundsEndMin = Math.min(endHour * 60, totalMinutes)
+  const { boundsStartMin, boundsEndMin } = getDayTimeBounds(day, timeZone, startHour, endHour)
   const boundsMinutes = Math.max(60, boundsEndMin - boundsStartMin)
 
   // Filter this resource's timed segments and repack per column.

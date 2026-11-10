@@ -199,6 +199,8 @@ function expandRecurrence<TData>(
   range: EventCalendarDateRange,
   ctx: { timeZone: string }
 ): EventCalendarOccurrence<TData>[] {
+  if (![event.start, event.end, range.start, range.end].every((date) => Number.isFinite(date.getTime())) ||
+    range.end <= range.start || event.end < event.start) return []
   const allDay = event.allDay ?? false
 
   if (!event.recurrence) {
@@ -291,12 +293,10 @@ function expandRecurrence<TData>(
       ? [...new Set(validByMonth)].sort((a, b) => a - b)
       : [zonedStart.getMonth() + 1]
 
-  // month-shaped BY* parts make the per-period occurrence count variable
+  // Month/year periods can be empty even without BY*: a 31st or leap-day
+  // anchor skips invalid dates, and those periods do not consume COUNT.
   const hasMonthDayParts =
-    (rule.freq === "monthly" &&
-      Boolean(rule.byMonthDay?.length || monthlyByDay)) ||
-    (rule.freq === "yearly" &&
-      Boolean(rule.byMonth?.length || rule.byMonthDay?.length || monthlyByDay))
+    rule.freq === "monthly" || rule.freq === "yearly"
 
   const daysInMonth = (year: number, month: number) =>
     new Date(year, month + 1, 0).getDate()
@@ -349,7 +349,7 @@ function expandRecurrence<TData>(
       ctx.timeZone
     )
 
-  /** Selected days-of-month, ascending: BYMONTHDAY (and) BYDAY, else the clamped anchor day. */
+  /** Selected days-of-month, ascending; nonexistent anchor days are skipped. */
   const monthDays = (year: number, month: number): number[] => {
     const total = daysInMonth(year, month)
     let days: number[] | null = null
@@ -382,7 +382,7 @@ function expandRecurrence<TData>(
       }
       days = days ? days.filter((n) => byDayMatches.includes(n)) : byDayMatches
     }
-    if (!days) days = [Math.min(zonedStart.getDate(), total)] // clamp to month end
+    if (!days) days = zonedStart.getDate() <= total ? [zonedStart.getDate()] : []
     return [...new Set(days)].sort((a, b) => a - b)
   }
 
@@ -469,10 +469,11 @@ function expandRecurrence<TData>(
   let startPeriod =
     aheadMs > 0 ? Math.max(0, Math.floor(aheadMs / stepMs) - 2) : 0
   // mean-length drift is bounded well under one period - refine forward
-  while (
-    periodEdge(startPeriod, "last").getTime() + durationMs <=
-    range.start.getTime()
-  ) {
+  while (true) {
+    const latest = periodEdge(startPeriod, "last")
+    const end = endFor(latest).getTime()
+    if (!Number.isFinite(end)) break
+    if (durationMs === 0 ? end >= range.start.getTime() : end > range.start.getTime()) break
     startPeriod++
   }
 
@@ -506,7 +507,7 @@ function expandRecurrence<TData>(
     const start = new Date(rawStart.getTime())
     if (exTimes.has(start.getTime())) return
     const end = endFor(start)
-    if (start < range.end && end > range.start) {
+    if (start < range.end && (durationMs === 0 ? start >= range.start : end > range.start)) {
       occurrences.push({
         key: `${event.id}::${start.toISOString()}`,
         eventId: event.id,
@@ -528,6 +529,7 @@ function expandRecurrence<TData>(
     // whole-period bounds: never break on a mid-period weekday/day-of-month,
     // so earlier candidates of the final period are still emitted
     const earliest = periodEdge(period, "first")
+    if (!Number.isFinite(earliest.getTime())) break
     if (earliest.getTime() >= range.end.getTime()) break
     if (rule.until && earliest.getTime() > rule.until.getTime()) break
 
@@ -561,7 +563,7 @@ function expandRecurrence<TData>(
       const start = new Date(rDate.getTime())
       if (seen.has(start.getTime()) || exTimes.has(start.getTime())) continue
       const end = endFor(start)
-      if (start >= range.end || end <= range.start) continue
+      if (start >= range.end || (durationMs === 0 ? start < range.start : end <= range.start)) continue
       seen.add(start.getTime())
       occurrences.push({
         key: `${event.id}::${start.toISOString()}`,

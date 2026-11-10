@@ -24,6 +24,7 @@ import {
   findResource,
   getGanttDateRange,
   getRangeKey,
+  occurrenceIntersects,
   stepGanttDate,
   toZoned,
   type GanttIndex,
@@ -364,6 +365,8 @@ function createGanttStore<TData>(
     events: GanttEvent<TData>[]
     rangeKey: string
     timeZone: string
+    eventOrder: GanttSettings<TData>["eventOrder"]
+    getOccurrences: GanttSettings<TData>["getOccurrences"]
     index: GanttIndex<TData>
   } | null = null
   let lastEmittedRangeKey: string | null = null
@@ -505,8 +508,15 @@ function createGanttStore<TData>(
           }
         : { start: update.start, end: update.end, allDay: update.allDay }
     if (update.resourceId !== undefined) adjusted.resourceId = update.resourceId
-    const merged = extra ? { ...extra, ...adjusted } : adjusted
     const events = getState().events
+    const stored = events.find((event) => event.id === update.event.id)
+    if (stored?.recurrence && update.occurrence?.isRecurring) {
+      adjusted.start = new Date(stored.start.getTime() +
+        (adjusted.start ?? update.start).getTime() - update.occurrence.start.getTime())
+      adjusted.end = new Date(stored.end.getTime() +
+        (adjusted.end ?? update.end).getTime() - update.occurrence.end.getTime())
+    }
+    const merged = extra ? { ...extra, ...adjusted } : adjusted
     const next = events.map((event) =>
       event.id === update.event.id ? { ...event, ...merged } : event
     )
@@ -521,7 +531,9 @@ function createGanttStore<TData>(
       indexCache &&
       indexCache.events === state.events &&
       indexCache.rangeKey === rangeKey &&
-      indexCache.timeZone === settings.timeZone
+      indexCache.timeZone === settings.timeZone &&
+      indexCache.eventOrder === settings.eventOrder &&
+      indexCache.getOccurrences === settings.getOccurrences
     ) {
       return indexCache.index
     }
@@ -534,6 +546,8 @@ function createGanttStore<TData>(
       events: state.events,
       rangeKey,
       timeZone: settings.timeZone,
+      eventOrder: settings.eventOrder,
+      getOccurrences: settings.getOccurrences,
       index,
     }
     return index
@@ -638,7 +652,7 @@ function createGanttStore<TData>(
         range.start >= state.visibleRange.start &&
         range.end <= state.visibleRange.end
       if (within) {
-        return getIndex().occurrences.filter((occ) => eventsOverlap(occ, range))
+        return getIndex().occurrences.filter((occ) => occurrenceIntersects(occ, range))
       }
       return buildEventIndex(state.events, range, {
         timeZone: settings.timeZone,

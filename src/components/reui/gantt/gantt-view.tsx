@@ -692,13 +692,13 @@ function GanttView({
             index: i,
             center: start + width / 2,
             ms: unit.ms,
-            endMs: unitFractions[i + 1]?.unit.ms ?? unit.ms,
+            endMs: unitFractions[i + 1]?.unit.ms ?? range.end.getTime(),
           }
         }
       }
       return null
     }
-  }, [unitFractions])
+  }, [unitFractions, range.end])
 
   /** Group boundary fractions; spans are in unit-weight terms everywhere. */
   const groupBoundaries = useMemo(() => {
@@ -1292,6 +1292,11 @@ function GanttView({
   /** Live width while the splitter is dragging; render reads it so a
       mid-drag re-render can't snap the pane back to stale state. */
   const liveTreeWidthRef = useRef<number | null>(null)
+  const viewGestureCancels = useRef(new Set<() => void>())
+  useEffect(() => {
+    const cancels = viewGestureCancels.current
+    return () => { for (const cancel of [...cancels]) cancel() }
+  }, [])
 
   // In-flight gestures must never outlive the view (leaked window listeners,
   // body overlays and the drag cursor), and must never keep running against
@@ -1302,6 +1307,7 @@ function GanttView({
   useGanttGestureTeardown()
   useEffect(() => {
     cancelActiveGanttGestures()
+    for (const cancel of [...viewGestureCancels.current]) cancel()
   }, [zoom, scale, rangeKey, clampedTreeWidth, rows.length])
 
   // Leaf-row checkbox selection: uncontrolled unless selectedRows is passed
@@ -1372,23 +1378,31 @@ function GanttView({
         treePaneRef.current.style.width = `${liveWidth}px`
       }
     }
-    const finish = (ev?: PointerEvent) => {
-      if (ev && ev.pointerId !== pointerId) return
+    let finished = false
+    const finish = (commit: boolean) => {
+      if (finished) return
+      finished = true
+      viewGestureCancels.current.delete(cancel)
       window.removeEventListener("pointermove", onMove)
-      window.removeEventListener("pointerup", finish)
-      window.removeEventListener("pointercancel", finish)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onCancel)
       splitter.removeAttribute("data-resizing")
       document.body.style.cursor = ""
       document.body.style.userSelect = ""
       liveTreeWidthRef.current = null
-      if (liveWidth !== startWidth) {
+      if (!commit && treePaneRef.current) treePaneRef.current.style.width = `${startWidth}px`
+      if (commit && liveWidth !== startWidth) {
         setTreeWidth(liveWidth)
         viewConfigRef.current.treePanel?.onWidthChange?.(liveWidth)
       }
     }
+    const cancel = () => finish(false)
+    const onUp = (ev: PointerEvent) => { if (ev.pointerId === pointerId) finish(true) }
+    const onCancel = (ev: PointerEvent) => { if (ev.pointerId === pointerId) cancel() }
+    viewGestureCancels.current.add(cancel)
     window.addEventListener("pointermove", onMove)
-    window.addEventListener("pointerup", finish)
-    window.addEventListener("pointercancel", finish)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onCancel)
   }
 
   // Both panes scroll vertically; whichever moves drives the other.
@@ -2115,7 +2129,11 @@ function GanttView({
           : "not-allowed"
         setReorder(nextState)
       }
+      let finished = false
       const finish = (commit: boolean) => {
+        if (finished) return
+        finished = true
+        viewGestureCancels.current.delete(cancel)
         window.removeEventListener("pointermove", onMove)
         window.removeEventListener("pointerup", onUp)
         window.removeEventListener("pointercancel", onCancelEvent)
@@ -2138,6 +2156,7 @@ function GanttView({
         }
         setReorder(null)
       }
+      const cancel = () => finish(false)
       const onUp = (ev: PointerEvent) => {
         if (ev.pointerId !== pointerId) return
         finish(true)
@@ -2149,6 +2168,7 @@ function GanttView({
       const onKey = (ev: KeyboardEvent) => {
         if (ev.key === "Escape") finish(false)
       }
+      viewGestureCancels.current.add(cancel)
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", onUp)
       window.addEventListener("pointercancel", onCancelEvent)
@@ -3495,6 +3515,13 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
     stop: { ms: number; endMs: number },
     e: React.MouseEvent
   ) => {
+    if (!schedulable || !canSchedule) return
+    if (settings.canSelectSlot?.({
+      start: new Date(stop.ms),
+      end: new Date(Math.max(stop.endMs, stop.ms + 1)),
+      allDay: false,
+      resourceId: row.resource.id,
+    }) === false) return
     if (settings.onSlotClick) {
       settings.onSlotClick(
         { date: new Date(stop.ms), allDay: false, resourceId: row.resource.id },
@@ -3644,11 +3671,9 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
         if (hintStop) setHintStop(null)
       }}
       onClick={(e) => {
-        // With dragCreate the press belongs to the create GESTURE, which only
-        // activates past its movement threshold - so a click that never moved
-        // committed nothing and the row felt dead. Treat it as a create at the
-        // hovered slot, using the same validation the hint tile uses.
-        if (!viewConfig.dragCreate || e.target !== e.currentTarget) return
+        // Bare track receives pointer clicks through the transparent hint.
+        // It also handles a dragCreate press that stayed below the threshold.
+        if (e.target !== e.currentTarget || (!viewConfig.dragCreate && !hintVisible)) return
         if (!schedulable || !canSchedule) return
         if (wasRecentDrag()) return
         if (!settings.onSlotClick && !settings.onSelectSlot) return
@@ -4206,7 +4231,10 @@ function sameChips(a: OffscreenChip[], b: OffscreenChip[]): boolean {
         chip.id === b[i].id &&
         chip.side === b[i].side &&
         chip.top === b[i].top &&
-        chip.target === b[i].target
+        chip.target === b[i].target &&
+        chip.label === b[i].label &&
+        chip.color === b[i].color &&
+        chip.startMs === b[i].startMs
     )
   )
 }

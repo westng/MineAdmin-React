@@ -591,6 +591,14 @@ function createEventCalendarStore<TData>(
     if (oldKey) {
       remapSelectionKey(update.event.id, oldKey, adjusted.start ?? update.start)
     }
+    // The proposal describes this occurrence. Persist its deltas on DTSTART,
+    // otherwise resizing a later occurrence discards the earlier series.
+    if (stored?.recurrence && update.occurrence?.isRecurring) {
+      adjusted.start = new Date(stored.start.getTime() +
+        (adjusted.start ?? update.start).getTime() - update.occurrence.start.getTime())
+      adjusted.end = new Date(stored.end.getTime() +
+        (adjusted.end ?? update.end).getTime() - update.occurrence.end.getTime())
+    }
     const events = getState().events
     const next = events.map((event) =>
       event.id === update.event.id

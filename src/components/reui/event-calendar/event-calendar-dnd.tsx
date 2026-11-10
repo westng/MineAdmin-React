@@ -45,6 +45,7 @@ interface TimeColumnRect {
 interface DayCellRect {
   day: Date
   rect: DOMRect
+  resourceId?: string
 }
 
 interface Surface {
@@ -107,11 +108,13 @@ function wasRecentChipPress(): boolean {
  * Cancel fully reverts: listeners, overlays and the body drag state all clear,
  * and no update is committed.
  */
-const activeGestureCancels = new Set<() => void>()
+const activeGestureCancels = new Map<() => void, object>()
 
 /** Cancel (and fully revert) every in-flight event calendar pointer gesture. */
-function cancelActiveEventCalendarGestures(): void {
-  for (const cancel of [...activeGestureCancels]) cancel()
+function cancelActiveEventCalendarGestures(instance?: object): void {
+  for (const [cancel, owner] of [...activeGestureCancels]) {
+    if (!instance || owner === instance) cancel()
+  }
 }
 
 /**
@@ -119,7 +122,7 @@ function cancelActiveEventCalendarGestures(): void {
  * the LAST consumer leaving means the calendar itself is gone; aborting when
  * any single chip unmounts would kill a drag the user is still holding.
  */
-let gestureConsumers = 0
+const gestureConsumers = new WeakMap<object, number>()
 
 /**
  * Snap a translate offset to the device pixel grid. The cursor-following
@@ -163,7 +166,7 @@ function collectSurface(
           resourceId: el.dataset.ecResource,
         })
       } else {
-        cells.push({ day, rect: el.getBoundingClientRect() })
+        cells.push({ day, rect: el.getBoundingClientRect(), resourceId: el.dataset.ecResource })
       }
     }
   }
@@ -299,6 +302,7 @@ function beginBlockedGesture<TData>(
   const cleanup = () => {
     if (finished) return
     finished = true
+    activeGestureCancels.delete(cleanup)
     window.removeEventListener("pointermove", onMove)
     window.removeEventListener("pointerup", onRelease)
     window.removeEventListener("pointercancel", onRelease)
@@ -320,6 +324,7 @@ function beginBlockedGesture<TData>(
   window.addEventListener("pointermove", onMove)
   window.addEventListener("pointerup", onRelease)
   window.addEventListener("pointercancel", onRelease)
+  activeGestureCancels.set(cleanup, instance)
 }
 
 function beginGesture<TData>(config: BeginGestureConfig<TData>) {
@@ -332,6 +337,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   const startX = startEvent.clientX
   const startY = startEvent.clientY
   const pointerId = startEvent.pointerId
+  const createResourceId = origin.closest<HTMLElement>("[data-ec-resource]")?.dataset.ecResource
   // Resolved once: the chip can be re-rendered away mid-gesture. A gesture
   // from a portaled surface (the "+N more" popover) has no calendar ancestor,
   // so fall back to the registered root - same reason as collectSurface.
@@ -487,7 +493,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
         const target = cell ? zonedStartOfDay(cell.day, timeZone) : anchor
         const start = anchor <= target ? anchor : target
         const end = addDays(anchor <= target ? target : anchor, 1)
-        return { start, end, allDay: true, dayGranular: true }
+        return { start, end, allDay: true, dayGranular: true, resourceId: createResourceId }
       }
       const col = findColumn(surface, startX)
       if (!col) return null
@@ -643,16 +649,23 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     return { start: occurrence.start, end, allDay: false }
   }
 
-  const applyProposal = (e: PointerEvent) => {
+  const applyProposal = (e: PointerEvent, force = false) => {
     const proposal = computeProposal(e)
-    if (!proposal) return
+    if (!proposal) {
+      internals.setDrag(null)
+      internals.setSlotDraft(null)
+      return
+    }
     const key = `${proposal.start.getTime()}-${proposal.end.getTime()}-${proposal.allDay}-${proposal.resourceId ?? ""}`
-    if (key === lastProposalKey) return
+    if (!force && key === lastProposalKey) return
     lastProposalKey = key
 
     if (kind === "create") {
       const draft = { ...proposal, view: instance.getState().view }
-      if (settings.canSelectSlot && !settings.canSelectSlot(draft)) return
+      if (instance.settings.canSelectSlot?.(draft) === false) {
+        internals.setSlotDraft(null)
+        return
+      }
       internals.setSlotDraft(draft)
       return
     }
@@ -663,7 +676,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
       source: kind as "drag" | "resize-start" | "resize-end",
     }
     if (kind === "move") update.source = "drag"
-    const valid = settings.canDropEvent ? settings.canDropEvent(update) : true
+    const valid = instance.settings.canDropEvent?.(update) ?? true
     lastValid = valid
     setBodyDragging(true, !valid)
     internals.setDrag({
@@ -870,7 +883,8 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   }
 
   const onPointerUp = (e: PointerEvent) => {
-    if (e.pointerId !== pointerId) return
+    if (finished || e.pointerId !== pointerId) return
+    if (active) applyProposal(e, true)
     cleanup()
     if (!active) return
     lastGestureEndedAt = performance.now()
@@ -889,7 +903,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     }
     const drag = state.drag
     internals.setDrag(null)
-    if (!drag || !occurrence) return
+    if (!drag || !drag.valid || !occurrence) return
     const unchanged =
       drag.proposedStart.getTime() === occurrence.start.getTime() &&
       drag.proposedEnd.getTime() === occurrence.end.getTime() &&
@@ -932,7 +946,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   // reaches activate() to arm its own blur cancel
   if (active) window.addEventListener("blur", onWindowBlur)
   window.addEventListener("keydown", onKeyDown, true)
-  activeGestureCancels.add(cancel)
+  activeGestureCancels.set(cancel, instance)
 
   // Touch: long-press activation (movement past tolerance cancels above)
   if (isTouch && !active) {
@@ -963,12 +977,16 @@ function useEventCalendarGestures<TData = unknown>() {
   // legitimately unmount mid-gesture, so only the LAST consumer leaving - the
   // calendar itself going away - aborts.
   useEffect(() => {
-    gestureConsumers += 1
+    gestureConsumers.set(instance, (gestureConsumers.get(instance) ?? 0) + 1)
     return () => {
-      gestureConsumers -= 1
-      if (gestureConsumers === 0) cancelActiveEventCalendarGestures()
+      const remaining = (gestureConsumers.get(instance) ?? 1) - 1
+      if (remaining > 0) gestureConsumers.set(instance, remaining)
+      else {
+        gestureConsumers.delete(instance)
+        cancelActiveEventCalendarGestures(instance)
+      }
     }
-  }, [])
+  }, [instance])
 
   const canDrag = useCallback(
     (segment: EventCalendarSegment<TData>) => {

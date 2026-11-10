@@ -157,7 +157,7 @@ function resolveRule(
  * weekly BYDAY (no ordinals). Parsed-but-unimplemented filters (BYMONTHDAY,
  * BYMONTH, BYDAY outside weekly) throw a GanttRecurrenceError instead of
  * silently mis-expanding; plug the getOccurrences prop for a full engine.
- * WKST parses and round-trips; week emission is Sunday-anchored.
+ * WKST aligns interval weeks; the existing default remains Sunday.
  *
  * exDates remove exactly-matching instants (after COUNT numbering,
  * Google-style: an exception still consumes its COUNT slot); rDates add extra
@@ -169,6 +169,8 @@ function expandRecurrence<TData>(
   range: GanttDateRange,
   ctx: { timeZone: string }
 ): GanttOccurrence<TData>[] {
+  if (![event.start, event.end, range.start, range.end].every((date) => Number.isFinite(date.getTime())) ||
+    range.end <= range.start || event.end < event.start) return []
   const allDay = event.allDay ?? false
 
   if (!event.recurrence) {
@@ -221,140 +223,115 @@ function expandRecurrence<TData>(
         })
       : null
 
-  const occurrences: GanttOccurrence<TData>[] = []
-  let produced = 0
-  let index = 0
-  let cursor = zonedStart
+  const daySpan = Math.round(durationMs / 86400000)
+  const wallDaySpan =
+    allDay && daySpan > 0 &&
+    addDays(zonedStart, daySpan).getTime() === event.end.getTime()
+      ? daySpan
+      : null
+  const endFor = (start: Date): Date =>
+    wallDaySpan === null
+      ? new Date(start.getTime() + durationMs)
+      : new Date(addDays(new TZDate(start.getTime(), ctx.timeZone), wallDaySpan).getTime())
 
-  const advance = (from: TZDate, steps: number): TZDate =>
+  const weekStartIndex = WEEKDAYS.indexOf(rule.weekStart ?? "SU")
+  const fromWeekStart = (day: number) => (day - weekStartIndex + 7) % 7
+  const days = weeklyDays ? [...new Set(weeklyDays)] : null
+  // Every period comes from DTSTART, never from a previously clamped date.
+  const anchorFor = (period: number): TZDate =>
     rule.freq === "daily"
-      ? addDays(from, steps * interval)
+      ? addDays(zonedStart, period * interval)
       : rule.freq === "weekly"
-        ? addWeeks(from, steps * interval)
+        ? addWeeks(zonedStart, period * interval)
         : rule.freq === "monthly"
-          ? addMonths(from, steps * interval)
-          : addYears(from, steps * interval)
+          ? addMonths(zonedStart, period * interval)
+          : addYears(zonedStart, period * interval)
 
-  // Fast-forward past periods entirely before the range: they produce
-  // nothing and must not consume the occurrence cap (an old-enough daily
-  // series would otherwise exhaust MAX_OCCURRENCES before reaching the
-  // window and silently vanish). COUNT rules jump too: the skipped periods
-  // are credited to `index`, which is what terminates the series, so the
-  // count still ends it on exactly the right instant. Leaving them on full
-  // iteration would hide any series whose count exceeds MAX_OCCURRENCES.
-  //
-  // Daily and weekly ONLY. Their step is a fixed wall-time length, so one jump
-  // of N steps lands exactly where N single steps land. addMonths/addYears
-  // CLAMP instead: a Jan 31 monthly anchor steps to Feb 28 and never returns to
-  // the 31st, while a single jump from the anchor clamps at most once. Jumping
-  // those would make the same occurrence render on a different day depending on
-  // which window the viewer scrolled in from, so they always iterate.
-  const canFastForward = rule.freq === "daily" || rule.freq === "weekly"
-  // weekly BYDAY emits across the cursor's whole Sunday week
-  const weekSlackMs = weeklyDays ? 6 * 86_400_000 : 0
-  // divide by the LONGEST possible step so the jump can never overshoot
-  const maxStepMs =
-    (rule.freq === "daily"
-      ? 24
-      : rule.freq === "weekly"
-        ? 7 * 24
-        : rule.freq === "monthly"
-          ? 31 * 24
-          : 366 * 24) *
-      3_600_000 *
-      interval +
-    3_600_000
-  for (let pass = 0; canFastForward && pass < 2; pass++) {
-    const gap =
-      range.start.getTime() - durationMs - weekSlackMs - cursor.getTime()
-    const skip = Math.floor(gap / maxStepMs)
-    if (skip <= 0) break
-    cursor = advance(cursor, skip)
-    index += skip * (weeklyDays ? weeklyDays.length : 1)
-  }
-  // close the remainder step by step (bounded by the jump math)
-  let guard = 0
-  while (
-    guard++ < 10_000 &&
-    !(rule.until && cursor.getTime() > rule.until.getTime()) &&
-    cursor.getTime() + durationMs + weekSlackMs < range.start.getTime()
-  ) {
-    cursor = advance(cursor, 1)
-    index += weeklyDays ? weeklyDays.length : 1
-  }
-  // The jump credits a whole week of selected days per skipped week, but full
-  // iteration never counts the selected days that fall BEFORE the anchor
-  // inside the anchor's own week. Drop them once so both paths number the
-  // same instant identically (index counts occurrences at or after the
-  // anchor, and only those).
-  if (weeklyDays && index > 0) {
-    index -= weeklyDays.filter((day) => day < zonedStart.getDay()).length
-  }
-
-  const pushIfVisible = (rawStart: Date) => {
-    // normalize to a plain instant so consumers never receive zone-carrying
-    // TZDate instances (mixed-zone formatting bugs)
-    const start = new Date(rawStart.getTime())
-    if (exTimes.has(start.getTime())) return
-    const end = new Date(start.getTime() + durationMs)
-    // zero-length instances (milestones) keep the closed-start visibility
-    // rule; see the non-recurring branch above
-    const visible =
-      durationMs === 0
-        ? start >= range.start && start < range.end
-        : start < range.end && end > range.start
-    if (visible) {
-      occurrences.push({
-        key: `${event.id}::${start.toISOString()}`,
-        eventId: event.id,
-        event,
-        start,
-        end,
-        allDay,
-        isRecurring: true,
-        recurrenceIndex: index,
-      })
-    }
-  }
-
-  while (produced < MAX_OCCURRENCES) {
-    if (rule.until && cursor.getTime() > rule.until.getTime()) break
-    // COUNT is series-absolute, so it reads `index` (the position in the
-    // series, fast-forward included) rather than `produced` (emissions in
-    // this loop, which MAX_OCCURRENCES caps).
-    if (rule.count !== undefined && index >= rule.count) break
-    // Past the visible window with no count to honor - stop iterating. For
-    // weekly BYDAY the WEEK START decides: selected days earlier in the
-    // anchor's week can still fall before range.end.
-    const horizonMs = weeklyDays
-      ? addDays(cursor, -cursor.getDay()).getTime()
-      : cursor.getTime()
-    if (horizonMs >= range.end.getTime() && rule.count === undefined) {
-      break
-    }
-
-    if (rule.freq === "weekly" && weeklyDays) {
-      // Emit each selected weekday within the cursor's week
-      for (let d = 0; d < 7; d++) {
-        const candidate = addDays(cursor, d - cursor.getDay())
-        if (!weeklyDays.includes(candidate.getDay())) continue
-        if (candidate.getTime() < zonedStart.getTime()) continue
-        if (rule.until && candidate.getTime() > rule.until.getTime()) continue
-        // the cap is checked here too, or a week that crosses it mid-loop
-        // still emits its remaining selected days
-        if (produced >= MAX_OCCURRENCES) break
-        if (rule.count !== undefined && index >= rule.count) break
-        pushIfVisible(candidate)
-        produced++
-        index++
+  const candidatesFor = (period: number): TZDate[] => {
+    const base = anchorFor(period)
+    if (days) {
+      const week: TZDate[] = []
+      const baseOffset = fromWeekStart(base.getDay())
+      for (let offset = 0; offset < 7; offset++) {
+        const candidate = addDays(base, offset - baseOffset)
+        if (days.includes(candidate.getDay()) && candidate >= zonedStart) week.push(candidate)
       }
-    } else {
-      pushIfVisible(cursor)
-      produced++
-      index++
+      return week
     }
+    // RFC 5545: invalid dates are ignored and do not consume COUNT.
+    if ((rule.freq === "monthly" || rule.freq === "yearly") &&
+      base.getDate() !== zonedStart.getDate()) return []
+    return [base]
+  }
+  const periodEdge = (period: number, last = false): TZDate => {
+    const base = anchorFor(period)
+    return days ? addDays(base, (last ? 6 : 0) - fromWeekStart(base.getDay())) : base
+  }
 
-    cursor = advance(cursor, 1)
+  // A conservative jump followed by exact refinement keeps old series cheap.
+  // The longest wall-time period plus DST slack cannot jump past the window.
+  const maxStepMs = ({ daily: 1, weekly: 7, monthly: 31, yearly: 366 }[rule.freq] *
+    86400000 * interval) + 3600000
+  const gap = range.start.getTime() - durationMs - (days ? 7 * 86400000 : 0) -
+    zonedStart.getTime()
+  let period = Math.max(0, Math.floor(gap / maxStepMs) - 1)
+  while (true) {
+    const end = endFor(periodEdge(period, true)).getTime()
+    if (!Number.isFinite(end)) break
+    if (durationMs === 0 ? end >= range.start.getTime() : end > range.start.getTime()) break
+    period++
+  }
+  let index = 0
+  if (rule.freq === "monthly" || rule.freq === "yearly") {
+    for (let skipped = 0; skipped < period; skipped++) {
+      index += candidatesFor(skipped).length
+      if (rule.count !== undefined && index >= rule.count) break
+    }
+  } else if (days && period > 0) {
+    index = candidatesFor(0).length + (period - 1) * days.length
+  } else {
+    index = period
+  }
+
+  const occurrences: GanttOccurrence<TData>[] = []
+  const pushIfVisible = (candidate: Date) => {
+    const start = new Date(candidate.getTime())
+    if (exTimes.has(start.getTime())) return
+    const end = endFor(start)
+    const visible = durationMs === 0
+      ? start >= range.start && start < range.end
+      : start < range.end && end > range.start
+    if (visible) occurrences.push({
+      key: `${event.id}::${start.toISOString()}`,
+      eventId: event.id,
+      event,
+      start,
+      end,
+      allDay,
+      isRecurring: true,
+      recurrenceIndex: index,
+    })
+  }
+
+  for (let iterations = 0; iterations < 10000 && occurrences.length < MAX_OCCURRENCES; iterations++, period++) {
+    if (rule.count !== undefined && index >= rule.count) break
+    // Check the earliest candidate in the whole WKST-aligned period, not the
+    // DTSTART weekday: a Monday may precede UNTIL even if Tuesday does not.
+    const earliest = periodEdge(period)
+    if (!Number.isFinite(earliest.getTime())) break
+    if (earliest >= range.end || (rule.until && earliest > rule.until)) break
+    let ended = false
+    for (const candidate of candidatesFor(period)) {
+      if ((rule.count !== undefined && index >= rule.count) ||
+        (rule.until && candidate > rule.until)) {
+        ended = true
+        break
+      }
+      pushIfVisible(candidate)
+      index++
+      if (occurrences.length >= MAX_OCCURRENCES) break
+    }
+    if (ended) break
   }
 
   // RDATE: extra instants join the set (deduped against generated starts and
@@ -365,7 +342,7 @@ function expandRecurrence<TData>(
     for (const rDate of rule.rDates) {
       const start = new Date(rDate.getTime())
       if (seen.has(start.getTime()) || exTimes.has(start.getTime())) continue
-      const end = new Date(start.getTime() + durationMs)
+      const end = endFor(start)
       // mirrored visibility rule: zero-length RDATEs stay closed at the start
       const hidden =
         durationMs === 0

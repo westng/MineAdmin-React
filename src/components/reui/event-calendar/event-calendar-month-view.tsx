@@ -1164,7 +1164,7 @@ function EventCalendarMoreIndicator({
               } as CSSProperties)
             : undefined
         }
-        onClick={(e: React.MouseEvent) => {
+        onClick={(e) => {
           e.stopPropagation()
           const verdict = settings.onMoreClick?.(
             day,
@@ -1172,6 +1172,7 @@ function EventCalendarMoreIndicator({
             e
           )
           if (verdict === false) {
+            e.preventBaseUIHandler()
             e.preventDefault()
             setOpen(false)
           }
