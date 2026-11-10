@@ -260,8 +260,8 @@ export function collectFilterIssues<V>(
             column: "value",
             reason: "reversed-range",
           })
+          continue
         }
-        continue
       }
 
       // `many` and `one` collapse here: both are unsatisfied by an empty list,

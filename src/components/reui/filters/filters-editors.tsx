@@ -32,6 +32,7 @@ import {
 import {
   applyFilterExclusiveSelection,
   filterFilterOptions,
+  filterConfigSignature,
   joinFilterPath,
   normalizeFilterQuery,
   warnFilterOnce,
@@ -60,6 +61,7 @@ import { CheckIcon, XIcon } from "lucide-react"
 /* -------------------------------------------------------------------------- */
 
 interface OptionsInternalState<O> {
+  sourceKey?: string | null
   items: FilterOption<O>[]
   loading: boolean
   error: boolean
@@ -79,22 +81,20 @@ const emptySubscribe = () => () => {}
 const zeroVersion = () => 0
 
 /**
- * The joined path of a field, from the schema index. Keyed by PATH, not field
- * identity, so labels survive a schema rebuild; an unknown field uses its id.
+ * The path and option source identify a cache scope. Schema-only changes keep
+ * resolved labels; a new field, loader or declared options cannot reuse them.
  */
 function filterFieldKey<V, O>(
   field: FilterField<V, O> | undefined,
   index: FilterIndex | undefined
 ): string | null {
   if (!field) return null
+  let path = `#${field.id}`
   if (index) {
-    for (const entry of index.all) {
-      if ((entry.field as unknown) === (field as unknown)) {
-        return joinFilterPath(entry.path)
-      }
-    }
+    const entry = index.all.find((entry) => (entry.field as unknown) === (field as unknown))
+    if (entry) path = joinFilterPath(entry.path)
   }
-  return `#${field.id}`
+  return JSON.stringify([path, filterConfigSignature([field.options, field.loadOptions, field.resolveValues])])
 }
 
 /**
@@ -114,7 +114,6 @@ export function useFilterOptions<V, O>(
     IDLE as OptionsInternalState<O>
   )
 
-  const cache = React.useRef(new Map<string, FilterOption<O>>())
   const requestId = React.useRef(0)
   const abortRef = React.useRef<AbortController | null>(null)
 
@@ -123,6 +122,8 @@ export function useFilterOptions<V, O>(
   const shared: FilterResolutionStore | null =
     actionsContext?.resolution ?? null
   const sharedKey = filterFieldKey(field, actionsContext?.index)
+  const cache = React.useMemo(() => new Map<string, FilterOption<O>>(), [sharedKey])
+  const currentState = state.sourceKey === sharedKey ? state : IDLE as OptionsInternalState<O>
 
   // Re-render when a label lands ANYWHERE under this root, not just here.
   React.useSyncExternalStore(
@@ -138,20 +139,20 @@ export function useFilterOptions<V, O>(
   // Seeded in an effect, not during render, so the render stays pure.
   React.useEffect(() => {
     if (!staticOptions) return
-    for (const option of staticOptions) cache.current.set(option.value, option)
+    for (const option of staticOptions) cache.set(option.value, option)
     if (shared && sharedKey) shared.set(sharedKey, staticOptions)
-  }, [staticOptions, shared, sharedKey])
+  }, [staticOptions, shared, sharedKey, cache])
 
   React.useEffect(() => {
-    for (const option of state.items) cache.current.set(option.value, option)
-    if (shared && sharedKey && state.items.length) {
-      shared.set(sharedKey, state.items)
+    for (const option of currentState.items) cache.set(option.value, option)
+    if (shared && sharedKey && currentState.items.length) {
+      shared.set(sharedKey, currentState.items)
     }
-  }, [state.items, shared, sharedKey])
+  }, [currentState.items, shared, sharedKey, cache])
 
   const run = React.useCallback(
     async (nextQuery: string, cursor: string | undefined, append: boolean) => {
-      if (!loadOptions) return
+      if (!enabled || !loadOptions) return
 
       abortRef.current?.abort()
       const controller = new AbortController()
@@ -160,9 +161,10 @@ export function useFilterOptions<V, O>(
 
       setState((previous) => ({
         ...previous,
+        sourceKey: sharedKey,
         loading: true,
         error: false,
-        items: append ? previous.items : [],
+        items: append && previous.sourceKey === sharedKey ? previous.items : [],
       }))
 
       try {
@@ -171,13 +173,14 @@ export function useFilterOptions<V, O>(
           cursor,
         })
         // A superseded request must not write; the id, not the abort, decides.
-        if (id !== requestId.current) return
+        if (id !== requestId.current || controller.signal.aborted) return
 
         const normalized: FilterLoadResult<O> = Array.isArray(result)
           ? { items: result }
           : result
 
         setState((previous) => ({
+          sourceKey: sharedKey,
           items: append
             ? [...previous.items, ...normalized.items]
             : normalized.items,
@@ -187,7 +190,7 @@ export function useFilterOptions<V, O>(
           cursor: normalized.nextCursor,
         }))
       } catch (error) {
-        if (id !== requestId.current) return
+        if (id !== requestId.current || controller.signal.aborted) return
         if ((error as Error)?.name === "AbortError") return
         setState((previous) => ({
           ...previous,
@@ -197,36 +200,39 @@ export function useFilterOptions<V, O>(
         }))
       }
     },
-    [loadOptions]
+    [loadOptions, enabled, sharedKey]
   )
 
-  React.useEffect(() => {
-    if (!enabled || !isAsync) return
-    const timer = setTimeout(
-      () => void run(query, undefined, false),
-      debounceMs
-    )
-    return () => clearTimeout(timer)
-  }, [enabled, isAsync, query, debounceMs, run])
+  React.useEffect(() => { setQueryState("") }, [sharedKey])
 
   React.useEffect(() => {
-    return () => abortRef.current?.abort()
-  }, [])
+    if (!enabled || !isAsync) {
+      setState((previous) => previous.loading ? { ...previous, loading: false } : previous)
+      return
+    }
+    const timer = setTimeout(() => void run(query, undefined, false), debounceMs)
+    return () => {
+      clearTimeout(timer)
+      requestId.current++
+      abortRef.current?.abort()
+      abortRef.current = null
+    }
+  }, [enabled, isAsync, query, debounceMs, run])
 
   const normalizedQuery = normalizeFilterQuery(query)
 
   // Async results are server-filtered; re-filtering hides what the label omits.
   const items = React.useMemo(() => {
-    if (isAsync) return state.items
+    if (isAsync) return currentState.items
     return filterFilterOptions(staticOptions ?? [], normalizedQuery)
-  }, [isAsync, state.items, staticOptions, normalizedQuery])
+  }, [isAsync, currentState.items, staticOptions, normalizedQuery])
 
   const setQuery = React.useCallback((next: string) => setQueryState(next), [])
 
   const loadMore = React.useCallback(() => {
-    if (!state.hasMore || state.loading) return
-    void run(query, state.cursor, true)
-  }, [state.hasMore, state.loading, state.cursor, query, run])
+    if (!enabled || !currentState.hasMore || currentState.loading) return
+    void run(query, currentState.cursor, true)
+  }, [enabled, currentState.hasMore, currentState.loading, currentState.cursor, query, run])
 
   const retry = React.useCallback(() => {
     void run(query, undefined, false)
@@ -242,16 +248,18 @@ export function useFilterOptions<V, O>(
       const fromShared =
         shared && sharedKey ? shared.get(sharedKey, value) : undefined
       if (fromShared) return fromShared as FilterOption<O>
-      return cache.current.get(value)
+      const loaded = currentState.items.find((option) => option.value === value)
+      if (loaded) return loaded
+      return cache.get(value)
     },
-    [staticOptions, shared, sharedKey]
+    [staticOptions, currentState.items, shared, sharedKey, cache]
   )
 
   return {
     items,
-    loading: state.loading,
-    error: state.error,
-    hasMore: state.hasMore,
+    loading: currentState.loading,
+    error: currentState.error,
+    hasMore: currentState.hasMore,
     query,
     setQuery,
     loadMore,

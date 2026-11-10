@@ -1422,7 +1422,7 @@ function addFilterRow<V, O>(
   if (!entry) return null
 
   const id = actions.nextId()
-  actions.addRule(
+  const accepted = actions.addRule(
     createFilterRule<V>({
       id,
       path: entry.path,
@@ -1432,7 +1432,7 @@ function addFilterRow<V, O>(
     }),
     parentId
   )
-  return id
+  return accepted ? id : null
 }
 
 /* -------------------------------------------------------------------------- */

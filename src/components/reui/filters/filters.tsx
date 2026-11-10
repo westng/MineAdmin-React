@@ -444,16 +444,17 @@ export function Filters<V = unknown, O = unknown>({
 
   const addRule = React.useCallback(
     (rule: FilterRule<V>, parentId?: string) => {
-      if (locked()) return
+      if (locked()) return false
       const next = insertFilterNode(
         latest.current.queryRef.current,
         rule,
         parentId
       )
-      if (!emit(next, "add", rule)) return
+      if (next === latest.current.queryRef.current || !emit(next, "add", rule)) return false
       setAnnouncement(
         latest.current.labels.countAnnouncement(countFilterRules(next))
       )
+      return true
     },
     [emit, locked, setAnnouncement]
   )
@@ -800,7 +801,7 @@ export function Filters<V = unknown, O = unknown>({
       // Asked here too: this branch burns an id and points the focus store at
       // it, and a store naming a chip that never existed eats the tab stop.
       const id = nextId()
-      addRule(
+      const accepted = addRule(
         createFilterRule<V>({
           id,
           path: draft.path,
@@ -809,7 +810,7 @@ export function Filters<V = unknown, O = unknown>({
           value: undefined,
         })
       )
-      focusStore.set({ id, segment: "operator", autoOpen: true })
+      if (accepted) focusStore.set({ id, segment: "operator", autoOpen: true })
     }
     dispatchDraftRaw({ type: "close" })
   }, [draft, addRule, updateRule, nextId, focusStore, locked])

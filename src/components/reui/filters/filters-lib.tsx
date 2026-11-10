@@ -71,78 +71,46 @@ export function parentFilterKey(path: readonly string[]): string {
 /*                                  Signature                                 */
 /* -------------------------------------------------------------------------- */
 
-/**
- * A content hash of the schema, used to skip a rebuild. Identity alone is
- * useless: every block and example declares `fields` as an inline literal, so a
- * memo keyed on the array misses on every parent render. Render props (`icon`,
- * `renderValue`, a component-valued `editor`) are hashed by PRESENCE only,
- * because inline JSX recreates them: swapping one's body keeps serving the
- * previous field objects, so change a structural field or give `fields` a
- * stable identity.
- */
+const configIdentities = new WeakMap<object, number>()
+let nextConfigIdentity = 0
+const configIdentity = (value: object): number => {
+  let id = configIdentities.get(value)
+  if (id === undefined) {
+    id = ++nextConfigIdentity
+    configIdentities.set(value, id)
+  }
+  return id
+}
+
+/** Complete config snapshot; callbacks and opaque objects compare by identity. */
+export function filterConfigSignature(value: unknown): string {
+  const parents = new Set<object>()
+  const visit = (entry: unknown): unknown => {
+    if (entry === null) return ["null"]
+    if (typeof entry === "function") return ["function", configIdentity(entry)]
+    if (typeof entry !== "object") {
+      return [typeof entry, Object.is(entry, -0) ? "-0" : String(entry)]
+    }
+    if (entry instanceof Date) return ["date", entry.getTime()]
+    const prototype = Object.getPrototypeOf(entry)
+    if (parents.has(entry) || (!Array.isArray(entry) && prototype !== Object.prototype && prototype !== null)) {
+      return ["object", configIdentity(entry)]
+    }
+    parents.add(entry)
+    const result = Array.isArray(entry)
+      ? ["array", entry.map(visit)]
+      : ["record", Object.keys(entry).sort().map((key) => [key, visit((entry as Record<string, unknown>)[key])])]
+    parents.delete(entry)
+    return result
+  }
+  return JSON.stringify(visit(value))
+}
+
+/** Equal inline data reuses the index; every behavior and renderer change invalidates it. */
 export function computeFilterSchemaSignature<V, O>(
   fields: readonly FilterField<V, O>[]
 ): string {
-  const parts: string[] = []
-
-  const walk = (list: readonly FilterField<V, O>[], depth: number) => {
-    for (const field of list) {
-      parts.push(
-        depth +
-          ":" +
-          field.id +
-          "|" +
-          (field.label ?? "") +
-          "|" +
-          (field.type ?? "") +
-          "|" +
-          (field.defaultOperator ?? "") +
-          "|" +
-          (field.column ?? "") +
-          "|" +
-          (field.selectable ? "1" : "0") +
-          (field.disabled ? "1" : "0") +
-          (field.icon ? "1" : "0") +
-          (field.renderValue ? "1" : "0") +
-          (field.loadOptions ? "1" : "0") +
-          (field.resolveValues ? "1" : "0") +
-          "|" +
-          (typeof field.editor === "string"
-            ? field.editor
-            : field.editor
-              ? "fn"
-              : "") +
-          "|" +
-          (field.keywords?.join(",") ?? "") +
-          "|" +
-          (field.count ?? "") +
-          "|" +
-          // Options are part of the shape, and `exclusive` rides along: it
-          // decides what a pick DOES, so turning it on must force a rebuild.
-          (field.options
-            ? field.options
-                .map(
-                  (option) =>
-                    option.value +
-                    "~" +
-                    option.label +
-                    (option.exclusive ? "~x" : "")
-                )
-                .join(",")
-            : "") +
-          "|" +
-          (Array.isArray(field.operators)
-            ? field.operators.map((operator) => operator.value).join(",")
-            : field.operators
-              ? "fn"
-              : "")
-      )
-      if (field.fields?.length) walk(field.fields, depth + 1)
-    }
-  }
-
-  walk(fields, 0)
-  return parts.join("\n")
+  return filterConfigSignature(fields)
 }
 
 /* -------------------------------------------------------------------------- */

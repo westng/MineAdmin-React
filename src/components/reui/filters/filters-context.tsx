@@ -1,5 +1,6 @@
 import * as React from "react"
 import type { FilterDraftAction } from "@/components/reui/filters/filters-draft"
+import { filterConfigSignature } from "@/components/reui/filters/filters-lib"
 import type { FilterPathCollapse } from "@/components/reui/filters/filters-lib"
 import type {
   FilterCombinator,
@@ -86,7 +87,7 @@ export interface FilterActionsContextValue<V = unknown, O = unknown> {
    *  rather than always the root because a nested group's add button is the
    *  keyboard path into that group, and routing it through the root then
    *  moving it would be two edits and two announcements for one action. */
-  addRule: (rule: FilterRule<V>, parentId?: string) => void
+  addRule: (rule: FilterRule<V>, parentId?: string) => boolean
   /** Appends an empty group and returns its id, so the caller can focus it.
    *  Returns an EMPTY STRING when the bar is disabled or read only, the one
    *  mutator that has to report its refusal: focusing a group that was never
@@ -573,13 +574,13 @@ export function useFilterSegmentFocus(id: string): FilterFocus["segment"] {
  *  Every instance under one root writes here, and `resolveValues` results land
  *  here too. External rather than React state because labels arrive from
  *  effects and promises at their own pace, and the version bumps only when a
- *  NEW label lands, so a subscriber re-renders once per page of results. */
+ *  label or option metadata changes, once per page of distinct results. */
 export interface FilterResolutionStore {
   subscribe: (onStoreChange: () => void) => () => void
   getVersion: () => number
   /** The option behind a stored value, or undefined while unresolved. */
   get: (fieldKey: string, value: string) => FilterOption | undefined
-  /** Records options under a field key. New values bump the version. */
+  /** Records options under a field key. Changed metadata bumps the version. */
   set: (fieldKey: string, options: readonly FilterOption[]) => void
   /** Marks values as resolving and returns the subset nobody has claimed yet,
    *  so two chips holding the same id issue ONE request. Claims are permanent
@@ -622,7 +623,7 @@ export function createFilterResolutionStore(): FilterResolutionStore {
       const map = bucket(fieldKey)
       let landed = false
       for (const option of options) {
-        if (!map.has(option.value)) landed = true
+        if (filterConfigSignature(map.get(option.value)) !== filterConfigSignature(option)) landed = true
         map.set(option.value, option)
       }
       if (!landed) return
