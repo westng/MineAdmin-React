@@ -56,6 +56,7 @@ export function isPublicFile(file) {
   }
   if (/^(examples|\.githooks|\.github)\//.test(file)) return true
   if (/^docs\/(?:MIGRATION|EXTENSIONS|MENU_MIGRATION|ROUTING|MA_COMPONENTS)\.md$/.test(file)) return true
+  if (/^docs\/images\/(?:layout-classic|layout-columns-dark|ai-agents)\.jpg$/.test(file)) return true
   if (/^scripts\/(?:check-[\w-]+|public-files|public-smoke|export-public|setup-git-hooks)\.mjs$/.test(file)) return true
   if (/^scripts\/vite-source-structure-hmr\.(?:mjs|d\.mts)$/.test(file)) return true
   if (

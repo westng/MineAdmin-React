@@ -27,7 +27,7 @@
 
 当前版本为 `3.2.1-alpha.2`（Alpha 预发布），供开发和集成验证；后续预发布的公共 API 与目录结构可能调整。完整变化及升级注意事项见 [变更记录](CHANGELOG.md#321-alpha2---2026-11-07)。
 
-[快速开始](#快速开始) · [架构说明](ARCHITECTURE.md) · [路由与菜单、插件接入](docs/ROUTING.md) · [升级迁移](docs/MIGRATION.md)
+[快速开始](#快速开始) · [界面预览](#界面预览) · [架构说明](ARCHITECTURE.md) · [AI Agents 面板](#ai-agents-面板) · [路由与菜单、插件接入](docs/ROUTING.md) · [升级迁移](docs/MIGRATION.md)
 
 ## 项目介绍
 
@@ -42,11 +42,24 @@
 | 认证与权限 | 会话恢复、Token 刷新、账号切换隔离，以及路由和组件访问控制                      |
 | 动态路由   | 统一静态、菜单和插件路由，按 modules/plugins 文件路径自动解析页面               |
 | 页面布局   | 经典布局、分栏导航、混合导航三种布局；当前开放经典布局和分栏导航                |
+| AI Agents  | 可折叠右侧面板、拖拽调宽、移动端抽屉、内容插槽与受控对话输入区（Unreleased） |
 | 业务组件   | MaForm、MaSearch、MaTable、MaProTable、MaDialog、MaDrawer、MaUpload、MaDownload |
 | UI 与主题  | ReUI、shadcn/ui 风格原语、Tailwind CSS、明暗主题和主题色                        |
 | 数据访问   | Axios 请求层、TanStack Query 缓存，以及按会话隔离的请求生命周期                 |
 | 应用扩展   | 插件能力注册、Dashboard 区域、登录方式、工具栏和 Shell 插槽                     |
 | 国际化     | 语言包注册与回退，默认提供 zh_CN、zh_TW、en_US；覆盖范围以各模块语言包为准      |
+
+### 界面预览
+
+以下截图基于当前开发版本，使用演示菜单与合成数据。
+
+**经典布局 · 浅色主题**：侧栏导航、页面标签与角色管理表格。
+
+![经典布局浅色主题下的角色管理页面](docs/images/layout-classic.jpg)
+
+**分栏导航 · 深色主题**：一级图标导航、二级菜单与主内容区域。
+
+![分栏导航深色主题下的角色管理页面](docs/images/layout-columns-dark.jpg)
 
 ### 布局与二级菜单扩展
 
@@ -55,6 +68,39 @@
 分栏导航由左侧一级菜单和按当前一级菜单显示的二级菜单组成。二级菜单下方预留 `shell.section.content` 插槽，扩展可以放置业务快捷入口、统计信息或其他自定义内容。插槽占据剩余高度、独立滚动，并在二级菜单折叠时同步隐藏；没有注册内容时保持空白。组件会收到 `sectionPath`、`sectionLabel` 和当前 `pathname`，详细注册方式见[路由与插件接入](docs/ROUTING.md)。
 
 分栏导航的一级菜单图标在桌面端提供 Tooltip。面包屑位于顶部导航栏，使用实际路由层级；右侧内容区域不再重复显示面包屑，也不添加固定的 `CRM` 层级。个人资料和账号设置统一从头像菜单进入。
+
+### AI Agents 面板
+
+当前开发分支新增 AI Agents 面板（Unreleased），提供面板容器、基础输入 UI 和内容扩展入口。开发者通过自己的组件接入模型服务、对话展示与数据管理；框架不内置 AI 后端、模型 SDK 或业务执行逻辑。
+
+经典布局和分栏导航均在顶部最右侧提供展开／隐藏按钮。桌面面板左侧的 Separator 支持拖拽调宽、按住拉长高亮、键盘调宽和双击复位；移动端使用右侧抽屉。主内容和 AI 内容容器隐藏滚动条，保留滚动能力。
+
+下图展示账号偏好页与 AI Agents 默认面板，可见面板开关、分隔条和底部输入区；尚未接入 AI 服务。
+
+![账号偏好页右侧展开 AI Agents 默认面板与底部输入区](docs/images/ai-agents.jpg)
+
+插件提供自己的 `CustomAiPanel` 后，通过现有 `install(runtime)` 注册内容即可，无需修改布局源码：
+
+```ts
+import type { PluginConfig } from '@/provider/plugins/host'
+import CustomAiPanel from './components/custom-ai-panel' // 由接入插件提供
+
+export default {
+  config: { enable: true, info: { name: 'example/ai-panel', version: '1.0.0' } },
+  install: runtime =>
+    runtime.slots.register({
+      id: 'example.ai-panel',
+      slot: 'shell.ai-agents',
+      component: CustomAiPanel,
+    }),
+} satisfies PluginConfig
+```
+
+插槽组件接收 `pathname` 和 `userId`，注册返回的清理函数用于撤销内容。在 Shell 内可通过 `useShell()` 的 `aiAgentsOpen` 和 `setAiAgentsOpen()` 读取及控制面板开关。
+
+自定义内容替换整个默认内容区，可从 `@/layouts/components/ai-agents` 导入 `AiAgentsComposer` 复用输入界面。它通过 `value`、`onValueChange`、`onSend`、`pending` 和 `disabled` 接收输入及状态，并提供 `notice`、`status`、`actions`、`trailingActions`、`footer` 等区域供定制。组件支持 Enter 发送、Shift + Enter 换行、输入法确认保护和空白输入拦截；请求、错误处理及发送后的草稿清理由调用方负责。
+
+未注册内容时显示空状态和默认输入区，附件、语音及发送入口禁用；思考／搜索仅切换示例界面的选中状态。隐藏面板会卸载内容，需要跨隐藏保留的草稿和聊天记录由接入方在组件外管理。完整属性与用法见 [AI Agents 面板与输入区](src/layouts/components/ai-agents/README.md)，插件生命周期见 [路由与插件接入](docs/ROUTING.md#插件安装与-shell-插槽)。
 
 ### 头像菜单、通知与账号偏好
 
@@ -155,6 +201,8 @@ MineAdmin-React 提供可复用的管理端框架、Ma/ReUI 组件和 Base 基�
 [MaForm](src/components/ma-form/README.md) · [MaSearch](src/components/ma-search/README.md) · [MaTable](src/components/ma-table/README.md) · [MaProTable](src/components/ma-pro-table/README.md) · [MaDialog](src/components/ma-dialog/README.md) · [MaDrawer](src/components/ma-drawer/README.md) · [MaDictSelect](src/components/ma-dict-select/README.md) · [MaRemoteSelect](src/components/ma-remote-select/README.md) · [MaDownload](src/components/ma-download/README.md) · [MaEmpty](src/components/ma-empty/README.md) · [MaIconPicker](src/components/ma-icon-picker/README.md) · [MaAccess](src/components/ma-access/README.md) · [MaDateRangePicker](src/components/ma-date-range-picker/README.md) · [MaIcon](src/components/ma-icon/README.md) · [MaTreeSelect](src/components/ma-tree-select/README.md) · [MaUpload](src/components/ma-upload/README.md) · [ReUI](src/components/reui/README.md)
 
 通用 UI 原语位于 `src/components/reui/primitives/`，[components.json](components.json) 中的 shadcn 配置也指向这个目录。业务页面优先复用已有 Ma 组件。
+
+布局扩展组件：[AI Agents 面板与输入区](src/layouts/components/ai-agents/README.md) · [页面顶部操作](src/layouts/components/bars/toolbar/README.md)。
 
 ## 开发检查
 
