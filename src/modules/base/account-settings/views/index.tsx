@@ -354,7 +354,6 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
 
   function updateLayout(layout: string) {
     setSelectedLayout(layout)
-    setSystemSettings({ app: { ...runtime.settings.getState().settings.app, layout } })
   }
 
   function updateContentWidth(contentWidth: AppSettings['contentWidth']) {

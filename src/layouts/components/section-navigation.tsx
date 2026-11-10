@@ -29,11 +29,11 @@ export default function SectionNavigation({ vertical = false }: { vertical?: boo
             className={className}
             onClick={() => setSection(path)}
           >
-            {getMenuLabel(menu)}
+            {getMenuLabel(menu, t)}
           </button>
         ) : (
           <NavLink key={path} className={className} to={path}>
-            {getMenuLabel(menu)}
+            {getMenuLabel(menu, t)}
           </NavLink>
         )
       })}

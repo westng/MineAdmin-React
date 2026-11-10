@@ -5,8 +5,10 @@ export const getMenuType = (menu: MenuVo) => menu.meta?.type || menu.type || 'M'
 export const isEnabledMenu = (menu: MenuVo) => menu.status !== 2 && getMenuType(menu) !== 'B'
 export const isVisibleMenu = (menu: MenuVo) =>
   isEnabledMenu(menu) && menu.is_hidden !== 1 && menu.is_hidden !== true && menu.meta?.hidden !== true
-export const getMenuLabel = (menu: MenuVo) =>
-  menu.meta?.title || menu.name || menu.path || menu.route || menu.code || '未命名菜单'
+export const getMenuLabel = (menu: MenuVo, translate?: (key: string, fallback?: string) => string) => {
+  const fallback = menu.meta?.title || menu.name || menu.path || menu.route || menu.code || '未命名菜单'
+  return menu.meta?.i18n && translate ? translate(menu.meta.i18n, fallback) : fallback
+}
 
 /** 菜单 URL；视图地址不参与 URL 拼接。 */
 export function getMenuPath(menu: MenuVo, parent = ''): string | null {

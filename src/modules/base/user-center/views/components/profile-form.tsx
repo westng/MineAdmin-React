@@ -3,7 +3,7 @@ import { createApi as createAttachmentApi } from '@/modules/base/attachment/api/
 import { createApi as createProfileApi } from '@/modules/base/user-center/api/profile'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
-import { useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { Check, LoaderCircle, Upload, X } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
 import {
@@ -71,6 +71,15 @@ export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
   const [submitted, setSubmitted] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const latestUserInfo = useRef(userInfo)
+  useLayoutEffect(() => {
+    latestUserInfo.current = userInfo
+  }, [userInfo])
+  function mergeConfirmedFields(patch: Partial<UserInfo>) {
+    const next = { ...latestUserInfo.current, ...patch }
+    latestUserInfo.current = next
+    onUserInfoChange(next)
+  }
   const role =
     userInfo.roles
       ?.map(item => item.name || item.code)
@@ -91,7 +100,7 @@ export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
     try {
       const nextSigned = signed.trim()
       await updateCurrentUser({ nickname: nextNickname, signed: nextSigned })
-      onUserInfoChange({ ...userInfo, nickname: nextNickname, signed: nextSigned })
+      mergeConfirmedFields({ nickname: nextNickname, signed: nextSigned })
       setMessage({ type: 'success', text: tx('资料保存成功') })
     } catch (error) {
       setMessage({ type: 'error', text: errorMessage(error, tx('资料保存失败')) })
@@ -123,7 +132,7 @@ export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
       const avatar = uploadResponse.data.data?.url
       if (!avatar) throw new Error(tx('头像上传成功，但未返回图片地址'))
       await updateCurrentUser({ avatar })
-      onUserInfoChange({ ...userInfo, avatar })
+      mergeConfirmedFields({ avatar })
       setMessage({ type: 'success', text: tx('头像更新成功') })
     } catch (error) {
       setMessage({ type: 'error', text: errorMessage(error, tx('头像更新失败')) })
@@ -138,7 +147,7 @@ export function ProfileForm({ userInfo, onUserInfoChange }: ProfileFormProps) {
     setMessage(null)
     try {
       await updateCurrentUser({ avatar: '' })
-      onUserInfoChange({ ...userInfo, avatar: null })
+      mergeConfirmedFields({ avatar: null })
       setMessage({ type: 'success', text: tx('头像已移除') })
     } catch (error) {
       setMessage({ type: 'error', text: errorMessage(error, tx('头像移除失败')) })

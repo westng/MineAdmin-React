@@ -4,7 +4,7 @@ import { NavLink, matchPath } from 'react-router-dom'
 import { MaIcon } from '@/components/ma-icon'
 import { SidebarMenuSub, SidebarMenuSubItem, useSidebar } from '@/components/reui/primitives/sidebar'
 import { useShell } from '@/layouts/hooks/use-shell'
-import { useTranslate } from '@/hooks/i18n/use-translator'
+import { useTranslate, useTextTranslator } from '@/hooks/i18n/use-translator'
 import { getMenuLabel, getMenuPath, isVisibleMenu } from '@/router/navigation/menu'
 import type { MenuVo } from '@/services/navigation/types'
 import { cn } from '@/utils/cn'
@@ -17,7 +17,8 @@ const itemClass =
 function MenuBranch({ menu, pathname, onNavigate }: { menu: MenuVo; pathname: string; onNavigate: () => void }) {
   const path = getMenuPath(menu)
   const children = (menu.children ?? []).filter(isVisibleMenu)
-  const label = getMenuLabel(menu)
+  const translate = useTranslate()
+  const label = getMenuLabel(menu, translate)
   const content = (
     <>
       <MaIcon name={menu.icon || menu.meta?.icon || ''} className="size-4" />
@@ -66,7 +67,8 @@ function containsPath(menu: MenuVo, pathname: string): boolean {
 }
 
 export function VerveSectionNavigation({ mobile = false }: { mobile?: boolean }) {
-  const t = useTranslate()
+  const t = useTextTranslator('shell.ui')
+  const translate = useTranslate()
   const { pathname } = useShell()
   const routePathname = pathname
   const { section, width, setWidth } = useVerveNavigation()
@@ -76,16 +78,16 @@ export function VerveSectionNavigation({ mobile = false }: { mobile?: boolean })
   if (!section || items.length === 0) return null
   const leaves = items.filter(item => !item.children?.some(isVisibleMenu))
   const groups = [
-    ...(leaves.length ? [{ label: getMenuLabel(section), items: leaves }] : []),
+    ...(leaves.length ? [{ label: getMenuLabel(section, translate), items: leaves }] : []),
     ...items
       .filter(item => item.children?.some(isVisibleMenu))
-      .map(item => ({ label: getMenuLabel(item), items: item.children!.filter(isVisibleMenu) })),
+      .map(item => ({ label: getMenuLabel(item, translate), items: item.children!.filter(isVisibleMenu) })),
   ]
   const onNavigate = () => setOpenMobile(false)
   return (
     <aside
       data-verve-section=""
-      aria-label={getMenuLabel(section)}
+      aria-label={getMenuLabel(section, translate)}
       aria-hidden={!mobile && !open}
       inert={!mobile && !open}
       className={cn(
@@ -118,7 +120,7 @@ export function VerveSectionNavigation({ mobile = false }: { mobile?: boolean })
             slot="shell.section.content"
             pathname={pathname}
             sectionPath={getMenuPath(section) ?? undefined}
-            sectionLabel={getMenuLabel(section)}
+            sectionLabel={getMenuLabel(section, translate)}
           />
         </div>
       </div>
@@ -161,7 +163,7 @@ export function VerveSectionNavigation({ mobile = false }: { mobile?: boolean })
 }
 
 export function VerveSectionToggle() {
-  const t = useTranslate()
+  const t = useTextTranslator('shell.ui')
   const { section, width } = useVerveNavigation()
   const { open, setOpen, isMobile } = useSidebar()
   if (isMobile || !section?.children?.some(isVisibleMenu)) return null

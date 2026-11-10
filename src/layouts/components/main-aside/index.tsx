@@ -1,4 +1,4 @@
-import { useTextTranslator } from '@/hooks/i18n/use-translator'
+import { useTextTranslator, useTranslate } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { useShell } from '@/layouts/hooks/use-shell'
 import { useSettingStore } from '@/store/settings/use-settings'
@@ -64,13 +64,15 @@ function NavigationIconView({ icon, className }: { icon?: NavigationIcon; classN
   const IconComponent = icon || CircleDot
   return <IconComponent className={className} aria-hidden="true" />
 }
-function toMenuItem(menu: MenuVo): MenuItem | null {
+function toMenuItem(menu: MenuVo, translate: ReturnType<typeof useTranslate>): MenuItem | null {
   if (!isVisibleMenu(menu)) return null
   const to = getMenuPath(menu)
   if (!to) return null
-  const children = (menu.children ?? []).map(toMenuItem).filter((item): item is MenuItem => Boolean(item))
+  const children = (menu.children ?? [])
+    .map(child => toMenuItem(child, translate))
+    .filter((item): item is MenuItem => Boolean(item))
   return {
-    label: getMenuLabel(menu),
+    label: getMenuLabel(menu, translate),
     to,
     icon: getMenuIcon(menu.icon || menu.meta?.icon),
     ...(children.length > 0 ? { children } : {}),
@@ -85,6 +87,19 @@ function NavigationSearchMenu({ items }: { items: MenuItem[] }) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
+  const { isMobile, setOpenMobile } = useSidebar()
+  React.useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.shiftKey) return
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setOpen(value => !value)
+        setSearch('')
+      }
+    }
+    window.addEventListener('keydown', shortcut)
+    return () => window.removeEventListener('keydown', shortcut)
+  }, [])
   const flatItems = items.flatMap(function flatten(item): MenuItem[] {
     return [item, ...(item.children ?? []).flatMap(flatten)]
   })
@@ -140,6 +155,7 @@ function NavigationSearchMenu({ items }: { items: MenuItem[] }) {
                   onSelect={() => {
                     navigate(item.to)
                     setOpen(false)
+                    if (isMobile) setOpenMobile(false)
                   }}
                 >
                   {item.label}
@@ -168,6 +184,19 @@ function MenuTree({
 }) {
   const localeRevision = useLocaleRevision()
   void localeRevision
+  const { isMobile, setOpenMobile } = useSidebar()
+  const onNavigate = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (
+      isMobile &&
+      !event.defaultPrevented &&
+      event.button === 0 &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.shiftKey &&
+      !event.altKey
+    )
+      setOpenMobile(false)
+  }
 
   function renderItems(levelItems: MenuItem[], nested: boolean): React.ReactNode {
     return levelItems.map(item => {
@@ -185,7 +214,7 @@ function MenuTree({
             <SidebarMenuSubButton
               isActive={isActive}
               title={item.label}
-              render={<NavLink to={item.to} end={item.end} />}
+              render={<NavLink to={item.to} end={item.end} onClick={onNavigate} />}
             >
               {leaf}
             </SidebarMenuSubButton>
@@ -196,7 +225,7 @@ function MenuTree({
               isActive={isActive}
               tooltip={item.label}
               title={item.label}
-              render={<NavLink to={item.to} end={item.end} />}
+              render={<NavLink to={item.to} end={item.end} onClick={onNavigate} />}
             >
               {leaf}
             </SidebarMenuButton>
@@ -252,6 +281,7 @@ export default function MainAside({
   sidebarOffset?: string
 }) {
   const tx = useTextTranslator('shell.ui')
+  const translate = useTranslate()
   const systemItems = React.useMemo<MenuItem[]>(
     () => [
       {
@@ -280,12 +310,15 @@ export default function MainAside({
   const location = useLocation()
   const { menus: storedMenus } = useShell()
   const menus = menusOverride ?? storedMenus
-  const { state, isMobile } = useSidebar()
+  const { state, isMobile, setOpenMobile } = useSidebar()
+  const onNavigate = React.useCallback(() => {
+    if (isMobile) setOpenMobile(false)
+  }, [isMobile, setOpenMobile])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const menuItems = React.useMemo(() => {
     void localeRevision // Rebuild translated configuration when the active locale changes.
-    return menus.map(toMenuItem).filter((item): item is MenuItem => Boolean(item))
-  }, [menus, localeRevision])
+    return menus.map(menu => toMenuItem(menu, translate)).filter((item): item is MenuItem => Boolean(item))
+  }, [menus, localeRevision, translate])
   const storeItems = React.useMemo(
     () => (menuItems.length > 0 ? menuItems : fallbackStoreItems).filter(item => item.to !== dashboardPage.path),
     [menuItems, dashboardPage.path],
@@ -372,7 +405,7 @@ export default function MainAside({
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter className="mt-2 shrink-0 gap-2 px-4 py-2 group-data-[collapsible=icon]:px-1.5">
-          <ProfileMenu />
+          <ProfileMenu onNavigate={onNavigate} />
         </SidebarFooter>
         {!isMobile && (
           <SidebarRail

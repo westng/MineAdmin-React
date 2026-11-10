@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { NavLink, matchRoutes, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight, CircleDot, LayoutDashboard, Search } from 'lucide-react'
-import { useTranslate } from '@/hooks/i18n/use-translator'
+import { useTranslate, useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useShell } from '@/layouts/hooks/use-shell'
 import { useRoute } from '@/hooks/use-route'
 import { useSettingStore } from '@/store/settings/use-settings'
@@ -65,10 +65,10 @@ function getFirstMenuPath(menu: MenuVo): string | null {
   return getMenuPath(menu) || menu.children?.map(getFirstMenuPath).find((path): path is string => Boolean(path)) || null
 }
 
-function menuToRailItem(menu: MenuVo): RailItem | null {
+function menuToRailItem(menu: MenuVo, translate: ReturnType<typeof useTranslate>): RailItem | null {
   if (!isVisibleMenu(menu)) return null
   const to = getFirstMenuPath(menu)
-  return to ? { label: getMenuLabel(menu), to, icon: menu.icon || menu.meta?.icon, menu } : null
+  return to ? { label: getMenuLabel(menu, translate), to, icon: menu.icon || menu.meta?.icon, menu } : null
 }
 
 function NavigationIcon({ icon, dashboard }: { icon?: string; dashboard?: boolean }) {
@@ -78,13 +78,16 @@ function NavigationIcon({ icon, dashboard }: { icon?: string; dashboard?: boolea
 }
 
 export default function VerveNavigation() {
-  const t = useTranslate()
+  const t = useTextTranslator('shell.ui')
+  const translate = useTranslate()
   const { isMobile, setOpenMobile } = useSidebar()
   const location = useLocation()
   const { menus } = useShell()
   const { section: activeSection, selectSection, clearSection } = useVerveNavigation()
   const dashboardPath = useSettingStore(state => state.settings.dashboardPage.path)
-  const visibleItems = menus.map(menuToRailItem).filter((item): item is RailItem => Boolean(item))
+  const visibleItems = menus
+    .map(menu => menuToRailItem(menu, translate))
+    .filter((item): item is RailItem => Boolean(item))
   const items: RailItem[] = [{ label: t('首页'), to: dashboardPath }, ...visibleItems].filter(
     (item, index, list) => list.findIndex(candidate => candidate.to === item.to) === index,
   )
@@ -163,7 +166,8 @@ export default function VerveNavigation() {
 }
 
 function SearchMenu({ menus }: { menus: MenuVo[] }) {
-  const t = useTranslate()
+  const t = useTextTranslator('shell.ui')
+  const translate = useTranslate()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -171,6 +175,7 @@ function SearchMenu({ menus }: { menus: MenuVo[] }) {
   const { section } = useVerveNavigation()
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.shiftKey) return
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setOpen(value => !value)
@@ -182,7 +187,7 @@ function SearchMenu({ menus }: { menus: MenuVo[] }) {
   }, [])
   const items = flattenVisibleMenus(scope === 'section' && section ? [section] : menus)
     .filter(menu => !(menu.children ?? []).some(isVisibleMenu))
-    .map(menu => ({ label: getMenuLabel(menu), to: getMenuPath(menu) }))
+    .map(menu => ({ label: getMenuLabel(menu, translate), to: getMenuPath(menu) }))
     .filter((item): item is { label: string; to: string } => Boolean(item.to))
     .filter((item, index, list) => list.findIndex(candidate => candidate.to === item.to) === index)
 
@@ -206,7 +211,7 @@ function SearchMenu({ menus }: { menus: MenuVo[] }) {
           <DropdownMenuContent align="start">
             <DropdownMenuItem onClick={() => setScope('all')}>{t('全部菜单')}</DropdownMenuItem>
             <DropdownMenuItem disabled={!section} onClick={() => setScope('section')}>
-              {section ? getMenuLabel(section) : t('当前分组')}
+              {section ? getMenuLabel(section, translate) : t('当前分组')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -305,6 +310,7 @@ export function VerveHeader() {
 
 function VerveBreadcrumb() {
   const t = useTranslate()
+  const tx = useTextTranslator('shell.ui')
   const { routes } = useRoute()
   const { pathname } = useLocation()
   const dashboardPath = useSettingStore(state => state.settings.dashboardPage.path)
@@ -312,11 +318,11 @@ function VerveBreadcrumb() {
   const route = matchRoutes(routes, pathname)?.at(-1)?.route
   const trail = pathname === dashboardPath ? [] : (route?.meta?.breadcrumb ?? [])
   return (
-    <Breadcrumb className="flex min-w-0 items-center overflow-hidden" aria-label={t('页面')}>
+    <Breadcrumb className="flex min-w-0 items-center overflow-hidden" aria-label={tx('页面')}>
       <BreadcrumbList className="min-w-0 flex-nowrap gap-2 text-[12.8px]">
         <BreadcrumbItem className="shrink-0">
           <BreadcrumbLink asChild>
-            <NavLink to={dashboardPath}>{t('首页')}</NavLink>
+            <NavLink to={dashboardPath}>{tx('首页')}</NavLink>
           </BreadcrumbLink>
         </BreadcrumbItem>
         {trail.map((item, index) => (

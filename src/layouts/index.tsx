@@ -5,7 +5,7 @@ import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { useTranslate } from '@/hooks/i18n/use-translator'
 import Tabbar from './components/bars/tabbar'
 import { Outlet, useLocation } from 'react-router-dom'
-import { useState, useSyncExternalStore, type CSSProperties } from 'react'
+import { useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from 'react'
 import { SidebarInset, SidebarProvider } from '@/components/reui/primitives/sidebar'
 import { TooltipProvider } from '@/components/reui/primitives/tooltip'
 import { ErrorBoundary } from '@/components/reui/error-boundary'
@@ -28,6 +28,10 @@ function getSidebarDefaultOpen() {
   if (typeof document === 'undefined') return true
   const match = document.cookie.match(/(?:^|;\s*)sidebar_state=(true|false)/)
   return match ? match[1] === 'true' : true
+}
+function focusMainContent(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault()
+  event.currentTarget.closest('[data-layout]')?.querySelector<HTMLElement>('main#main-content')?.focus()
 }
 export default function AppLayout() {
   const layout = useLayout()
@@ -81,6 +85,7 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
         <HeaderActionsProvider>
           <a
             href="#main-content"
+            onClick={focusMainContent}
             className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2"
           >
             {t('shell.skipContent')}
@@ -158,6 +163,7 @@ function renderInsetLayout({
           <VerveNavigationProvider>
             <a
               href="#main-content"
+              onClick={focusMainContent}
               className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2"
             >
               {t('shell.skipContent')}

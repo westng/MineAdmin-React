@@ -4,10 +4,10 @@ import { Button } from '@/components/reui/primitives/button'
 import { useSession } from '@/hooks/auth/use-session'
 import { useShell } from '@/layouts/hooks/use-shell'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
-import { useTranslate } from '@/hooks/i18n/use-translator'
+import { useTextTranslator } from '@/hooks/i18n/use-translator'
 
 export function NotificationsButton({ className }: { className?: string }) {
-  const t = useTranslate()
+  const t = useTextTranslator('shell.ui')
   const { notificationsOpen, setNotificationsOpen } = useShell()
   return (
     <Button
@@ -25,7 +25,7 @@ export function NotificationsButton({ className }: { className?: string }) {
 }
 
 export function NotificationsDrawer() {
-  const t = useTranslate()
+  const t = useTextTranslator('shell.ui')
   const { pathname, notificationsOpen, setNotificationsOpen } = useShell()
   const userId = useSession(state => state.userInfo?.id)
   return (
