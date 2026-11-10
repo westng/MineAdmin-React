@@ -23,6 +23,7 @@ import { VerveHeader } from './verve'
 import { VerveSectionNavigation, VerveSectionToggle } from './verve/section-navigation'
 import { VerveNavigationProvider } from './verve/navigation-provider'
 import { NotificationsDrawer } from './components/notifications'
+import AiAgents from './components/ai-agents'
 
 function getSidebarDefaultOpen() {
   if (typeof document === 'undefined') return true
@@ -107,7 +108,7 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
                 id="main-content"
                 tabIndex={-1}
                 className={cn(
-                  'mine-main flex min-h-0 flex-1 flex-col',
+                  'mine-main flex min-h-0 flex-1 flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
                   policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
                 )}
               >
@@ -118,6 +119,7 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
                 </div>
               </main>
             </SidebarInset>
+            <AiAgents />
           </div>
         </HeaderActionsProvider>
         <BackTop />
@@ -180,7 +182,7 @@ function renderInsetLayout({
                   id="main-content"
                   tabIndex={-1}
                   className={cn(
-                    'mine-main flex min-h-0 min-w-0 flex-1 flex-col',
+                    'mine-main flex min-h-0 min-w-0 flex-1 flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
                     policy?.overflow === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto',
                   )}
                 >
@@ -190,6 +192,7 @@ function renderInsetLayout({
                     </div>
                   </div>
                 </main>
+                <AiAgents />
               </div>
             </SidebarInset>
             <VerveSectionToggle />

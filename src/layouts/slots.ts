@@ -3,6 +3,7 @@ export type ShellSlotName =
   | 'shell.overlays'
   | 'shell.toolbar'
   | 'shell.pane'
+  | 'shell.ai-agents'
   | 'shell.section.content'
   | 'auth.methods'
   | 'account.preferences'

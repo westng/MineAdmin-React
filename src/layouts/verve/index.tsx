@@ -48,6 +48,7 @@ import { VerveSectionNavigation } from './section-navigation'
 import { VerveProfileMenu } from './profile-menu'
 import { useVerveNavigation } from './navigation-context'
 import { NotificationsButton } from '@/layouts/components/notifications'
+import { AiAgentsButton } from '@/layouts/components/ai-agents'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 
 type RailItem = {
@@ -302,6 +303,7 @@ export function VerveHeader() {
           <ShellSlotOutlet slot="shell.toolbar" pathname={location.pathname} />
           <HeaderActionSlot />
           <NotificationsButton className="size-7 [&_svg]:opacity-60" />
+          <AiAgentsButton className="size-7 [&_svg]:opacity-60" />
         </div>
       </header>
     </>

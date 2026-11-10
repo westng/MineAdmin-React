@@ -1,7 +1,7 @@
 import { useSession } from '@/hooks/auth/use-session'
 import { hasRouteAccess } from '@/services/auth/access'
 import type { MenuVo } from '@/services/navigation/types'
-import { useMemo, useState, useCallback, type PropsWithChildren } from 'react'
+import { useId, useMemo, useState, useCallback, type PropsWithChildren } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useRoute } from '@/hooks/use-route'
 import { getMenuPath } from '@/router/navigation/menu'
@@ -22,14 +22,26 @@ export function ShellProvider({ children }: PropsWithChildren) {
   }, [sourceMenus, roles, permissions, userInfo])
   const [selection, setSelection] = useState({ path: '', pathname: '' })
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const aiAgentsId = useId()
+  const [aiAgentsOpen, setAiAgentsOpen] = useState(false)
   const setSection = useCallback((path: string) => setSelection({ path, pathname }), [pathname])
   const activeSection =
     menus.find(menu => selection.pathname === pathname && getMenuPath(menu) === selection.path) ??
     findMenuTrail(menus, pathname)[0]?.menu ??
     menus[0]
   const value = useMemo(
-    () => ({ menus, activeSection, setSection, pathname, notificationsOpen, setNotificationsOpen }),
-    [menus, activeSection, pathname, setSection, notificationsOpen, setNotificationsOpen],
+    () => ({
+      menus,
+      activeSection,
+      setSection,
+      pathname,
+      notificationsOpen,
+      setNotificationsOpen,
+      aiAgentsId,
+      aiAgentsOpen,
+      setAiAgentsOpen,
+    }),
+    [menus, activeSection, pathname, setSection, notificationsOpen, aiAgentsId, aiAgentsOpen],
   )
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>
 }

@@ -7,5 +7,8 @@ export interface ShellContextValue {
   pathname: string
   notificationsOpen: boolean
   setNotificationsOpen: (open: boolean) => void
+  aiAgentsId: string
+  aiAgentsOpen: boolean
+  setAiAgentsOpen: (open: boolean) => void
 }
 export const ShellContext = createContext<ShellContextValue | null>(null)

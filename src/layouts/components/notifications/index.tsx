@@ -12,6 +12,7 @@ export function NotificationsButton({ className }: { className?: string }) {
   return (
     <Button
       variant="outline"
+      size="icon"
       className={className}
       aria-label={t('通知')}
       aria-haspopup="dialog"

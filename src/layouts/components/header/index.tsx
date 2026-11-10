@@ -14,6 +14,7 @@ import type { RouteBreadcrumb } from '@/router/types'
 import { useRoute } from '@/hooks/use-route'
 import HeaderActionSlot from '@/layouts/components/bars/toolbar'
 import { NotificationsButton } from '@/layouts/components/notifications'
+import { AiAgentsButton } from '@/layouts/components/ai-agents'
 
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 import { cn } from '@/utils/cn'
@@ -70,6 +71,7 @@ export default function Header({ className }: { className?: string }) {
           <ShellSlotOutlet slot="shell.toolbar" pathname={location.pathname} />
           <HeaderActionSlot />
           <NotificationsButton />
+          <AiAgentsButton />
         </div>
       </div>
     </header>
