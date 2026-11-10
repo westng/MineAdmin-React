@@ -10,7 +10,7 @@ export default {
       继续编辑: '继续编辑',
       放弃修改: '放弃修改',
       保存并离开: '保存并离开',
-      '选择主导航布局。': '选择主导航布局。',
+      '选择布局后，点击下方“保存设置”生效。': '选择布局后，点击下方“保存设置”生效。',
       '选择界面的主题配色。': '选择界面的主题配色。',
       '选择浅色、深色或跟随系统。': '选择浅色、深色或跟随系统。',
       修改密码: '修改密码',
@@ -40,6 +40,7 @@ export default {
       跟随系统: '跟随系统',
     },
     en_US: {
+      '选择布局后，点击下方“保存设置”生效。': 'Choose a layout, then save your settings below to apply it.',
       内容宽度: 'Content width',
       '选择限宽居中或占满可用宽度。': 'Center content with a maximum width or use the full available width.',
       限宽居中: 'Centered',
@@ -55,6 +56,7 @@ export default {
       '在页面顶部显示已打开的页面标签。': 'Show open page tabs at the top of the page.',
     },
     zh_TW: {
+      '选择布局后，点击下方“保存设置”生效。': '選擇佈局後，點擊下方「儲存設定」生效。',
       内容宽度: '內容寬度',
       '选择限宽居中或占满可用宽度。': '選擇限寬置中或佔滿可用寬度。',
       限宽居中: '限寬置中',

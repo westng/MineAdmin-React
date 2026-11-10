@@ -1,4 +1,5 @@
 import type { SystemSettings } from '@/store/settings/types'
+import { themeColors } from './colors'
 
 const globalConfigSettings: Partial<SystemSettings> = {}
 
@@ -13,7 +14,7 @@ export const defaultSettings: Omit<SystemSettings, 'dashboardPage'> = {
     contentWidth: 'bounded',
     pageAnimate: 'ma-slide-down',
     enableWatermark: false,
-    primaryColor: '#2563EB',
+    primaryColor: themeColors[0].value,
     asideDark: false,
     showBreadcrumb: true,
     loadUserSetting: true,

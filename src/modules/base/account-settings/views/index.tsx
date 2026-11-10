@@ -459,7 +459,7 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
                 </IconTile>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{tx('布局')}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择主导航布局。')}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择布局后，点击下方“保存设置”生效。')}</p>
                 </div>
                 <PreviewPicker
                   label={tx('布局')}

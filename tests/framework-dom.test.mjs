@@ -238,7 +238,7 @@ test('Account preferences save appearance and account fields, then restore them 
   await act(async () => button('保存设置').click())
   assert.ok(api.requests.includes('/admin/permission/update'))
   assert.equal(api.profile.backend_setting.app.colorMode, 'dark')
-  assert.equal(api.profile.backend_setting.app.primaryColor, '#DB2777')
+  assert.equal(api.profile.backend_setting.app.primaryColor, '#E11D48')
   assert.equal(api.profile.backend_setting.app.layout, 'columns')
   assert.equal(api.profile.backend_setting.app.contentWidth, 'full')
   assert.equal(api.profile.backend_setting.app.customOption, 'keep')
@@ -264,15 +264,15 @@ test('Account preferences save appearance and account fields, then restore them 
   assert.ok(api.requests.includes('/admin/passport/getInfo'))
   const restored = core.useSettingStore.getState().settings.app
   assert.equal(restored.colorMode, 'dark')
-  assert.equal(restored.primaryColor, '#DB2777')
+  assert.equal(restored.primaryColor, '#E11D48')
   assert.equal(restored.layout, 'columns')
   assert.equal(restored.contentWidth, 'full')
   assert.equal(core.useSettingStore.getState().settings.tabbar.enable, true)
   assert.equal(
     document.querySelector('[data-app-scope]').style.getPropertyValue('--primary'),
-    core.resolvePrimaryColors('#DB2777', true).primary,
+    core.resolvePrimaryColors('#E11D48', true).primary,
   )
-  assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.primaryColor, '#DB2777')
+  assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.primaryColor, '#E11D48')
   assert.equal(JSON.parse(localStorage.getItem('dom_cache:settings')).value.app.contentWidth, 'full')
 })
 
@@ -517,7 +517,7 @@ for (const layout of ['classic', 'columns']) {
     assert.equal(core.useSettingStore.getState().settings.app.colorMode, 'dark')
     assert.equal(trigger().getAttribute('aria-expanded'), 'true')
     await act(async () => popup().querySelector('[role="radio"][aria-label="玫瑰粉"]').click())
-    assert.equal(core.useSettingStore.getState().settings.app.primaryColor, '#DB2777')
+    assert.equal(core.useSettingStore.getState().settings.app.primaryColor, '#E11D48')
     assert.equal(trigger().getAttribute('aria-expanded'), 'true')
     await act(async () =>
       popup()
