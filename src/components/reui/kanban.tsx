@@ -154,6 +154,8 @@ export interface KanbanCommitMeta<T> {
   overContainer: string
   overIndex: number
   previousValue: Record<string, T[]>
+  columnOrder: string[]
+  previousColumnOrder: string[]
 }
 
 export interface KanbanRootProps<T> extends Omit<
@@ -161,6 +163,10 @@ export interface KanbanRootProps<T> extends Omit<
   "children" | "onDragStart" | "onDragEnd"
 > {
   value: Record<string, T[]>
+  /** Explicit order, including integer-like column IDs. Persist alongside value. */
+  columnOrder?: string[]
+  defaultColumnOrder?: string[]
+  onColumnOrderChange?: (order: string[]) => void
   onValueChange: (value: Record<string, T[]>) => void
   getItemValue: (item: T) => string
   children: ReactNode
@@ -179,6 +185,9 @@ export interface KanbanRootProps<T> extends Omit<
 
 function Kanban<T>({
   value,
+  columnOrder,
+  defaultColumnOrder,
+  onColumnOrderChange,
   onValueChange,
   getItemValue,
   children,
@@ -197,6 +206,11 @@ function Kanban<T>({
   const columns = value
   const setColumns = onValueChange
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
+  const [internalOrder, setInternalOrder] = useState(() => ({
+    keys: Object.keys(value),
+    ids: defaultColumnOrder ?? Object.keys(value),
+  }))
+  const columnIdsRef = useRef(Object.keys(value))
 
   // Always-current mirrors so the drag handlers can read fresh values without
   // widening their dependency arrays (keeps handler identity stable). The
@@ -212,6 +226,7 @@ function Kanban<T>({
     value: Record<string, T[]>
     container: string | undefined
     index: number
+    columnOrder: string[]
   } | null>(null)
 
   const sensors = useSensors(
@@ -237,8 +252,22 @@ function Kanban<T>({
         }
       }
     }
-    return keys
-  }, [columns, getItemValue])
+    const sameKeys = keys.length === internalOrder.keys.length && keys.every((key) => internalOrder.keys.includes(key))
+    // A legacy caller can still reorder ordinary keys by replacing value.
+    // Numeric key order needs the explicit array: JS always enumerates them numerically.
+    const legacyOrderChanged = sameKeys && keys.some((key, i) => key !== internalOrder.keys[i])
+    const order = columnOrder ?? (legacyOrderChanged ? keys : internalOrder.ids)
+    return [...new Set([...order.filter((key) => Object.hasOwn(columns, key)), ...keys])]
+  }, [columns, getItemValue, columnOrder, internalOrder])
+
+  useLayoutEffect(() => {
+    columnIdsRef.current = columnIds
+    const keys = Object.keys(columns)
+    setInternalOrder((previous) =>
+      previous.keys.length === keys.length && previous.keys.every((key, i) => key === keys[i]) &&
+      previous.ids.length === columnIds.length && previous.ids.every((id, i) => id === columnIds[i])
+        ? previous : { keys, ids: columnIds })
+  }, [columns, columnIds])
 
   const isColumn = useCallback(
     (id: UniqueIdentifier) => columnIds.includes(id as string),
@@ -259,7 +288,8 @@ function Kanban<T>({
     (
       finalValue: Record<string, T[]>,
       event: DragEndEvent,
-      kind: "item" | "column"
+      kind: "item" | "column",
+      finalOrder = columnIdsRef.current
     ) => {
       if (!onValueCommit) return
       const origin = dragOriginRef.current
@@ -268,7 +298,7 @@ function Kanban<T>({
       const id = event.active.id
 
       if (kind === "column") {
-        const keys = Object.keys(finalValue)
+        const keys = finalOrder
         const overIndex = keys.indexOf(id as string)
         if (overIndex === -1 || overIndex === origin.index) return
         onValueCommit(finalValue, {
@@ -279,6 +309,8 @@ function Kanban<T>({
           overContainer: String(event.over?.id ?? id),
           overIndex,
           previousValue: origin.value,
+          columnOrder: finalOrder,
+          previousColumnOrder: origin.columnOrder,
         })
         return
       }
@@ -306,6 +338,8 @@ function Kanban<T>({
         overContainer,
         overIndex,
         previousValue: origin.value,
+        columnOrder: finalOrder,
+        previousColumnOrder: origin.columnOrder,
       })
     },
     [onValueCommit]
@@ -319,12 +353,13 @@ function Kanban<T>({
       if (onValueCommit || restoreOnCancel) {
         const snapshot = valueRef.current
         const id = event.active.id
-        const keys = Object.keys(snapshot)
+        const keys = columnIdsRef.current
         if (keys.includes(id as string)) {
           dragOriginRef.current = {
             value: snapshot,
             container: id as string,
             index: keys.indexOf(id as string),
+            columnOrder: [...keys],
           }
         } else {
           const getId = getItemValueRef.current
@@ -338,7 +373,7 @@ function Kanban<T>({
               break
             }
           }
-          dragOriginRef.current = { value: snapshot, container, index }
+          dragOriginRef.current = { value: snapshot, container, index, columnOrder: [...keys] }
         }
       }
     },
@@ -484,7 +519,7 @@ function Kanban<T>({
         const overIndex = columnIds.indexOf(over.id as string)
         if (activeIndex !== overIndex) {
           const newOrder = arrayMove(
-            Object.keys(columns),
+            columnIds,
             activeIndex,
             overIndex
           )
@@ -492,8 +527,10 @@ function Kanban<T>({
           newOrder.forEach((key) => {
             newColumns[key] = columns[key]
           })
+          if (columnOrder === undefined) setInternalOrder({ keys: Object.keys(newColumns), ids: newOrder })
+          onColumnOrderChange?.(newOrder)
           setColumns(newColumns)
-          commitChange(newColumns, event, "column")
+          commitChange(newColumns, event, "column", newOrder)
         }
         dragOriginRef.current = null
         return
@@ -541,6 +578,8 @@ function Kanban<T>({
     },
     [
       columnIds,
+      columnOrder,
+      onColumnOrderChange,
       columns,
       findContainer,
       getItemValue,
@@ -607,13 +646,18 @@ function Kanban<T>({
 
 export type KanbanBoardProps = useRender.ComponentProps<"div">
 
-function KanbanBoard({ className, render, ...props }: KanbanBoardProps) {
+function KanbanBoard({ className, render, children, ...props }: KanbanBoardProps) {
   const { columnIds } = useContext(KanbanContext)
+  const nodes = React.Children.toArray(children)
+  const isColumnNode = (node: ReactNode): node is React.ReactElement<KanbanColumnProps> =>
+    React.isValidElement<KanbanColumnProps>(node) && node.type === KanbanColumn
+  const ordered = nodes.filter(isColumnNode).sort((a, b) => columnIds.indexOf(a.props.value) - columnIds.indexOf(b.props.value))
+  let columnIndex = 0
 
   const defaultProps = {
     "data-slot": "kanban-board",
     className: cn("grid auto-rows-fr gap-4 sm:grid-cols-3", className),
-    children: props.children,
+    children: nodes.map((node) => isColumnNode(node) ? ordered[columnIndex++] : node),
   }
 
   return (
@@ -655,10 +699,11 @@ function KanbanColumn({
   })
 
   // Hooks must run unconditionally; the derived value below is used only in the non-overlay branch.
-  const { activeId, isColumn } = useContext(KanbanContext)
+  const { activeId, isColumn, columnIds } = useContext(KanbanContext)
   const isColumnDragging = activeId ? isColumn(activeId) : false
 
   const style = {
+    order: columnIds.indexOf(value),
     transition,
     transform: CSS.Transform.toString(transform),
   } as CSSProperties

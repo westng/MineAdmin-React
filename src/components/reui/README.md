@@ -11,3 +11,14 @@ Sidebar、Chart 等组件以当前文件导出为准；已删除的历史目录�
 `primitives/file-type.tsx` 来源于 [ReUI 的 File Type](https://github.com/keenthemes/reui/blob/067aa0dc7f8bbfec1cd76fc5ad31f842be5f569a/registry-reui/bases/base/reui/file-type.tsx)，保留格式配色、变体、尺寸以及 `getFileType` 的文件名和 MIME 类型解析，并适配项目的 `cn` 导入。状态点 Badge 按同版本的 [Badge with a status dot](https://github.com/keenthemes/reui/blob/067aa0dc7f8bbfec1cd76fc5ad31f842be5f569a/registry-reui/bases/base/components/badge/c-badge-22.tsx) 组合现有 Badge 与圆点。
 
 `check:boundaries` 会遍历源码的直接与传递导入；资源许可和仓库历史收录仍需独立发布检查。
+
+
+## 状态与交互约定
+
+`DateSelector` 的显式 `minYear` / `maxYear` 优先，否则由 `baseYear` / `yearRange` 推导。非受控输入在合法解析后保留选值；受控操作通过 `onChange` 提交提案，显示仍由传入的 `value` 决定。
+
+`Stepper` 按实例注册步骤和触发器，挂载后也能统计包装组件中的动态步骤。直接声明的步骤可在服务端统计；由自定义组件内部生成的步骤在挂载后登记。`StepperTrigger` 和 `StepperContent` 的显式 `id` 会同步到相互的 ARIA 引用。非活动内容保留隐藏面板外壳，子内容仅在活动时挂载；`forceMount` 可保留隐藏子内容。
+
+`Rating` 的可编辑模式使用单选组键盘操作，方向键、Home/End、Enter/空格和指针共用 `onRatingChange`。`rating` 仍为受控值；`disabled` / `readOnly` 阻止评分变更。
+
+`Kanban` 的列顺序由 `columnOrder` 表达，可通过 `onColumnOrderChange` 持久化；省略时使用内部顺序，`defaultColumnOrder` 只提供初始值。保存看板时应同时保存业务 `value` 和顺序数组，数字形式的列 ID 无法通过对象键枚举保留排序。`onValueCommit` 元数据包含 `columnOrder`、`previousColumnOrder` 与位置索引。`KanbanBoard` 会排列直接的 `KanbanColumn` 子项；自定义包装布局应按 `columnOrder` 渲染，以保持 DOM 与视觉顺序一致。

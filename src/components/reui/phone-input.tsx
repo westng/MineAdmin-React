@@ -105,9 +105,9 @@ type CountryEntry = { label: string; value: BasePhoneInput.Country | undefined }
 
 type CountrySelectProps = {
   disabled?: boolean
-  value: BasePhoneInput.Country
+  value?: BasePhoneInput.Country
   options: CountryEntry[]
-  onChange: (country: BasePhoneInput.Country) => void
+  onChange: (country: BasePhoneInput.Country | undefined) => void
 }
 
 function CountrySelect({
@@ -129,11 +129,14 @@ function CountrySelect({
   return (
     <Combobox
       items={filteredCountries}
-      value={selectedCountry || ""}
-      onValueChange={(country: BasePhoneInput.Country | null) => {
-        if (country) {
-          onChange(country)
-        }
+      value={countryList.find((item) => item.value === selectedCountry) ?? null}
+      itemToStringLabel={(item: CountryEntry) => item.label}
+      isItemEqualToValue={(item: CountryEntry, selected: CountryEntry) => item.value === selected.value}
+      disabled={disabled}
+      onValueChange={(country: CountryEntry | null) => {
+        // null is a cleared selection; an entry with undefined value is the
+        // phone library's explicit International mode and must be forwarded.
+        if (country !== null) onChange(country.value)
       }}
     >
       <ComboboxTrigger
@@ -152,7 +155,7 @@ function CountrySelect({
             </span>
             <FlagComponent
               country={selectedCountry}
-              countryName={selectedCountry}
+              countryName={countryList.find((item) => item.value === selectedCountry)?.label ?? ""}
             />
           </Button>
         }
@@ -178,11 +181,10 @@ function CountrySelect({
           <div className="relative flex max-h-full">
             <div className="flex max-h-[min(var(--available-height),24rem)] w-full scroll-pt-2 scroll-pb-2 flex-col overscroll-contain">
               <ScrollArea className="size-full min-h-0 **:data-[slot=scroll-area-scrollbar]:m-0 [&_[data-slot=scroll-area-viewport]]:h-full [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
-                {filteredCountries.map((item: CountryEntry) =>
-                  item.value ? (
+                {filteredCountries.map((item: CountryEntry) => (
                     <ComboboxItem
-                      key={item.value}
-                      value={item.value}
+                      key={item.value ?? "international"}
+                      value={item}
                       className="flex items-center gap-2"
                     >
                       <FlagComponent
@@ -190,11 +192,11 @@ function CountrySelect({
                         countryName={item.label}
                       />
                       <span className="flex-1 text-sm">{item.label}</span>
-                      <span className="text-foreground/50 text-sm">
+                      {item.value && <span className="text-foreground/50 text-sm">
                         {`+${BasePhoneInput.getCountryCallingCode(item.value)}`}
-                      </span>
+                      </span>}
                     </ComboboxItem>
-                  ) : null
+                  )
                 )}
               </ScrollArea>
             </div>
@@ -205,8 +207,8 @@ function CountrySelect({
   )
 }
 
-function FlagComponent({ country, countryName }: BasePhoneInput.FlagProps) {
-  const Flag = flags[country]
+function FlagComponent({ country, countryName }: { country?: BasePhoneInput.Country; countryName: string }) {
+  const Flag = country ? flags[country] : undefined
 
   return (
     <span className="flex h-4 w-4 items-center justify-center [&_svg:not([class*='size-'])]:size-full! [&_svg:not([class*='size-'])]:rounded-[5px]">

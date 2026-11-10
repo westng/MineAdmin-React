@@ -6,7 +6,8 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
+  useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react"
@@ -30,7 +31,12 @@ interface StepperContextValue {
   setActiveStep: (step: number) => void
   stepsCount: number
   orientation: StepperOrientation
-  registerTrigger: (node: HTMLButtonElement | null) => void
+  registerTrigger: (node: HTMLButtonElement | null) => () => void
+  registerItem: (token: string) => () => void
+  registerId: (kind: "tab" | "panel", step: number, id: string) => () => void
+  baseId: string
+  tabId: (step: number) => string
+  panelId: (step: number) => string
   triggerNodes: HTMLButtonElement[]
   focusNext: (currentIdx: number) => void
   focusPrev: (currentIdx: number) => void
@@ -84,17 +90,34 @@ function Stepper({
   const [activeStep, setActiveStep] = useState(defaultValue)
   const [triggerNodes, setTriggerNodes] = useState<HTMLButtonElement[]>([])
 
-  // Register/unregister triggers
-  const registerTrigger = useCallback((node: HTMLButtonElement | null) => {
-    setTriggerNodes((prev) => {
-      if (node && !prev.includes(node)) {
-        return [...prev, node]
-      } else if (!node && prev.includes(node!)) {
-        return prev.filter((n) => n !== node)
-      } else {
-        return prev
-      }
+  const baseId = useId()
+  const [items, setItems] = useState<Set<string>>(() => new Set())
+  const [ids, setIds] = useState<Record<string, string>>({})
+  const registerItem = useCallback((token: string) => {
+    setItems((previous) => new Set(previous).add(token))
+    return () => setItems((previous) => {
+      const next = new Set(previous)
+      next.delete(token)
+      return next
     })
+  }, [])
+  const registerId = useCallback((kind: "tab" | "panel", step: number, id: string) => {
+    const key = `${kind}:${step}`
+    setIds((previous) => previous[key] === id ? previous : { ...previous, [key]: id })
+    return () => setIds((previous) => {
+      if (previous[key] !== id) return previous
+      const next = { ...previous }
+      delete next[key]
+      return next
+    })
+  }, [])
+  const tabId = (step: number) => ids[`tab:${step}`] ?? `${baseId}-tab-${step}`
+  const panelId = (step: number) => ids[`panel:${step}`] ?? `${baseId}-panel-${step}`
+
+  const registerTrigger = useCallback((node: HTMLButtonElement | null) => {
+    if (!node) return () => {}
+    setTriggerNodes((previous) => previous.includes(node) ? previous : [...previous, node])
+    return () => setTriggerNodes((previous) => previous.filter((item) => item !== node))
   }, [])
 
   const handleSetActiveStep = useCallback(
@@ -109,45 +132,49 @@ function Stepper({
 
   const currentStep = value ?? activeStep
 
-  // Keyboard navigation logic
-  const focusTrigger = (idx: number) => {
-    if (triggerNodes[idx]) triggerNodes[idx].focus()
+  const navigable = (node: HTMLButtonElement) =>
+    node.isConnected && !node.disabled && node.getAttribute("aria-disabled") !== "true"
+  const orderedNodes = () => triggerNodes.filter((node) => node.isConnected).sort((a, b) =>
+    a === b ? 0 : a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)
+  const focusRelative = (currentIdx: number, direction: number) => {
+    const nodes = orderedNodes()
+    const current = nodes.indexOf(triggerNodes[currentIdx])
+    for (let step = 1; step <= nodes.length; step++) {
+      const node = nodes[(current + direction * step + nodes.length) % nodes.length]
+      if (navigable(node)) { node.focus(); return }
+    }
   }
-  const focusNext = (currentIdx: number) =>
-    focusTrigger((currentIdx + 1) % triggerNodes.length)
-  const focusPrev = (currentIdx: number) =>
-    focusTrigger((currentIdx - 1 + triggerNodes.length) % triggerNodes.length)
-  const focusFirst = () => focusTrigger(0)
-  const focusLast = () => focusTrigger(triggerNodes.length - 1)
+  const focusNext = (currentIdx: number) => focusRelative(currentIdx, 1)
+  const focusPrev = (currentIdx: number) => focusRelative(currentIdx, -1)
+  const focusFirst = () => orderedNodes().find(navigable)?.focus()
+  const focusLast = () => orderedNodes().filter(navigable).at(-1)?.focus()
 
-  // Context value
-  const contextValue = useMemo<StepperContextValue>(
-    () => ({
-      activeStep: currentStep,
-      setActiveStep: handleSetActiveStep,
-      stepsCount: Children.toArray(children).filter(
-        (child): child is ReactElement =>
-          isValidElement(child) &&
-          (child.type as { displayName?: string }).displayName === "StepperItem"
-      ).length,
-      orientation,
-      registerTrigger,
-      focusNext,
-      focusPrev,
-      focusFirst,
-      focusLast,
-      triggerNodes,
-      indicators,
-    }),
-    [
-      currentStep,
-      handleSetActiveStep,
-      children,
-      orientation,
-      registerTrigger,
-      triggerNodes,
-    ]
-  )
+  // Declared children give SSR a count; registrations cover wrapped/dynamic
+  // items after mount without relying on displayName or invoking components.
+  const countDeclared = (nodes: React.ReactNode): number => Children.toArray(nodes).reduce<number>((count, child) => {
+    if (!isValidElement(child)) return count
+    if (child.type === StepperItem) return count + 1
+    if (child.type === Stepper) return count
+    return count + countDeclared((child as ReactElement<{ children?: React.ReactNode }>).props.children)
+  }, 0)
+  const contextValue: StepperContextValue = {
+    activeStep: currentStep,
+    setActiveStep: handleSetActiveStep,
+    stepsCount: items.size || countDeclared(children),
+    orientation,
+    registerTrigger,
+    registerItem,
+    registerId,
+    baseId,
+    tabId,
+    panelId,
+    focusNext,
+    focusPrev,
+    focusFirst,
+    focusLast,
+    triggerNodes,
+    indicators,
+  }
 
   return (
     <StepperContext.Provider value={contextValue}>
@@ -181,7 +208,9 @@ function StepperItem({
   children,
   ...props
 }: StepperItemProps) {
-  const { activeStep } = useStepper()
+  const { activeStep, registerItem } = useStepper()
+  const token = useId()
+  useEffect(() => registerItem(token), [registerItem, token])
 
   const state: StepState =
     completed || step < activeStep
@@ -218,6 +247,7 @@ function StepperTrigger({
   className,
   children,
   tabIndex,
+  id: idProp,
   render,
   ...props
 }: StepperTriggerProps) {
@@ -235,25 +265,27 @@ function StepperTrigger({
   } = stepperCtx
   const { step, isDisabled } = useStepItem()
   const isSelected = activeStep === step
-  const id = `stepper-tab-${step}`
-  const panelId = `stepper-panel-${step}`
+  const id = idProp ?? `${stepperCtx.baseId}-tab-${step}`
+  const panelId = stepperCtx.panelId(step)
+  const { registerId } = stepperCtx
+  useLayoutEffect(() => registerId("tab", step, id), [registerId, step, id])
 
-  // Register this trigger for keyboard navigation
-  const btnRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (btnRef.current) {
-      registerTrigger(btnRef.current)
-    }
-  }, [btnRef.current])
-
-  // Find our index among triggers for navigation
-  const myIdx = useMemo(
-    () =>
-      triggerNodes.findIndex((n: HTMLButtonElement) => n === btnRef.current),
-    [triggerNodes, btnRef.current]
-  )
+  const btnRef = useRef<HTMLButtonElement | null>(null)
+  const unregisterRef = useRef<(() => void) | undefined>(undefined)
+  const setTriggerRef = useCallback((node: HTMLButtonElement | null) => {
+    unregisterRef.current?.()
+    btnRef.current = node
+    unregisterRef.current = node ? registerTrigger(node) : undefined
+  }, [registerTrigger, isDisabled])
+  const myIdx = triggerNodes.indexOf(btnRef.current!)
+  const activeAvailable = triggerNodes.some((node) => node.isConnected && !node.disabled &&
+    node.getAttribute("aria-disabled") !== "true" && node.dataset.stepperStep === String(activeStep))
+  const firstAvailable = triggerNodes.filter((node) => node.isConnected && !node.disabled && node.getAttribute("aria-disabled") !== "true")
+    .sort((a, b) => a === b ? 0 : a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)[0]
+  const isTabStop = isSelected || (!activeAvailable && firstAvailable === btnRef.current)
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (isDisabled) return
     switch (e.key) {
       case "ArrowRight":
       case "ArrowDown":
@@ -286,8 +318,9 @@ function StepperTrigger({
     id,
     "aria-selected": isSelected,
     "aria-controls": panelId,
-    tabIndex: typeof tabIndex === "number" ? tabIndex : isSelected ? 0 : -1,
+    tabIndex: isDisabled ? -1 : typeof tabIndex === "number" ? tabIndex : isTabStop ? 0 : -1,
     "data-slot": "stepper-trigger",
+    "data-stepper-step": step,
     "data-state": state,
     "data-loading": isLoading,
     className: cn(
@@ -295,7 +328,7 @@ function StepperTrigger({
       "gap-2.5 rounded-full",
       className
     ),
-    onClick: () => setActiveStep(step),
+    onClick: () => { if (!isDisabled) setActiveStep(step) },
     onKeyDown: handleKeyDown,
     disabled: isDisabled,
     children,
@@ -304,7 +337,7 @@ function StepperTrigger({
   return useRender({
     defaultTagName: "button",
     render,
-    ref: btnRef,
+    ref: setTriggerRef,
     props: mergeProps<"button">(defaultProps, props),
   })
 }
@@ -430,22 +463,26 @@ function StepperContent({
   forceMount,
   children,
   className,
+  id: idProp,
+  ...props
 }: StepperContentProps) {
-  const { activeStep } = useStepper()
+  const { activeStep, baseId, tabId, registerId } = useStepper()
   const isActive = value === activeStep
-
-  if (!forceMount && !isActive) {
-    return null
-  }
+  const id = idProp ?? `${baseId}-panel-${value}`
+  useLayoutEffect(() => registerId("panel", value, id), [registerId, value, id])
 
   return (
     <div
+      id={id}
+      role="tabpanel"
+      aria-labelledby={tabId(value)}
       data-slot="stepper-content"
       data-state={activeStep}
-      className={cn("w-full", className, !isActive && forceMount && "hidden")}
-      hidden={!isActive && forceMount}
+      className={cn("w-full", className, !isActive && "hidden")}
+      hidden={!isActive}
+      {...props}
     >
-      {children}
+      {isActive || forceMount ? children : null}
     </div>
   )
 }

@@ -186,8 +186,10 @@ export function Scrollspy({
     }
 
     const currentAnchors = anchorElementsRef.current
-    currentAnchors?.forEach((item) => {
-      item.addEventListener("click", scrollTo(item as HTMLElement))
+    const clickHandlers = (currentAnchors ?? []).map((item) => {
+      const handler = scrollTo(item as HTMLElement)
+      item.addEventListener("click", handler)
+      return { item, handler }
     })
 
     const onScroll = (event: Event) => {
@@ -217,8 +219,8 @@ export function Scrollspy({
 
     return () => {
       window.removeEventListener("scroll", onScroll, true)
-      currentAnchors?.forEach((item) => {
-        item.removeEventListener("click", scrollTo(item as HTMLElement))
+      clickHandlers.forEach(({ item, handler }) => {
+        item.removeEventListener("click", handler)
       })
       clearTimeout(initialTimeout)
     }
