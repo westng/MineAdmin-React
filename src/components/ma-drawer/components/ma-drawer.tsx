@@ -1,17 +1,12 @@
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@/components/reui/primitives/button'
 import { Separator } from '@/components/reui/primitives/separator'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/reui/primitives/sheet'
+import { Sheet, SheetContent, SheetFooter } from '@/components/reui/primitives/sheet'
 import { cn } from '@/utils/cn'
+import { MaDrawerHeaderContext } from '../context/header-context'
 import { useMaDrawerResize } from '../hooks/use-ma-drawer-resize'
 import type { MaDrawerAction, MaDrawerActionContext, MaDrawerFooterAlign, MaDrawerProps } from '../types'
+import { MaDrawerHeader } from './ma-drawer-header'
 
 function MaDrawer<Payload = unknown>({
   open: openProp,
@@ -19,6 +14,7 @@ function MaDrawer<Payload = unknown>({
   onOpenChange,
   title,
   description,
+  header,
   children,
   footer,
   footerBefore,
@@ -184,7 +180,7 @@ function MaDrawer<Payload = unknown>({
       finalFocus={finalFocus ?? popupProps?.finalFocus}
       className={state =>
         cn(
-          'flex flex-col gap-0 rounded-xl p-0 outline-none',
+          'flex flex-col gap-0 rounded-xl p-0 outline-none [--ma-drawer-padding-x:1.25rem]',
           resizeEnabled ? 'overflow-visible!' : 'overflow-hidden',
           side === 'right' && 'inset-y-4! right-4! left-auto h-[calc(100svh-2rem)]! max-w-none!',
           side === 'right' && width === undefined && resizedWidth === undefined && 'w-[min(30rem,calc(100vw-2rem))]!',
@@ -204,12 +200,12 @@ function MaDrawer<Payload = unknown>({
         data-slot="ma-drawer-panel"
         className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[inherit]"
       >
-        <SheetHeader className={cn('shrink-0 gap-3 border-b p-0 px-5 py-3.5 pr-14', headerClassName)}>
-          <SheetTitle className={cn(!title && 'sr-only')}>{title || '抽屉'}</SheetTitle>
-          {description && <SheetDescription>{description}</SheetDescription>}
-        </SheetHeader>
+        {header !== false && (
+          <MaDrawerHeader {...header} title={title} description={description} className={headerClassName} />
+        )}
         <div
-          className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-5', bodyClassName)}
+          data-slot="ma-drawer-body"
+          className={cn('min-h-0 flex-1 overflow-y-auto px-[var(--ma-drawer-padding-x)] py-5', bodyClassName)}
           aria-busy={actionLoading || undefined}
         >
           {body}
@@ -217,7 +213,7 @@ function MaDrawer<Payload = unknown>({
         {footer !== false && (
           <SheetFooter
             className={cn(
-              'mt-auto flex shrink-0 flex-row items-center gap-2 border-t bg-muted p-0 px-5 py-3',
+              'mt-auto flex shrink-0 flex-row items-center gap-2 border-t bg-muted p-0 px-[var(--ma-drawer-padding-x)] py-3',
               footerAlignClasses[footerAlign],
               footerClassName,
             )}
@@ -253,7 +249,17 @@ function MaDrawer<Payload = unknown>({
       actionsRef={actionsRef}
       {...sheetRootProps}
     >
-      {typeof children === 'function' ? payload => renderContent(children(payload)) : renderContent(children)}
+      {typeof children === 'function' ? (
+        payload => (
+          <MaDrawerHeaderContext.Provider value={{ showCloseButton }}>
+            {renderContent(children(payload))}
+          </MaDrawerHeaderContext.Provider>
+        )
+      ) : (
+        <MaDrawerHeaderContext.Provider value={{ showCloseButton }}>
+          {renderContent(children)}
+        </MaDrawerHeaderContext.Provider>
+      )}
     </Sheet>
   )
 }

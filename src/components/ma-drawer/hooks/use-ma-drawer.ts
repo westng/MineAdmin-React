@@ -17,6 +17,9 @@ export function useMaDrawer<TArgs extends unknown[] = unknown[]>(
   const setTitle = useCallback((nextTitle: ReactNode) => {
     setAttributesState(current => ({ ...current, title: nextTitle }))
   }, [])
+  const setHeader = useCallback((header: MaDrawerProps['header']) => {
+    setAttributesState(current => ({ ...current, header }))
+  }, [])
   const setAttributes = useCallback((nextAttributes: Partial<MaDrawerStaticProps>) => {
     setAttributesState(current => ({ ...current, ...nextAttributes }))
   }, [])
@@ -29,5 +32,5 @@ export function useMaDrawer<TArgs extends unknown[] = unknown[]>(
     [attributes, isOpen],
   )
 
-  return { isOpen, args, props, open, close, setTitle, setAttr: setAttributes, setAttributes }
+  return { isOpen, args, props, open, close, setTitle, setHeader, setAttr: setAttributes, setAttributes }
 }

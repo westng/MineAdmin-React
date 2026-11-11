@@ -86,7 +86,7 @@ export function AiAgentsComposer({
         )}
         <InputGroup
           className={cn(
-            '-m-px w-[calc(100%+2px)] rounded-2xl border-border bg-background shadow-xs motion-reduce:transition-none',
+            '-m-px w-[calc(100%+2px)] rounded-2xl border-border bg-background shadow-none motion-reduce:transition-none',
             !locked && 'has-disabled:bg-background has-disabled:opacity-100 dark:has-disabled:bg-background',
           )}
         >

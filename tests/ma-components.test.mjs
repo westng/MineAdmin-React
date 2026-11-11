@@ -2012,6 +2012,156 @@ function mockDrawerGeometry(popup, initialWidth = 480) {
   }
 }
 
+test('MaDrawer 普通头部省略空区域，可见标题和说明直接关联无障碍语义', async t => {
+  const props = { defaultOpen: true, title: '用户详情', description: '查看用户信息', footer: false }
+  const view = await mount(t, MaDrawer, props)
+  const popup = document.querySelector('[role="dialog"]')
+  const title = popup.querySelector('[data-slot="sheet-title"]')
+  const description = popup.querySelector('[data-slot="sheet-description"]')
+  assert.equal(document.getElementById(popup.getAttribute('aria-labelledby')), title)
+  assert.equal(document.getElementById(popup.getAttribute('aria-describedby')), description)
+  assert.equal(title.textContent, '用户详情')
+  assert.equal(title.classList.contains('sr-only'), false)
+  assert.equal(popup.querySelector('[data-slot="ma-drawer-header"]').dataset.variant, 'default')
+  for (const slot of ['top', 'meta', 'meta-extra', 'title-extra', 'actions', 'toolbar', 'bottom'])
+    assert.equal(popup.querySelector(`[data-slot="ma-drawer-header-${slot}"]`), null)
+
+  await view.render({ ...props, title: 0, description: undefined, header: { variant: 'default' } })
+  assert.equal(title.textContent, '0')
+  assert.equal(popup.querySelector('[data-slot="sheet-description"]'), null)
+  assert.equal(popup.hasAttribute('aria-describedby'), false)
+  await view.render({ ...props, title: undefined })
+  assert.equal(title.textContent, '抽屉')
+  assert.equal(title.classList.contains('sr-only'), true)
+})
+
+test('MaDrawer 结构化头部保留业务操作和独立正文，状态更新不重复生成标题', async t => {
+  let refreshes = 0
+  const actions = []
+  const title = '带有长名称的记录详情'.repeat(12)
+  const props = {
+    defaultOpen: true,
+    title,
+    description: '可换行的说明',
+    header: {
+      variant: 'style-1',
+      meta: 'ID: 123',
+      metaExtra: createElement('button', { onClick: () => actions.push('copy') }, '复制编号'),
+      titleExtra: createElement('span', null, '待处理'),
+      descriptionIcon: createElement('svg', { 'data-description-icon': '' }),
+      actions: createElement('button', { onClick: () => refreshes++ }, '刷新详情'),
+      toolbar: createElement('button', { onClick: () => actions.push('execute') }, '执行记录'),
+      bottom: createElement('div', { role: 'toolbar', 'aria-label': '记录工具栏' }, '扩展内容'),
+    },
+    children: createElement('input', { 'aria-label': '记录内容', defaultValue: '保留正文' }),
+  }
+  const view = await mount(t, MaDrawer, props)
+  const popup = document.querySelector('[role="dialog"]')
+  const body = popup.querySelector('[data-slot="ma-drawer-body"]')
+  assert.equal(popup.querySelector('[data-slot="ma-drawer-header"]').dataset.variant, 'style-1')
+  assert.equal(popup.querySelectorAll('[data-slot="sheet-title"]').length, 1)
+  assert.equal(popup.querySelector('[data-slot="sheet-title"]').textContent, title)
+  assert.equal(body.contains(popup.querySelector('[data-slot="ma-drawer-header-bottom"]')), false)
+  assert.equal(popup.querySelector('[data-description-icon]').parentElement.getAttribute('aria-hidden'), 'true')
+  const header = popup.querySelector('[data-slot="sheet-header"]')
+  assert.ok(header.contains(button(popup, '执行记录')))
+  assert.equal(popup.querySelector('[data-slot="ma-drawer-header-bottom"]').contains(button(popup, '执行记录')), false)
+  await click(button(popup, '复制编号'))
+  await click(button(popup, '执行记录'))
+  assert.deepEqual(actions, ['copy', 'execute'])
+  await click(button(popup, '刷新详情'))
+  assert.equal(refreshes, 1)
+  assert.ok(document.querySelector('[role="dialog"]'))
+  await view.render({ ...props, title: '更新后的记录', header: { ...props.header, titleExtra: '已完成' } })
+  assert.equal(popup.querySelector('[data-slot="sheet-title"]').textContent, '更新后的记录')
+  assert.equal(popup.querySelector('[data-slot="ma-drawer-header-title-extra"]').textContent, '已完成')
+  assert.equal(body.querySelector('input').value, '保留正文')
+})
+
+test('MaDrawer 组合式头部只提供一个语义标题和关闭按钮，关闭遵循业务拦截', async t => {
+  const events = []
+  let saving = true
+  const props = {
+    defaultOpen: true,
+    header: false,
+    footer: false,
+    closeProps: { children: '关闭详情', disabled: true },
+    onOpenChange: (open, details) => {
+      events.push([open, details.reason])
+      if (saving) details.cancel()
+    },
+    children: createElement(compiled.exports.MaDrawerHeader, {
+      variant: 'style-1',
+      title: '组合详情',
+      meta: 'RECORD-1',
+      description: '保留内容所在的上下文',
+      actions: createElement('button', null, '业务操作'),
+    }),
+  }
+  const view = await mount(t, MaDrawer, props)
+  const popup = document.querySelector('[role="dialog"]')
+  assert.equal(popup.querySelectorAll('[data-slot="sheet-title"]').length, 1)
+  assert.equal(popup.querySelectorAll('[data-slot="sheet-close"]').length, 1)
+  assert.equal(document.getElementById(popup.getAttribute('aria-labelledby')).textContent, '组合详情')
+  await click(button(popup, '关闭详情'))
+  assert.deepEqual(events, [])
+  await view.render({ ...props, closeProps: { children: '关闭详情' } })
+  await click(button(popup, '关闭详情'))
+  assert.deepEqual(events, [[false, 'close-press']])
+  assert.ok(document.querySelector('[role="dialog"]'))
+  saving = false
+  await click(button(popup, '关闭详情'))
+  assert.equal(document.querySelector('[role="dialog"]'), null)
+})
+
+test('MaDrawer setHeader 显式切换样式并替换配置，保留正文、宽度和关闭事件', async t => {
+  let drawer
+  let closes = 0
+  function ControlledDrawer() {
+    drawer = compiled.exports.useMaDrawer({ title: '记录详情', description: '查看记录', width: 480 })
+    return createElement(MaDrawer, {
+      ...drawer.props,
+      onOpenChange: (open, details) => {
+        if (!open) closes++
+        drawer.props.onOpenChange(open, details)
+      },
+      children: createElement('input', { defaultValue: '保留输入' }),
+    })
+  }
+  await mount(t, ControlledDrawer, {})
+  await act(async () => drawer.open())
+  const popup = document.querySelector('[role="dialog"]')
+  const input = popup.querySelector('input')
+  const header = () => popup.querySelector('[data-slot="ma-drawer-header"]')
+  assert.equal(header().dataset.variant, 'default')
+  await enterValue(input, '未保存的草稿')
+  mockDrawerGeometry(popup)
+  await act(async () =>
+    popup
+      .querySelector('[data-slot="ma-drawer-resize-handle"]')
+      .dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })),
+  )
+  assert.equal(popup.style.width, '496px')
+  await act(async () => drawer.setHeader({ variant: 'style-1', meta: 0, titleExtra: '草稿' }))
+  assert.equal(header().dataset.variant, 'style-1')
+  assert.equal(header().querySelector('[data-slot="ma-drawer-header-meta"]').textContent, '0')
+  assert.equal(document.getElementById(popup.getAttribute('aria-labelledby')).textContent, '记录详情')
+  assert.equal(popup.querySelectorAll('[data-slot="sheet-title"]').length, 1)
+  assert.equal(popup.querySelector('input'), input)
+  assert.equal(input.value, '未保存的草稿')
+  assert.equal(popup.style.width, '496px')
+  await act(async () => drawer.setHeader({ variant: 'style-1', meta: '第二条记录' }))
+  assert.equal(header().querySelector('[data-slot="ma-drawer-header-title-extra"]'), null)
+  await act(async () => drawer.setHeader(undefined))
+  assert.equal(header().dataset.variant, 'default')
+  assert.equal(header().querySelector('[data-slot="ma-drawer-header-meta"]'), null)
+  assert.equal(document.getElementById(popup.getAttribute('aria-describedby')).textContent, '查看记录')
+  assert.equal(popup.querySelectorAll('[data-slot="sheet-close"]').length, 1)
+  await click(button(popup, '关闭'))
+  assert.equal(closes, 1)
+  assert.equal(document.querySelector('[role="dialog"]'), null)
+})
+
 async function drawerPointer(target, type, options = {}) {
   await act(async () =>
     target.dispatchEvent(

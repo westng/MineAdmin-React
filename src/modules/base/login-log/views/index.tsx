@@ -10,7 +10,7 @@ import { MaDrawer } from '@/components/ma-drawer'
 import { usePermission } from '@/hooks/auth/use-permission'
 import { type UserLoginLogVo } from '../api/log'
 import { LogProTable } from '@/modules/base/operation-log'
-import { LoginLogDetails } from '@/modules/base/operation-log'
+import { LoginLogDetails, LoginStatus } from '@/modules/base/operation-log'
 import { createLogSearchViewData } from '@/modules/base/operation-log'
 import { createSearchItemsViewData } from '@/modules/base/operation-log'
 import { createTableColumnsViewData } from '@/modules/base/operation-log'
@@ -92,6 +92,7 @@ export default function UserLoginLogPage() {
           if (!open) setDetail(null)
         }}
         title={tx('登录日志详情')}
+        header={{ variant: 'style-1', titleExtra: detail && <LoginStatus status={detail.status} /> }}
         description={tx('查看此条登录记录的完整信息。')}
         footer={false}
       >

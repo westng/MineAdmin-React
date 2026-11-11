@@ -1,7 +1,7 @@
 import { createRef } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { MaDialog, useMaFormDialog, type MaDialogProps } from '../src/components/ma-dialog'
-import { MaDrawer } from '../src/components/ma-drawer'
+import { MaDrawer, MaDrawerHeader, useMaDrawer, type MaDrawerHeaderOptions } from '../src/components/ma-drawer'
 import { MaDownload, type MaDownloadRequest } from '../src/components/ma-download'
 import { MaEmpty, type MaEmptyProps } from '../src/components/ma-empty'
 import { MaAccess, type MaAccessProps } from '../src/components/ma-access'
@@ -119,6 +119,38 @@ export const drawer = (
     {({ payload }) => payload?.title}
   </MaDrawer>
 )
+
+const drawerHeader: MaDrawerHeaderOptions = {
+  variant: 'style-1',
+  meta: 'RECORD-1',
+  metaExtra: <button type="button">复制编号</button>,
+  titleExtra: <span>已启用</span>,
+  descriptionIcon: <svg />,
+  actions: <button type="button">刷新</button>,
+  toolbar: <button type="button">执行</button>,
+  bottom: <nav aria-label="详情导航">概览</nav>,
+}
+export function useStructuredDrawerTypeExample() {
+  const controller = useMaDrawer({ title: '详情', header: drawerHeader })
+  return (
+    <MaDrawer {...controller.props} onOk={() => controller.setHeader(drawerHeader)}>
+      详情正文
+    </MaDrawer>
+  )
+}
+export const composedDrawer = (
+  <MaDrawer header={false}>
+    <MaDrawerHeader title="详情" description="查看记录" {...drawerHeader} />
+  </MaDrawer>
+)
+
+export const basicDrawerHeader: MaDrawerHeaderOptions = { variant: 'default' }
+// @ts-expect-error 样式一的内容必须显式选择样式，不能隐式改变基础头部。
+export const implicitDrawerHeader: MaDrawerHeaderOptions = { meta: 'RECORD-1' }
+// @ts-expect-error 基础样式仅接受基础内容，扩展内容属于样式一。
+export const invalidBasicDrawerHeader: MaDrawerHeaderOptions = { variant: 'default', meta: 'RECORD-1' }
+// @ts-expect-error 尚未实现的样式不能作为有效配置。
+export const unknownDrawerHeader: MaDrawerHeaderOptions = { variant: 'style-2' }
 
 export const legacyHandler: MaDialogProps = { onOpenChange: (_open: boolean) => {} }
 export const dialogCssHeight: MaDialogProps = { height: '60dvh', maxHeight: 720 }

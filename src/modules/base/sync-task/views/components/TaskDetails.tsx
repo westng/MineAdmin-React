@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, ChevronDown, ChevronUp, Clock3, RotateCw, X } from 'lucide-react'
+import { AlertCircle, ChevronDown, ChevronUp, Clock3, RotateCw } from 'lucide-react'
+import { MaDrawerHeader } from '@/components/ma-drawer'
 import { Alert, AlertDescription, AlertTitle } from '@/components/reui/alert'
 import { Badge } from '@/components/reui/primitives/badge'
 import { Button } from '@/components/reui/primitives/button'
@@ -16,11 +17,10 @@ import { TaskUnits } from './TaskUnits'
 interface TaskDetailsProps {
   id: string
   tasks: SyncTask[]
-  onClose: () => void
   onTaskChange: (id: string) => void
 }
 
-export function TaskDetails({ id, tasks, onClose, onTaskChange }: TaskDetailsProps) {
+export function TaskDetails({ id, tasks, onTaskChange }: TaskDetailsProps) {
   const api = useRuntimeFactory(createApi)
   const [tab, setTab] = useState('overview')
   const [page, setPage] = useState(1)
@@ -43,34 +43,44 @@ export function TaskDetails({ id, tasks, onClose, onTaskChange }: TaskDetailsPro
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <header className="shrink-0 space-y-3 px-4 pt-3 pb-4 sm:px-5">
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <span className="min-w-0 truncate font-mono text-xs text-muted-foreground" title={task?.task_no}>
-            {task?.task_no || `TASK-${id}`}
-          </span>
-          <div className="flex shrink-0 items-center gap-1">
+    <Tabs value={tab} onValueChange={value => setTab(String(value))} className="min-h-0 min-w-0 flex-1 flex-col gap-0">
+      <MaDrawerHeader
+        variant="style-1"
+        title={task?.title || '同步任务详情'}
+        meta={<code>{task?.task_no || `TASK-${id}`}</code>}
+        titleExtra={task && <TaskStatus status={task.status} />}
+        descriptionIcon={<Clock3 />}
+        description={
+          <>
+            {task &&
+              `${platformLabels[task.platform] || task.platform} · ${triggerLabels[task.trigger_type] || task.trigger_type} · `}
+            每 10 秒自动刷新
+          </>
+        }
+        actions={
+          <>
             {index >= 0 && tasks.length > 1 && (
-              <div className="mr-1 flex items-center rounded-md border" role="group" aria-label="当前页任务导航">
+              <div className="flex items-center rounded-md border" role="group" aria-label="当前页任务导航">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="max-sm:size-11"
                   aria-label="上一个任务"
                   disabled={index === 0 || busy}
                   onClick={() => onTaskChange(tasks[index - 1].id)}
                 >
                   <ChevronUp aria-hidden="true" />
                 </Button>
-                <span className="hidden px-2 text-xs tabular-nums text-muted-foreground sm:block" title="当前页任务">
+                <span
+                  className="hidden px-2 text-xs tabular-nums text-muted-foreground @min-[24rem]/ma-drawer-header:block"
+                  title="当前页任务"
+                >
                   {index + 1} / {tasks.length}
                 </span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="max-sm:size-11"
                   aria-label="下一个任务"
                   disabled={index === tasks.length - 1 || busy}
                   onClick={() => onTaskChange(tasks[index + 1].id)}
@@ -83,7 +93,6 @@ export function TaskDetails({ id, tasks, onClose, onTaskChange }: TaskDetailsPro
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="max-sm:size-11"
               aria-label="刷新任务详情"
               title="刷新任务详情"
               disabled={busy || attemptBusy}
@@ -91,44 +100,10 @@ export function TaskDetails({ id, tasks, onClose, onTaskChange }: TaskDetailsPro
             >
               <RotateCw className={busy ? 'animate-spin motion-reduce:animate-none' : undefined} aria-hidden="true" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="max-sm:size-11"
-              aria-label="关闭"
-              onClick={onClose}
-            >
-              <X aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-            <h2 className="min-w-0 break-words text-base font-medium leading-6 [overflow-wrap:anywhere]">
-              {task?.title || '同步任务详情'}
-            </h2>
-            {task && <TaskStatus status={task.status} />}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <Clock3 className="size-3.5" aria-hidden="true" />
-            {task && (
-              <>
-                <span className="break-words [overflow-wrap:anywhere]">
-                  {platformLabels[task.platform] || task.platform}
-                </span>
-                <span aria-hidden="true">·</span>
-                <span>{triggerLabels[task.trigger_type] || task.trigger_type}</span>
-                <span aria-hidden="true">·</span>
-              </>
-            )}
-            <span>每 10 秒自动刷新</span>
-          </div>
-        </div>
-      </header>
-      <Tabs value={tab} onValueChange={value => setTab(String(value))} className="min-h-0 flex-1 flex-col gap-0">
-        <div className="shrink-0 border-y px-4 sm:px-5">
-          <TabsList variant="line" aria-label="同步任务详情" className="h-10 gap-5 p-0 max-sm:h-11">
+          </>
+        }
+        bottom={
+          <TabsList variant="line" aria-label="同步任务详情" className="h-10 gap-5 p-0">
             <TabsTrigger
               value="overview"
               className="flex-none px-0 after:inset-x-0 after:bottom-0 after:h-0.5 aria-selected:after:opacity-100"
@@ -153,52 +128,52 @@ export function TaskDetails({ id, tasks, onClose, onTaskChange }: TaskDetailsPro
               任务信息
             </TabsTrigger>
           </TabsList>
-        </div>
-        <TabsContent value="overview" className="min-h-0 overflow-y-auto px-4 py-5 sm:px-5">
-          {detailQuery.error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle aria-hidden="true" />
-              <AlertTitle>任务详情加载失败</AlertTitle>
-              <AlertDescription className="break-words [overflow-wrap:anywhere]">
-                {detailQuery.error.message}
-              </AlertDescription>
-            </Alert>
-          )}
-          {detailQuery.isPending && !task ? (
-            <Skeleton className="h-60 w-full" aria-label="正在加载任务详情" />
-          ) : task ? (
-            <TaskOverview task={task} onViewUnits={() => setTab('units')} />
-          ) : null}
-        </TabsContent>
-        <TabsContent value="units" className="min-h-0 overflow-y-auto px-4 py-5 sm:px-5">
-          <TaskUnits
-            units={units}
-            total={total}
-            page={page}
-            loading={unitQuery.isPending}
-            refreshing={unitQuery.isFetching}
-            error={unitQuery.error?.message || ''}
-            unitId={unitId}
-            attempts={attempts}
-            attemptLoading={attemptBusy}
-            attemptError={attemptError}
-            onUnitChange={setUnitId}
-            onPageChange={nextPage => {
-              setPage(nextPage)
-              setUnitId(null)
-            }}
-            onRefresh={refresh}
-          />
-        </TabsContent>
-        <TabsContent value="details" className="min-h-0 overflow-y-auto px-4 py-5 sm:px-5">
-          {task && (
-            <section aria-label="同步任务信息" className="min-w-0 space-y-5">
-              <h3 className="text-sm font-medium">任务信息</h3>
-              <TaskMetadata task={task} extended />
-            </section>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+        }
+      />
+      <TabsContent value="overview" className="min-h-0 overflow-y-auto px-[var(--ma-drawer-padding-x)] py-5">
+        {detailQuery.error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle aria-hidden="true" />
+            <AlertTitle>任务详情加载失败</AlertTitle>
+            <AlertDescription className="break-words [overflow-wrap:anywhere]">
+              {detailQuery.error.message}
+            </AlertDescription>
+          </Alert>
+        )}
+        {detailQuery.isPending && !task ? (
+          <Skeleton className="h-60 w-full" aria-label="正在加载任务详情" />
+        ) : task ? (
+          <TaskOverview task={task} onViewUnits={() => setTab('units')} />
+        ) : null}
+      </TabsContent>
+      <TabsContent value="units" className="min-h-0 overflow-y-auto px-[var(--ma-drawer-padding-x)] py-5">
+        <TaskUnits
+          units={units}
+          total={total}
+          page={page}
+          loading={unitQuery.isPending}
+          refreshing={unitQuery.isFetching}
+          error={unitQuery.error?.message || ''}
+          unitId={unitId}
+          attempts={attempts}
+          attemptLoading={attemptBusy}
+          attemptError={attemptError}
+          onUnitChange={setUnitId}
+          onPageChange={nextPage => {
+            setPage(nextPage)
+            setUnitId(null)
+          }}
+          onRefresh={refresh}
+        />
+      </TabsContent>
+      <TabsContent value="details" className="min-h-0 overflow-y-auto px-[var(--ma-drawer-padding-x)] py-5">
+        {task && (
+          <section aria-label="同步任务信息" className="min-w-0 space-y-5">
+            <h3 className="text-sm font-medium">任务信息</h3>
+            <TaskMetadata task={task} extended />
+          </section>
+        )}
+      </TabsContent>
+    </Tabs>
   )
 }

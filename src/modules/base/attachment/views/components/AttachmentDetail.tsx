@@ -72,17 +72,12 @@ export function AttachmentDetail({
       onOpenChange={open => {
         if (!open) onClose()
       }}
-      title={tx('文件详情')}
-      description={tx('查看文件信息与访问地址')}
-      footer={false}
-    >
-      <div className="space-y-6">
-        <div className="overflow-hidden rounded-xl border">
-          <AttachmentPreview row={row} className="max-h-72" />
-        </div>
-        <div className="space-y-3">
-          <h2 className="break-all text-base font-semibold">{name}</h2>
-          <div className="flex flex-wrap gap-2">
+      title={name}
+      header={{
+        variant: 'style-1',
+        meta: tx('文件详情'),
+        toolbar: (
+          <>
             {url && (
               <Button
                 nativeButton={false}
@@ -105,13 +100,21 @@ export function AttachmentDetail({
               <Copy aria-hidden="true" />
               {tx('复制地址')}
             </Button>
-          </div>
-          {(!url || kind !== 'image') && (
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {url ? tx('此类型可通过“打开文件”访问。') : tx('暂无有效访问地址。')}
-            </p>
-          )}
+          </>
+        ),
+      }}
+      description={tx('查看文件信息与访问地址')}
+      footer={false}
+    >
+      <div className="space-y-6">
+        <div className="overflow-hidden rounded-xl border">
+          <AttachmentPreview row={row} className="max-h-72" />
         </div>
+        {(!url || kind !== 'image') && (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {url ? tx('此类型可通过“打开文件”访问。') : tx('暂无有效访问地址。')}
+          </p>
+        )}
         <div className="space-y-4 border-t pt-5">
           <h3 className="text-sm font-medium">{tx('文件信息')}</h3>
           <Metadata fields={fields} />

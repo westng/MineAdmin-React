@@ -58,7 +58,6 @@ export function LoginLogDetails({ row }: { row: UserLoginLogVo }) {
 
   return (
     <div className="space-y-5">
-      <LoginStatus status={row.status} />
       <RecordFields
         fields={[
           [tx('日志 ID'), row.id],
