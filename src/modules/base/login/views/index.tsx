@@ -25,14 +25,14 @@ function BrandMark({ siteName }: { siteName: string }) {
 
 function BrandContent({ config }: { config: WebsiteLoginConfig }) {
   return (
-    <div className={cn('absolute bottom-5 left-10 z-10 w-[85%]', config.video_url ? 'text-black' : 'text-foreground')}>
+    <div className={cn('relative z-10 min-w-0', config.video_url ? 'text-black' : 'text-foreground')}>
       <div className="flex flex-col gap-3 text-[40px] font-bold leading-normal">
         {config.headline && <p>{config.headline}</p>}
         {config.subheadline && <p>{config.subheadline}</p>}
       </div>
       {config.description && <p className="mt-8 whitespace-pre-line text-base">{config.description}</p>}
 
-      <div className="mt-[90px] text-xs">
+      <div className="mt-10 text-xs">
         {config.language_labels.length > 0 && (
           <p className="mb-1 flex flex-wrap gap-x-2">
             {config.language_labels.map((label, index) => (
@@ -99,56 +99,59 @@ export default function LoginPage() {
   )
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="flex min-h-screen">
-        {hasBranding && (
-          <aside className="relative hidden w-1/2 bg-muted lg:block lg:w-[70%]" aria-label="品牌展示区域">
-            <video
-              className="absolute inset-0 size-full object-cover"
-              src={branding.video_url || undefined}
-              autoPlay
-              loop
-              muted
-              playsInline
-              aria-hidden="true"
+    <main className="page-grid min-h-svh gap-0 bg-background">
+      {hasBranding && (
+        <aside
+          className="relative hidden flex-col justify-between gap-12 bg-muted p-(--page-grid-margin) lg:col-span-8 lg:flex"
+          aria-label="品牌展示区域"
+        >
+          <video
+            className="absolute inset-0 size-full object-cover"
+            src={branding.video_url || undefined}
+            autoPlay
+            loop
+            muted
+            playsInline
+            aria-hidden="true"
+            onError={event => {
+              if (
+                brandingDefaults.video_url &&
+                event.currentTarget.getAttribute('src') !== brandingDefaults.video_url
+              ) {
+                event.currentTarget.src = brandingDefaults.video_url
+              }
+            }}
+          />
+          <div className="relative z-10 text-white">
+            <img
+              src={branding.logo_url || undefined}
+              alt={branding.site_name}
+              className="h-10 w-auto"
               onError={event => {
                 if (
-                  brandingDefaults.video_url &&
-                  event.currentTarget.getAttribute('src') !== brandingDefaults.video_url
+                  brandingDefaults.logo_url &&
+                  event.currentTarget.getAttribute('src') !== brandingDefaults.logo_url
                 ) {
-                  event.currentTarget.src = brandingDefaults.video_url
+                  event.currentTarget.src = brandingDefaults.logo_url
                 }
               }}
             />
-            <div className="absolute left-10 top-9 z-10 text-white">
-              <img
-                src={branding.logo_url || undefined}
-                alt={branding.site_name}
-                className="h-10 w-auto"
-                onError={event => {
-                  if (
-                    brandingDefaults.logo_url &&
-                    event.currentTarget.getAttribute('src') !== brandingDefaults.logo_url
-                  ) {
-                    event.currentTarget.src = brandingDefaults.logo_url
-                  }
-                }}
-              />
-            </div>
-            <BrandContent config={branding} />
-          </aside>
-        )}
-        <section
-          className={cn(
-            'relative flex min-h-screen w-full items-center justify-center bg-background px-6 py-20',
-            hasBranding && 'lg:w-[30%] lg:px-10',
-          )}
-        >
-          <div className={cn('absolute left-6 top-8 text-foreground', hasBranding && 'lg:hidden')}>
-            <BrandMark siteName={branding.site_name} />
           </div>
+          <BrandContent config={branding} />
+        </aside>
+      )}
+      <section
+        className={cn(
+          'flex min-h-svh flex-col bg-background px-(--page-grid-margin) py-8',
+          hasBranding ? 'lg:col-span-4' : 'md:col-span-4 md:col-start-3 lg:col-start-5',
+        )}
+      >
+        <div className={cn('text-foreground', hasBranding && 'lg:hidden')}>
+          <BrandMark siteName={branding.site_name} />
+        </div>
 
-          <div className="w-full max-w-[320px] translate-y-6">
+        <div className="flex flex-1 items-center py-12">
+          <div className="w-full min-w-0">
             <div className="mb-7 space-y-2 text-left">
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">👋 · {t('auth.welcome')}</h1>
               {subtitle && <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>}
@@ -156,8 +159,8 @@ export default function LoginPage() {
 
             <LoginForm onSubmit={handleLogin} usernameType={usernameType} showAccountLinks={showAccountLinks} />
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   )
 }

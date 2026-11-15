@@ -232,7 +232,11 @@ function PreviewPicker<Value extends string>({
 
   return (
     <TooltipProvider>
-      <div role="radiogroup" aria-label={label} className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
+      <div
+        role="radiogroup"
+        aria-label={label}
+        className="col-span-full flex min-w-0 flex-wrap justify-end gap-2 @2xl:col-span-1"
+      >
         {options.map((option, index) => {
           const selected = value === option.id
           const optionLabel = option.labelKey ? tx(option.labelKey) : option.label
@@ -393,17 +397,17 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
         </CardHeader>
         <CardContent className="p-0">
           <ShellSlotOutlet slot="account.preferences" />
-          <fieldset disabled={saving} className="min-w-0">
+          <fieldset disabled={saving} className="@container min-w-0">
             <div className="border-b px-4 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 @2xl:grid-cols-[auto_minmax(0,1fr)_auto]">
                 <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
                   <Palette className="size-4" aria-hidden="true" />
                 </IconTile>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <p className="text-sm font-medium">{tx('主题')}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择浅色、深色或跟随系统。')}</p>
                 </div>
-                <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
+                <div className="col-span-full flex min-w-0 flex-wrap justify-end gap-2 @2xl:col-span-1">
                   {settingsModes.map(({ value, icon: Icon }) => (
                     <Button
                       key={value}
@@ -429,16 +433,16 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
               </div>
             </div>
             <div className="border-b px-4 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 @2xl:grid-cols-[auto_minmax(0,1fr)_auto]">
                 <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
                   <Palette className="size-4" aria-hidden="true" />
                 </IconTile>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <p className="text-sm font-medium">{tx('配色')}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择界面的主题配色。')}</p>
                 </div>
                 <ThemeColorPicker
-                  className="ml-auto shrink-0"
+                  className="col-span-full justify-self-end @2xl:col-span-1"
                   colors={themeColors}
                   value={appSettings.primaryColor}
                   onChange={setPrimaryColor}
@@ -446,11 +450,11 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
               </div>
             </div>
             <div className="border-b px-4 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 @2xl:grid-cols-[auto_minmax(0,1fr)_auto]">
                 <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
                   <LayoutDashboard className="size-4" aria-hidden="true" />
                 </IconTile>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <p className="text-sm font-medium">{tx('布局')}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择后即时预览，保存设置后保留。')}</p>
                 </div>
@@ -464,11 +468,11 @@ export default function AccountSettingsPage({ userInfo, onUserInfoChange }: Acco
               </div>
             </div>
             <div className="border-b px-4 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 @2xl:grid-cols-[auto_minmax(0,1fr)_auto]">
                 <IconTile variant="elevated" size="sm" className="mt-0.5 text-muted-foreground">
                   <Maximize2 className="size-4" aria-hidden="true" />
                 </IconTile>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <p className="text-sm font-medium">{tx('内容宽度')}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{tx('选择限宽居中或占满可用宽度。')}</p>
                 </div>

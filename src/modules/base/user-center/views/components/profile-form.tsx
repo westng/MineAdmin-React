@@ -38,12 +38,12 @@ function ProfileRow({ label, description, children }: { label: string; descripti
   void localeRevision
 
   return (
-    <div className="grid gap-3 border-b px-4 py-4 md:grid-cols-[20rem_minmax(0,1fr)] md:gap-8">
-      <div className="min-w-0">
+    <div className="page-grid border-b px-4 py-4">
+      <div className="min-w-0 md:col-span-3 lg:col-span-4">
         <p className="text-sm font-medium">{label}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </div>
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0 md:col-span-5 lg:col-span-8">{children}</div>
     </div>
   )
 }

@@ -7,6 +7,9 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --page-grid-columns: 4;
+  --page-grid-gutter: 1rem;
+  --page-grid-margin: 1rem;
   --background: oklch(100% 0 0);
   --foreground: oklch(14.5% 0 0);
   --card: oklch(1 0 0);
@@ -50,6 +53,19 @@
   --sidebar-accent-foreground: oklch(20.5% 0 0);
   --sidebar-border: oklch(92.2% 0 0);
   --sidebar-ring: oklch(70.8% 0 0);
+}
+
+@media (width >= 48rem) {
+  :root {
+    --page-grid-columns: 8;
+    --page-grid-margin: 1.5rem;
+  }
+}
+
+@media (width >= 64rem) {
+  :root {
+    --page-grid-columns: 12;
+  }
 }
 
 .dark {
@@ -144,6 +160,58 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer components {
+  /* Full-width children preserve ordinary page flow; column utilities opt into a split. */
+  .page-grid {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(var(--page-grid-columns), minmax(0, 1fr));
+    gap: var(--page-grid-gutter);
+  }
+
+  .page-grid > * {
+    min-width: 0;
+    grid-column: 1 / -1;
+  }
+
+  /* The nearest @container controls card density without changing device grid columns. */
+  .page-card-grid {
+    --page-card-span: var(--page-grid-columns);
+  }
+
+  .page-card-grid > * {
+    grid-column: span var(--page-card-span) / span var(--page-card-span);
+  }
+
+  @media (width >= 48rem) {
+    @container (width >= 32rem) {
+      .page-card-grid {
+        --page-card-span: 4;
+      }
+    }
+  }
+
+  @media (width >= 64rem) {
+    @container (width >= 32rem) {
+      .page-card-grid {
+        --page-card-span: 6;
+      }
+    }
+
+    @container (width >= 48rem) {
+      .page-card-grid {
+        --page-card-span: 4;
+      }
+    }
+
+    @container (width >= 64rem) {
+      .page-card-grid {
+        --page-card-span: 3;
+      }
+    }
+  }
 }
 
 @layer base {

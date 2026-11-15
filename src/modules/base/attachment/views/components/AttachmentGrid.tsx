@@ -26,10 +26,7 @@ export function AttachmentGrid({ rows, selectedIds, onSelect, ...actions }: Atta
   void localeRevision
 
   return (
-    <ul
-      className="grid grid-cols-1 gap-4 @sm:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4 @6xl:grid-cols-5 @7xl:grid-cols-6"
-      aria-label={tx('附件网格')}
-    >
+    <ul className="page-grid page-card-grid" aria-label={tx('附件网格')}>
       {rows.map(row => {
         const selected = selectedIds.includes(row.id)
         const name = attachmentName(row)

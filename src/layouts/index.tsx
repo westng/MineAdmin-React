@@ -128,7 +128,7 @@ function DefaultLayout({ layout }: { layout: LayoutDefinition }) {
                       )}
                     >
                       <div className={cn('w-full', contentWidth !== 'full' && 'mx-auto max-w-7xl')}>
-                        <div className={cn('w-full', policy?.padding !== false && 'p-4 md:p-6')}>
+                        <div className={cn('page-grid w-full', policy?.padding !== false && 'p-(--page-grid-margin)')}>
                           <Outlet />
                         </div>
                       </div>

@@ -123,6 +123,31 @@ Host 的 `dispose()` 使在途 `register()` 安装失效。旧安装返回的 di
 
 `meta.cache: true` 可选择保留页面实例，最多保留 8 页。React Activity 隐藏页会暂停 Effect；每页通过 React Router 的 `Routes location` 保持独立位置。关闭标签、权限失效、账号切换或达到上限会释放页面；它不是 Vue KeepAlive 的逐项等价实现。iframe 使用同一页面缓存生命周期，默认禁止加载，必须配置精确来源；sandbox 不允许 same-origin 权限，并生成对应 frame-src CSP。
 
+### 页面栅格
+
+页面参考栅格由 `src/assets/styles/globals.css` 提供，设备宽度使用视口断点；侧栏展开、内容限宽或辅助面板只改变可用内容宽度，不改变设备栏数。默认根字号下的约定如下：
+
+| 视口宽度 | 参考栏数 | 列间距 | 页面外边距 |
+| --- | --- | --- | --- |
+| 小于 48rem（768px） | 4 | 1rem（16px） | 1rem（16px） |
+| 48rem 至小于 64rem（1024px） | 8 | 1rem（16px） | 1.5rem（24px） |
+| 64rem 及以上 | 12 | 1rem（16px） | 1.5rem（24px） |
+
+`page-grid` 使用 `--page-grid-columns` 和 `--page-grid-gutter` 建立栅格，直接子元素默认占满整行，普通列表和 CRUD 页面因此保留完整宽度。需要分栏的内容块通过 `md:col-span-*`、`lg:col-span-*` 声明整数跨栏；未声明移动端跨栏时维持整行。Shell 页面容器统一消费 `--page-grid-margin`，`padding: false` 仍只关闭外边距。独立全屏页面的标题、操作栏和主体使用同一个外边距变量。
+
+```tsx
+<section className="page-grid">
+  <aside className="md:col-span-3 lg:col-span-4">辅助信息</aside>
+  <main className="md:col-span-5 lg:col-span-8">主要内容</main>
+</section>
+```
+
+卡片集合可在实际内容宽度的 `@container` 内使用 `page-grid page-card-grid`。移动端每张卡片跨 4 栏；平板内容宽度不足 32rem 时跨 8 栏，否则跨 4 栏；桌面内容宽度不足 32rem、32–48rem、48–64rem、64rem 及以上时，分别跨 12、6、4、3 栏。这样在窄侧栏布局中减少每行卡片数量，同时始终对齐设备栅格。加载占位和实际结果使用同一布局，空态可显式 `col-span-full`。
+
+面板内部的表单、标签与值、表格、日历等局部结构可以按内容语义分组，但面板边界与主要内容分区必须对齐页面参考线。全宽内容相当于跨全部栏；不要求表格数据列或每个表单控件都单独占一栏。登录等相邻背景需要无缝衔接的独立页面可以在外层显式使用 `gap-0`，分区仍使用整数跨栏，文字区域使用统一内边距。背景媒体覆盖不参与正文定位。
+
+评审需记录每档参考栏数、列间距、外边距及主要内容块的跨栏关系，并检查 375／768／1024／1440px、侧栏展开／折叠和内容限宽状态。样式编译与 DOM 测试验证规则和组件行为；实际裁切、换行、滚动及关键元素对齐仍需查看真实渲染。
+
 ## 国际化和错误
 
 模块默认导出 `{ namespace, messages: { [locale]: { [key]: text } } }`。Base 的 `**/locales/*.ts` 和 Shell 的 `locales/*.ts` 自动发现；插件用注册 API 安装语言包。语言编码可扩展，默认提供 zh_CN、zh_TW、en_US。相同语言、namespace、key 的冲突拒绝，缺失翻译回退 zh_CN，再回退调用方文案或 key。Core 和 Shell 提供默认三语；Base 文案按功能收录于 `locales/ui.ts`，尚未翻译的内容按上述规则回退，不能将它视为全页面三语覆盖。`useTranslate` 消费 Core 语义 key；特性内 `createTextTranslator(ports, namespace)` 使用源文案 key 与 `{0}` 参数，React 组件通过 `useLocaleRevision` 订阅语言变化，memo 中包含语言版本。切换语言更新文案和配置，不通过改变页面 key 卸载正在编辑的表单。

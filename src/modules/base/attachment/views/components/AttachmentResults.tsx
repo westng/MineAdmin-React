@@ -37,14 +37,7 @@ export function AttachmentResults({
 
   if (loading)
     return (
-      <div
-        className={
-          view === 'grid'
-            ? 'grid grid-cols-1 gap-4 @sm:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4 @6xl:grid-cols-5 @7xl:grid-cols-6'
-            : 'space-y-3'
-        }
-        aria-label={tx('正在加载附件')}
-      >
+      <div className={view === 'grid' ? 'page-grid page-card-grid' : 'space-y-3'} aria-label={tx('正在加载附件')}>
         {Array.from({ length: view === 'grid' ? 8 : 6 }, (_, index) => (
           <Skeleton
             key={index}

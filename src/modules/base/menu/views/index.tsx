@@ -4,6 +4,7 @@ import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { createApi as createMenuApi } from '@/modules/base/menu/api/menu'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
+import { useIsMobile } from '@/hooks/ui/use-mobile'
 import { PermissionGate } from '@/provider/access/permission-gate'
 import { usePermission } from '@/hooks/auth/use-permission'
 import { useCallback, useMemo, useRef, useState } from 'react'
@@ -27,6 +28,7 @@ import { ButtonPermissionTable } from './components/ButtonPermissionTable'
 
 export default function PermissionMenuPageView() {
   const tx = useTextTranslator('base.permission.menu.ui')
+  const isMobile = useIsMobile()
 
   const menuApi = useRuntimeFactory(createMenuApi)
 
@@ -129,8 +131,8 @@ export default function PermissionMenuPageView() {
   return (
     <>
       <Card className="flex min-h-0 flex-1 flex-col shadow-none">
-        <CardContent className="grid min-h-0 flex-1 gap-0 p-0 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.5fr)]">
-          <aside className="min-h-0 flex flex-col border-b p-4 lg:border-r lg:border-b-0">
+        <CardContent className="page-grid min-h-0 flex-1 p-4">
+          <aside className="flex min-h-0 flex-col border-b pb-4 lg:col-span-4 lg:border-r lg:border-b-0 lg:pr-4 lg:pb-0">
             <div className="mb-3 flex shrink-0 items-center justify-between">
               <span className="text-sm font-medium">{tx('菜单树')}</span>
               <Badge variant="outline">{flattenMenus(menus).length}</Badge>
@@ -138,7 +140,7 @@ export default function PermissionMenuPageView() {
             {loading && !menus.length ? (
               <p className="text-sm text-muted-foreground">{tx('加载中…')}</p>
             ) : menus.length ? (
-              <ScrollArea className="min-h-0 flex-1 pr-2">
+              <ScrollArea className="h-64 min-h-0 pr-2 lg:h-auto lg:flex-1">
                 <MenuTree
                   key={menus.map(menu => menu.id || menu.name || menu.path).join('|')}
                   menus={menus}
@@ -150,9 +152,9 @@ export default function PermissionMenuPageView() {
               <p className="text-sm text-muted-foreground">{tx('暂无菜单数据。')}</p>
             )}
           </aside>
-          <section className="min-h-0 overflow-y-auto p-4">
-            <div className="mb-4 flex items-center justify-between border-b pb-3">
-              <div>
+          <section className="min-h-0 overflow-y-auto lg:col-span-8">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+              <div className="min-w-0">
                 <h2 className="flex items-center gap-2 text-base font-semibold">
                   {`${form.id ? tx('编辑') : tx('新增')}${isButton ? tx('按钮权限') : tx('菜单')}`}
                   <Badge variant="outline">{form.type}</Badge>
@@ -194,7 +196,7 @@ export default function PermissionMenuPageView() {
               modelValue={form}
               onModelValueChange={setForm}
               onSubmit={saveMenu}
-              options={{ layout: 'grid', grid: { columns: 2, gap: '1rem' }, disabled: loading }}
+              options={{ layout: 'grid', grid: { columns: isMobile ? 1 : 2, gap: '1rem' }, disabled: loading }}
               items={getFormItems(tx, form, parentMenus, views)}
             />
             {form.type === 'M' && (
