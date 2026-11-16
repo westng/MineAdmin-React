@@ -1,4 +1,4 @@
-import { useImperativeHandle, type Ref } from 'react'
+import { useImperativeHandle, useMemo, type Ref } from 'react'
 import { MaDialog, useMaFormDialog } from '@/components/ma-dialog'
 import { MaForm } from '@/components/ma-form'
 import { usePermission } from '@/hooks/auth/use-permission'
@@ -44,6 +44,8 @@ export function RolePermissionsDialog({ ref }: { ref?: Ref<RolePermissionsDialog
     onError: error => message.error(error instanceof Error ? error.message : tx('操作失败')),
   })
   useImperativeHandle(ref, () => ({ open: editor.open }), [editor.open])
+  const formDisabled = Boolean(editor.formProps.options?.disabled)
+  const formItems = useMemo(() => getPermissionFormItems(formDisabled), [formDisabled])
 
   return (
     <MaDialog
@@ -62,13 +64,7 @@ export function RolePermissionsDialog({ ref }: { ref?: Ref<RolePermissionsDialog
           {tx('权限数据加载失败，请关闭后重试。')}
         </p>
       )}
-      {editor.ready && (
-        <MaForm
-          key={editor.formKey}
-          {...editor.formProps}
-          items={getPermissionFormItems(Boolean(editor.formProps.options?.disabled))}
-        />
-      )}
+      {editor.ready && <MaForm key={editor.formKey} {...editor.formProps} items={formItems} />}
     </MaDialog>
   )
 }

@@ -1249,7 +1249,7 @@ test('权限回调使用注入会话，并在延迟操作时重新检查当前�
   assert.equal(delayed('edit'), false)
 })
 
-test('角色权限 dialog uses standard actions, preserves filtered selections and supports read-only access', async t => {
+test('角色权限 dialog cascades subtree selections, preserves filters and supports read-only access', async t => {
   const app = core.createAppRuntime({ storage: localStorage, prefix: 'role_permissions_dialog_' })
   app.session.setState({ token: 'synthetic', initialized: true, permissions: ['*'], roles: [] })
   const handle = React.createRef()
@@ -1261,11 +1261,18 @@ test('角色权限 dialog uses standard actions, preserves filtered selections a
       meta: { title: '审计菜单' },
       children: [
         { id: 2, parent_id: 1, name: 'audit:view', meta: { title: '查看审计' } },
-        { id: 3, parent_id: 1, name: 'audit:export', meta: { title: '导出审计' } },
+        {
+          id: 3,
+          parent_id: 1,
+          name: 'audit:export',
+          meta: { title: '导出审计' },
+          children: [{ id: 4, parent_id: 3, name: 'audit:download', meta: { title: '下载文件' } }],
+        },
       ],
     },
+    { id: 5, name: 'settings:view', meta: { title: '查看设置' } },
   ]
-  let granted = ['audit:view']
+  let granted = ['audit', 'settings:view', 'legacy:permission']
   const writes = []
   let finishSave
   app.http.defaults.adapter = async config => {
@@ -1300,25 +1307,65 @@ test('角色权限 dialog uses standard actions, preserves filtered selections a
   const button = label => [...document.querySelectorAll('button')].find(node => node.textContent.trim() === label)
   const checkbox = label =>
     [...document.querySelectorAll('[role="checkbox"]')].find(node => node.closest('label')?.textContent.includes(label))
+  const togglePermission = label => act(async () => checkbox(label).closest('label').click())
   await act(async () => {
     handle.current.open(role)
     await flush()
   })
+  assert.equal(checkbox('审计菜单').getAttribute('aria-checked'), 'mixed')
+  assert.equal(checkbox('查看审计').getAttribute('aria-checked'), 'false')
+  assert.equal(checkbox('查看设置').getAttribute('aria-checked'), 'true')
+  await togglePermission('审计菜单')
+  for (const label of ['审计菜单', '查看审计', '导出审计', '下载文件']) {
+    assert.equal(checkbox(label).getAttribute('aria-checked'), 'true', label)
+  }
+  await togglePermission('下载文件')
+  assert.equal(checkbox('审计菜单').getAttribute('aria-checked'), 'mixed')
+  assert.equal(checkbox('导出审计').getAttribute('aria-checked'), 'mixed')
   assert.equal(checkbox('查看审计').getAttribute('aria-checked'), 'true')
+  await act(async () => document.querySelector('button[aria-label="收起审计菜单"]').click())
+  assert.equal(checkbox('下载文件'), undefined)
+  await togglePermission('审计菜单')
+  assert.equal(checkbox('审计菜单').getAttribute('aria-checked'), 'true')
+  assert.equal(checkbox('下载文件'), undefined)
+  await togglePermission('审计菜单')
+  assert.equal(checkbox('审计菜单').getAttribute('aria-checked'), 'false')
+  await act(async () => document.querySelector('button[aria-label="展开审计菜单"]').click())
+  for (const label of ['查看审计', '导出审计', '下载文件']) {
+    assert.equal(checkbox(label).getAttribute('aria-checked'), 'false')
+  }
+  assert.equal(checkbox('查看设置').getAttribute('aria-checked'), 'true')
+  await togglePermission('查看审计')
   const search = document.querySelector('input[aria-label="搜索菜单权限"]')
   await act(async () => {
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(search, '导出审计')
     search.dispatchEvent(new window.Event('input', { bubbles: true }))
   })
   assert.equal(checkbox('查看审计'), undefined)
-  await act(async () => checkbox('导出审计').click())
+  assert.equal(checkbox('审计菜单').getAttribute('aria-checked'), 'mixed')
+  await togglePermission('审计菜单')
+  assert.equal(checkbox('下载文件').getAttribute('aria-checked'), 'true')
+  assert.equal(search.value, '导出审计')
+  assert.equal(checkbox('查看审计'), undefined)
+  await togglePermission('审计菜单')
+  await act(async () => document.querySelector('button[aria-label="清除菜单搜索"]').click())
+  for (const label of ['审计菜单', '查看审计', '导出审计', '下载文件']) {
+    assert.equal(checkbox(label).getAttribute('aria-checked'), 'false')
+  }
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(search, '导出审计')
+    search.dispatchEvent(new window.Event('input', { bubbles: true }))
+  })
+  await togglePermission('审计菜单')
   const dialog = document.querySelector('[role="dialog"]')
   await act(async () => {
     dialog.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }))
     button('保存权限').click()
     await flush()
   })
-  assert.deepEqual(writes, [{ permissions: ['audit:view', 'audit:export'] }])
+  assert.deepEqual(writes, [
+    { permissions: ['settings:view', 'legacy:permission', 'audit', 'audit:view', 'audit:export', 'audit:download'] },
+  ])
   assert.equal(button('保存权限').disabled, true)
   assert.equal(button('取消').disabled, true)
   await act(async () => dialog.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
@@ -1333,10 +1380,13 @@ test('角色权限 dialog uses standard actions, preserves filtered selections a
     handle.current.open(role)
     await flush()
   })
-  assert.equal(checkbox('查看审计').getAttribute('aria-checked'), 'true')
-  assert.equal(checkbox('导出审计').getAttribute('aria-checked'), 'true')
+  for (const label of ['审计菜单', '查看审计', '导出审计', '下载文件', '查看设置']) {
+    assert.equal(checkbox(label).getAttribute('aria-checked'), 'true')
+  }
   assert.equal(button('保存权限'), undefined)
-  await act(async () => checkbox('查看审计').click())
+  await togglePermission('审计菜单')
+  assert.equal(checkbox('审计菜单').getAttribute('aria-checked'), 'true')
+  await togglePermission('查看审计')
   assert.equal(checkbox('查看审计').getAttribute('aria-checked'), 'true')
   assert.equal(writes.length, 1)
 })

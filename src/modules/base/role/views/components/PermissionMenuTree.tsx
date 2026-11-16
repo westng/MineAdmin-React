@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, X } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight, Minus, X } from 'lucide-react'
 import { Checkbox } from '@/components/reui/primitives/checkbox'
 import { Input } from '@/components/reui/primitives/input'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
@@ -25,6 +25,18 @@ export function PermissionMenuTree({
 
   const [search, setSearch] = useState('')
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(() => new Set())
+  const subtreePermissionsByName = useMemo(() => {
+    const byName = new Map<string, string[]>()
+    const visit = (menu: MenuVo): string[] => {
+      const names = [...(menu.name ? [menu.name] : []), ...(menu.children ?? []).flatMap(visit)]
+      if (menu.name) byName.set(menu.name, names)
+      return names
+    }
+    // 搜索只影响展示，父级选择始终联动完整菜单树中的所有后代。
+    menus.forEach(visit)
+    return byName
+  }, [menus])
+  const selectedNames = new Set(permissionNames)
 
   function updateSearch(keyword: string) {
     setSearch(keyword)
@@ -35,6 +47,9 @@ export function PermissionMenuTree({
     <div className={level > 0 ? 'ml-4 border-l pl-2' : undefined}>
       {items.map((menu, index) => {
         const children = menu.children ?? []
+        const subtreeNames = (menu.name && subtreePermissionsByName.get(menu.name)) || []
+        const allSelected = subtreeNames.length > 0 && subtreeNames.every(name => selectedNames.has(name))
+        const indeterminate = !allSelected && subtreeNames.some(name => selectedNames.has(name))
         const key = String(menu.id ?? `${menu.parent_id ?? 'root'}-${menu.name ?? menu.path ?? index}`)
         const collapsed = collapsedKeys.has(key)
         return (
@@ -68,17 +83,22 @@ export function PermissionMenuTree({
               )}
               <label className="flex min-w-0 flex-1 items-center gap-2">
                 <Checkbox
-                  checked={Boolean(menu.name && permissionNames.includes(menu.name))}
+                  className="data-indeterminate:border-primary data-indeterminate:bg-primary data-indeterminate:text-primary-foreground"
+                  checked={allSelected}
+                  indeterminate={indeterminate}
                   disabled={disabled || !menu.name}
                   onCheckedChange={checked => {
                     if (disabled || !menu.name) return
-                    onChange(
-                      checked
-                        ? [...new Set([...permissionNames, menu.name])]
-                        : permissionNames.filter(name => name !== menu.name),
-                    )
+                    const next = new Set(permissionNames)
+                    subtreeNames.forEach(name => {
+                      if (checked) next.add(name)
+                      else next.delete(name)
+                    })
+                    onChange([...next])
                   }}
-                />
+                >
+                  {indeterminate ? <Minus className="size-3.5" aria-hidden="true" /> : undefined}
+                </Checkbox>
                 <span className={`min-w-0 flex-1 truncate ${children.length ? 'font-medium' : ''}`}>
                   {getMenuLabel(menu)}
                 </span>
