@@ -5,15 +5,20 @@ import { test } from 'node:test'
 import { compile } from 'tailwindcss'
 
 const require = createRequire(import.meta.url)
-const { transform } = createRequire(require.resolve('@tailwindcss/vite'))('lightningcss')
+const viteRequire = createRequire(require.resolve('@tailwindcss/vite'))
+const { transform } = viteRequire('lightningcss')
+const { Scanner } = viteRequire('@tailwindcss/oxide')
 const source = await readFile(new URL('../src/assets/styles/globals.css', import.meta.url), 'utf8')
 const theme = await readFile(require.resolve('tailwindcss/theme.css'), 'utf8')
+const loginPage = await readFile(new URL('../src/modules/base/login/views/index.tsx', import.meta.url), 'utf8')
+const scanner = new Scanner({ sources: [] })
+const loginUtilities = scanner.scanFiles([{ content: loginPage, extension: 'tsx' }])
 // Compile the public stylesheet without application imports or opening a server.
 const compiler = await compile(`${theme}\n${source.replace(/^@import[^\n]+\n/gm, '')}\n@tailwind utilities;`)
 let rules
 transform({
   filename: 'page-grid.css',
-  code: Buffer.from(compiler.build([])),
+  code: Buffer.from(compiler.build(loginUtilities.filter(utility => /^(lg|xl):/.test(utility)))),
   visitor: {
     StyleSheet(sheet) {
       rules = sheet.rules
@@ -102,6 +107,32 @@ test('页面栅格在设备断点两侧保持 4/8/12 栏、16px 间距和统一�
   assert.match(JSON.stringify(template.value), /--page-grid-columns/)
   const gap = grid.find(item => item.value?.propertyId?.property === 'gap')
   assert.match(JSON.stringify(gap?.value), /--page-grid-gutter/)
+})
+
+test('品牌登录页仅在桌面分为 7:3，表单居中限宽并保留宽屏内边距', () => {
+  const desktopGrid = loginUtilities.find(utility => utility.startsWith('lg:grid-cols-['))
+  assert.ok(desktopGrid)
+  assert.deepEqual(declarations(desktopGrid, 1023, 1023), [])
+  const grid = declarations(desktopGrid, 1024, 1024).find(item => item.property === 'grid-template-columns')
+  assert.ok(grid)
+  const tracks = grid.value.items.map(({ value }) => [value.count.value, value.trackSizes[0].value.value.value])
+  assert.deepEqual(
+    tracks.map(([count]) => count),
+    [8, 4],
+  )
+  assert.deepEqual(
+    tracks.map(([count, fraction]) => Math.round(count * fraction * 100)),
+    [70, 30],
+  )
+  assert.ok(declarations('lg:col-span-8', 1024, 1024).length)
+  assert.ok(declarations('lg:col-span-4', 1024, 1024).length)
+
+  assert.deepEqual(declarations('lg:max-w-[22rem]', 1023, 1023), [])
+  assert.ok(declarations('lg:max-w-[22rem]', 1024, 1024).some(item => item.property === 'max-width'))
+  assert.ok(declarations('lg:mx-auto', 1024, 1024).some(item => item.property === 'margin-inline'))
+  assert.ok(declarations('lg:px-8', 1024, 1024).length)
+  assert.deepEqual(declarations('xl:px-12', 1279, 1279), [])
+  assert.ok(declarations('xl:px-12', 1280, 1280).length)
 })
 
 test('卡片在侧栏和限宽容器变化时只采用完整整数跨栏', () => {

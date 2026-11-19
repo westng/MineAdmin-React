@@ -114,7 +114,12 @@ export default function LoginPage() {
   )
 
   return (
-    <main className="page-grid min-h-svh gap-0 bg-background">
+    <main
+      className={cn(
+        'page-grid min-h-svh gap-0 bg-background',
+        hasBranding && 'lg:grid-cols-[repeat(8,calc(70%/8))_repeat(4,calc(30%/4))]',
+      )}
+    >
       {hasBranding && (
         <aside
           className="relative isolate hidden flex-col justify-between gap-12 overflow-hidden bg-muted p-(--page-grid-margin) lg:col-span-8 lg:flex"
@@ -164,7 +169,7 @@ export default function LoginPage() {
       <section
         className={cn(
           'flex min-h-svh flex-col bg-background px-(--page-grid-margin) py-8',
-          hasBranding ? 'lg:col-span-4' : 'md:col-span-4 md:col-start-3 lg:col-start-5',
+          hasBranding ? 'lg:col-span-4 lg:px-8 xl:px-12' : 'md:col-span-4 md:col-start-3 lg:col-start-5',
         )}
       >
         <div className={cn('text-foreground', hasBranding && 'lg:hidden')}>
@@ -172,7 +177,7 @@ export default function LoginPage() {
         </div>
 
         <div className="flex flex-1 items-center py-12">
-          <div className="w-full min-w-0">
+          <div className={cn('w-full min-w-0', hasBranding && 'lg:mx-auto lg:max-w-[22rem]')}>
             <div className="mb-7 space-y-2 text-left">
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">👋 · {t('auth.welcome')}</h1>
               {subtitle && <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>}
