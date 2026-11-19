@@ -6,6 +6,7 @@ import type { RoleVo } from '../../api/role'
 import type { AppRuntime } from '@/provider/runtime/types'
 export interface RoleTableColumnActions {
   hasAuth: (permission: string | string[]) => boolean
+  busyIds?: readonly number[]
   onEdit: (row: RoleVo) => void
   onPermissions: (row: RoleVo) => void
   onDelete: (ids: number[]) => Promise<void>
@@ -14,6 +15,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
   const tx = createTextTranslator(runtime, 'base.permission.role.ui')
   function getTableColumns({
     hasAuth,
+    busyIds = [],
     onEdit,
     onPermissions,
     onDelete,
@@ -21,6 +23,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
     const actions: MaProTableOperationAction<RoleVo>[] = [
       {
         name: 'permissions',
+        disabled: ({ row }) => busyIds.includes(row.id ?? 0),
         show: () => hasAuth('permission:role:getMenu'),
         text: tx('权限'),
         icon: <KeyRound aria-hidden="true" />,
@@ -28,6 +31,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
       },
       {
         name: 'edit',
+        disabled: ({ row }) => busyIds.includes(row.id ?? 0),
         show: () => hasAuth('permission:role:update'),
         text: tx('编辑'),
         icon: <Pencil aria-hidden="true" />,
@@ -38,7 +42,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
         show: () => hasAuth('permission:role:delete'),
         text: tx('删除'),
         variant: 'destructive',
-        disabled: ({ row }) => row.code === 'SuperAdmin',
+        disabled: ({ row }) => busyIds.includes(row.id ?? 0) || row.code === 'SuperAdmin',
         onClick: ({ row }) => void onDelete(row.id ? [row.id] : []),
       },
     ]

@@ -1,22 +1,12 @@
 import { createTextTranslator } from '@/services/i18n/translator'
-import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/reui/primitives/select'
-import {
-  Cascader,
-  CascaderChips,
-  CascaderContent,
-  CascaderEmpty,
-  CascaderList,
-  CascaderPanel,
-  CascaderStatus,
-  useCascaderAnchor,
-} from '@/components/reui/cascader/cascader'
-import { CascaderInput, CascaderNav } from '@/components/reui/cascader/cascader-nav'
-import { CascaderItems } from '@/components/reui/cascader/cascader-item'
-import type { CascaderNode } from '@/components/reui/cascader/cascader-types'
 import type { MaFormItem, MaFormRenderContext } from '@/components/ma-form'
 import type { UserPolicy, UserVo } from '../../api/user'
 import type { AppRuntime } from '@/provider/runtime/types'
+import { DepartmentTreeSelect } from '../components/DepartmentTreeSelect'
+import type { TextTranslator } from '@/services/i18n/translator'
+import { UserRoleField } from '../components/UserRoleField'
+
 export interface UserForm extends Partial<UserVo> {
   password?: string
   department?: number[]
@@ -24,15 +14,18 @@ export interface UserForm extends Partial<UserVo> {
   policy?: UserPolicy
   policy_func?: string
 }
+
 export interface UserFormOptions {
   departments?: DepartmentOption[]
   positions?: Array<{ id: number; dept_id?: number; name: string }>
 }
+
 export interface DepartmentOption {
   id: number
   name: string
   children?: DepartmentOption[]
 }
+
 export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
   const tx = createTextTranslator(runtime, 'base.permission.user.ui')
   const emptyForm: UserForm = {
@@ -49,47 +42,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
     position: [],
     policy: { policy_type: 'SELF', is_default: true, value: [] },
   }
-  function DepartmentTreeSelect({ value, setValue, item }: MaFormRenderContext<UserForm>) {
-    const localeRevision = useLocaleRevision()
-    void localeRevision
 
-    const anchor = useCascaderAnchor()
-    const options = (item.renderProps?.options ?? []) as DepartmentOption[]
-    const toNode = (option: DepartmentOption): CascaderNode => ({
-      value: String(option.id),
-      label: option.name,
-      children: option.children?.map(toNode),
-    })
-    const items: CascaderNode[] = options.map(toNode)
-    const selected = Array.isArray(value) ? value.map(String) : []
-
-    return (
-      <Cascader
-        multiple
-        mode="tree"
-        items={items}
-        selectable="any"
-        value={selected}
-        onValueChange={values => setValue(values.map(Number))}
-        searchScope="deep"
-        maxHeight={240}
-      >
-        <CascaderChips ref={anchor} placeholder={tx('请选择部门')} className="w-full" />
-        <CascaderContent anchor={anchor} className="min-w-[min(24rem,calc(100vw-2rem))]">
-          <CascaderPanel>
-            <CascaderNav>
-              <CascaderInput placeholder={tx('搜索部门')} />
-            </CascaderNav>
-            <CascaderEmpty>{tx('暂无可选部门')}</CascaderEmpty>
-            <CascaderList>
-              <CascaderItems />
-            </CascaderList>
-            <CascaderStatus />
-          </CascaderPanel>
-        </CascaderContent>
-      </Cascader>
-    )
-  }
   function renderStatusField({ item, value, setValue }: MaFormRenderContext<UserForm>) {
     const disabled = Boolean(item.renderProps?.disabled)
 
@@ -189,4 +142,17 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
     return items.map(item => (item.cols ? item : { ...item, cols: { span: 12 } }))
   }
   return { emptyForm, getFormItems }
+}
+
+export type RoleForm = { roleCodes: string[] }
+
+export function getRoleFormItems(tx: TextTranslator, disabled = false): MaFormItem<RoleForm>[] {
+  return [
+    {
+      prop: 'roleCodes',
+      label: tx('角色'),
+      render: UserRoleField,
+      renderProps: { disabled },
+    },
+  ]
 }

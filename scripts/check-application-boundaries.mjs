@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -19,30 +19,74 @@ const sourceFiles = root =>
         : []
   })
 
+function moduleReference(node) {
+  if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return node.moduleSpecifier
+  if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) return node.arguments[0]
+  if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) return node.argument.literal
+}
+
+function importedNames(node) {
+  if (ts.isImportDeclaration(node)) {
+    const clause = node.importClause
+    if (!clause) return []
+    return [
+      ...(clause.name ? ['default'] : []),
+      ...(clause.namedBindings && ts.isNamedImports(clause.namedBindings)
+        ? clause.namedBindings.elements.map(item => (item.propertyName ?? item.name).text)
+        : clause.namedBindings
+          ? ['*']
+          : []),
+    ]
+  }
+  if (ts.isExportDeclaration(node))
+    return node.exportClause && ts.isNamedExports(node.exportClause)
+      ? node.exportClause.elements.map(item => (item.propertyName ?? item.name).text)
+      : ['*']
+  if (ts.isImportTypeNode(node) && node.qualifier) {
+    let qualifier = node.qualifier
+    while (ts.isQualifiedName(qualifier)) qualifier = qualifier.left
+    return [qualifier.text]
+  }
+  return ['*']
+}
+
 /** Reads the working tree, including Git-ignored business and plugin sources. */
 export function checkApplicationBoundaries(root = projectRoot) {
-  const options = {
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    baseUrl: root,
-    paths: { '@/*': ['src/*'], '$/*': ['src/plugins/*'] },
-  }
+  const configFile = path.join(root, 'tsconfig.json')
+  const options = existsSync(configFile)
+    ? ts.parseJsonConfigFileContent(ts.readConfigFile(configFile, ts.sys.readFile).config, ts.sys, root).options
+    : {
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+        baseUrl: root,
+        paths: { '@/*': ['src/*'], '$/*': ['src/plugins/*'], '~/*': ['src/modules/*'], '#/*': ['src/types/*'] },
+      }
+  const resolutionCache = ts.createModuleResolutionCache(root, file => file, options)
   const graph = new Map()
   const failures = []
+  const publicEntries = new Map()
+  const publicConsumers = new Map()
   for (const absolute of sourceFiles(path.join(root, 'src'))) {
     const file = path.relative(root, absolute).split(path.sep).join('/')
     const source = ts.createSourceFile(absolute, readFileSync(absolute, 'utf8'), ts.ScriptTarget.Latest, true)
     const edges = []
     graph.set(file, edges)
+    if (file.startsWith('src/modules/') && feature(file) && file === `${feature(file)}/index.ts`) {
+      publicEntries.set(
+        file,
+        source.statements.flatMap(statement =>
+          ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)
+            ? statement.exportClause.elements.map(item => item.name.text)
+            : [],
+        ),
+      )
+    }
     const visit = node => {
-      if (
-        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-        node.moduleSpecifier &&
-        ts.isStringLiteral(node.moduleSpecifier)
-      ) {
+      const specifier = moduleReference(node)
+      if (specifier && ts.isStringLiteralLike(specifier)) {
         const bindings = node.importClause?.namedBindings
         const externalViolation = externalDependencyViolation(
           file,
-          node.moduleSpecifier.text,
+          specifier.text,
           bindings && ts.isNamedImports(bindings)
             ? bindings.elements.map(item => (item.propertyName ?? item.name).text)
             : bindings
@@ -50,37 +94,51 @@ export function checkApplicationBoundaries(root = projectRoot) {
               : [],
         )
         if (externalViolation) failures.push(externalViolation)
-        const resolved = ts.resolveModuleName(node.moduleSpecifier.text, absolute, options, ts.sys).resolvedModule
+        const resolved = ts.resolveModuleName(specifier.text, absolute, options, ts.sys, resolutionCache).resolvedModule
         if (resolved && !resolved.isExternalLibraryImport) {
           const target = path.relative(root, resolved.resolvedFileName).split(path.sep).join('/')
           const violation = dependencyViolation(file, target)
           if (violation) failures.push(violation)
           // Page entry points are valid composition targets. Page internals are private.
+          if (feature(target) && feature(file) !== feature(target) && /\/views\/(?:components|data)\//.test(target))
+            failures.push(`${file} -> ${target}: import the feature's public entry instead of its view internals`)
           if (
-            feature(file) &&
+            target.startsWith('src/modules/') &&
             feature(target) &&
             feature(file) !== feature(target) &&
-            /\/views\/(?:components|data)\//.test(target)
-          )
-            failures.push(`${file} -> ${target}: import the feature's public entry instead of its view internals`)
+            target === `${feature(target)}/index.ts`
+          ) {
+            const consumers = publicConsumers.get(target) ?? new Set()
+            for (const name of importedNames(node)) consumers.add(name)
+            publicConsumers.set(target, consumers)
+          }
           const clause = ts.isImportDeclaration(node) ? node.importClause : node.exportClause
           const named = clause?.namedBindings ?? clause
           const onlyTypes =
+            ts.isImportTypeNode(node) ||
             node.isTypeOnly ||
             clause?.isTypeOnly ||
             (named?.elements?.length && !clause?.name && named.elements.every(item => item.isTypeOnly))
-          if (!onlyTypes) edges.push(target)
+          // Lazy imports are checked for ownership but do not form eager initialization cycles.
+          if (!onlyTypes && !ts.isCallExpression(node)) edges.push(target)
         } else if (
           !resolved &&
-          /^(\.|@\/|\$\/)/.test(node.moduleSpecifier.text) &&
-          !/\.(css|svg|png|jpg|webp|json)(\?|$)/.test(node.moduleSpecifier.text)
+          /^(\.|@\/|\$\/|~\/|#\/)/.test(specifier.text) &&
+          !/\.(css|svg|png|jpg|webp|json)(\?|$)/.test(specifier.text)
         ) {
-          failures.push(`${file}: unresolved ${node.moduleSpecifier.text}`)
+          failures.push(`${file}: unresolved ${specifier.text}`)
         }
       }
       ts.forEachChild(node, visit)
     }
     visit(source)
+  }
+  for (const [file, names] of publicEntries) {
+    const consumers = publicConsumers.get(file) ?? new Set()
+    for (const name of names) {
+      if (!consumers.has('*') && !consumers.has(name))
+        failures.push(`${file}: ${name} has no consumer outside its sub-module; remove it from the public entry`)
+    }
   }
   for (const cycle of findDependencyCycles(graph)) failures.push(`Circular runtime dependency: ${cycle.join(' -> ')}`)
   return { files: graph.size, failures }

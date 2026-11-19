@@ -1,6 +1,8 @@
 import type { MaFormItem } from '@/components/ma-form'
 import type { TextTranslator } from '@/services/i18n/translator'
 import type { RoleVo } from '../../api/role'
+import type { MenuVo } from '@/modules/base/menu/api/menu'
+import { PermissionMenuTree } from '../components/PermissionMenuTree'
 
 export type RoleForm = RoleVo & { name: string; code: string; status: number; sort: number; remark: string }
 
@@ -45,4 +47,26 @@ export function getFormItems(tx: TextTranslator, editing: boolean): MaFormItem<R
     { prop: 'remark', label: tx('备注'), render: 'Textarea', cols: { span: 24 } },
   ]
   return items.map(item => ({ cols: { span: 12 }, ...item }))
+}
+
+export type RolePermissionForm = {
+  menus: MenuVo[]
+  permissionNames: string[]
+}
+
+export function getPermissionFormItems(disabled = false): MaFormItem<RolePermissionForm>[] {
+  return [
+    {
+      prop: 'permissionNames',
+      showLabel: false,
+      render: ({ formData, setValue }) => (
+        <PermissionMenuTree
+          menus={formData.menus}
+          permissionNames={formData.permissionNames}
+          onChange={setValue}
+          disabled={disabled}
+        />
+      ),
+    },
+  ]
 }

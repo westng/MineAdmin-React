@@ -13,6 +13,7 @@ export interface MaUploadBaseProps extends AriaAttributes {
   maxUrlLength?: number
   previewSize?: number
   listType?: 'text' | 'picture'
+  triggerType?: 'button' | 'dropzone'
   label?: string
   id?: string
   name?: string

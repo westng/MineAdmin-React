@@ -34,7 +34,7 @@ export default defineConfig(({ mode, command }) => {
     base: env.VITE_APP_ROOT_BASE || '/',
     server: {
       open: true,
-      port: Number(env.VITE_APP_PORT || 2777),
+      port: Number(env.VITE_APP_PORT || 2999),
       strictPort: true,
       proxy: {
         [proxyPrefix]: {

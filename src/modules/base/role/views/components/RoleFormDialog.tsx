@@ -1,4 +1,4 @@
-import { useImperativeHandle, type Ref } from 'react'
+import { useMemo, useImperativeHandle, type Ref } from 'react'
 import { MaDialog, useMaFormDialog } from '@/components/ma-dialog'
 import { MaForm } from '@/components/ma-form'
 import { useToast } from '@/components/reui/use-toast'
@@ -44,6 +44,8 @@ export function RoleFormDialog({
 
   useImperativeHandle(ref, () => ({ open: editor.open }), [editor.open])
 
+  const items = useMemo(() => getFormItems(tx, Boolean(editor.data?.id)), [tx, editor.data?.id])
+
   return (
     <MaDialog
       {...editor.dialogProps}
@@ -54,7 +56,7 @@ export function RoleFormDialog({
       showFullscreenButton={false}
       contentClassName="sm:max-w-xl"
     >
-      <MaForm key={editor.formKey} {...editor.formProps} items={getFormItems(tx, Boolean(editor.data?.id))} />
+      <MaForm key={editor.formKey} {...editor.formProps} items={items} />
     </MaDialog>
   )
 }

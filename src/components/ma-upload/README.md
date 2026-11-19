@@ -27,6 +27,8 @@ ma-upload/
 
 单文件的 `value` / `defaultValue` / `onChange` 使用 URL 字符串，移除后为 `''`；`multiple: true` 时使用 URL 数组，移除后可为 `[]`。多文件按选择顺序上传，中途失败会停止后续请求，并保留原有文件和本批已上传成功的文件，用户可以重新选择失败文件重试。
 
+`triggerType` 默认为 `'button'`，设为 `'dropzone'` 时使用可点击选择或拖放的虚线区域，不显示上传按钮；两种入口共用文件校验、上传状态及禁用规则，拖拽区域内的文件输入保留键盘访问。
+
 `accept` 支持 MIME 类型、`image/*` 等类别以及 `.pdf,.zip` 等扩展名；`maxSize` 单位为字节，`maxCount` 限制文件总数。校验不替代上传服务端校验。`listType: 'text'` 显示文件名称，`listType: 'picture'` 显示图片缩略图；`previewSize` 默认 40px。上传得到的原始文件名会保留在当前控件中，已有 URL 则取路径末段作为名称。
 
 MaForm 中声明 `render: 'Upload'`，通过 `renderProps` 提供配置。单文件映射字符串字段，多文件映射数组字段。编辑加载等外部数据通过模型字段回显，不触发重复上传。移除仅清空字段，不删除服务器上的附件。

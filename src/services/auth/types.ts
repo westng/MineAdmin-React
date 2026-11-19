@@ -1,9 +1,20 @@
-export interface LoginParams {
+export type PasswordLoginMode = 'server-captcha' | 'credentials'
+
+export interface CredentialsLoginParams {
+  username: string
+  password: string
+  code?: never
+  captcha_id?: never
+}
+
+export interface CaptchaLoginParams {
   username: string
   password: string
   code: string
   captcha_id: string
 }
+
+export type LoginParams = CredentialsLoginParams | CaptchaLoginParams
 
 export interface LoginCaptcha {
   captcha_id: string

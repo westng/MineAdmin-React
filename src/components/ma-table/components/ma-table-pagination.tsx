@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/reui/primitives/button'
 import { Input } from '@/components/reui/primitives/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/reui/primitives/select'
-import type { MaTablePagination } from '../types'
+import type { MaTablePageJumperProps, MaTablePagination } from '../types'
 
 export interface MaTablePaginationProps {
   pagination: MaTablePagination
@@ -20,12 +20,7 @@ function getPageRange(currentPage: number, pageCount: number): { start: number; 
   return { start, end: Math.min(start + 4, pageCount) }
 }
 
-export function MaTablePageJumper({
-  currentPage,
-  pageCount,
-  onPageChange,
-  disabled = false,
-}: Pick<MaTablePaginationProps, 'currentPage' | 'pageCount' | 'onPageChange'> & { disabled?: boolean }) {
+export function MaTablePageJumper({ currentPage, pageCount, onPageChange, disabled = false }: MaTablePageJumperProps) {
   const [draft, setDraft] = useState('')
   const value = Number(draft.trim())
   const valid = /^-?\d+$/.test(draft.trim()) && Number.isSafeInteger(value)

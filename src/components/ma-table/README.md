@@ -168,6 +168,10 @@ const columns = [
 
 `runtime.tableCellRenderers.register` 返回本次注册的注销函数，也可使用 `runtime.tableCellRenderers.remove(name)` 主动移除。注销旧注册不会移除后来替换的实现。独立组件可用 `createTableCellRenderers()` 创建注册表并通过 `TableCellRenderersContext.Provider` 注入；导出的 `registerTableCellRenderer/removeTableCellRenderer` 只操作无应用 Provider 时的兼容注册表，不会影响应用 Runtime。
 
+## 指定页跳转组件
+
+需要组合已有分页视图时，从 `@/components/ma-table` 导入 `MaTablePageJumper` 和 `MaTablePageJumperProps`。传入 `currentPage`、`pageCount`、`onPageChange` 及可选的 `disabled`；组件负责整数输入校验、回车提交和页码范围约束，分页状态由调用方维护。MaTable 自带分页仍按 `showQuickJumper` 配置使用同一组件。
+
 ## 标签切换
 
 `tabs` 传入配置后，由 `MaTable` 渲染下划线标签和数量角标，标签栏位于 `headerContent` 之后、工具栏之前。未传或 `items` 为空时不占空间；已有 JSX 插槽仍然可用。
@@ -288,12 +292,12 @@ tableRef.current?.clearSelection()
 
 根目录 `index.ts` 仅提供公共导出，类型集中到 `types/`。结构约束见 [Ma 组件工程规范](../../../docs/MA_COMPONENTS.md)。
 
-| 目录 | 职责 | 文件 |
-| --- | --- | --- |
-| `components/` | 展示组件 | ma-table-body.tsx, ma-table-cell-overflow-popover.tsx, ma-table-header.tsx, ma-table-pagination.tsx, ma-table-tabs.tsx, ma-table-toolbar.tsx, ma-table.tsx |
-| `context/` | React 接入 | cell-renderers-context.ts |
-| `hooks/` | 状态与生命周期 | use-ma-table-selection.ts, use-ma-table-sort.ts, use-table-cell-renderers.ts |
-| `types/` | 公共及内部类型 | index.ts |
-| `utils/` | 转换与状态工厂 | cell-renderers.ts, render-cell.ts, table-utils.ts |
+| 目录          | 职责           | 文件                                                                                                                                                       |
+| ------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/` | 展示组件       | ma-table-body.tsx, ma-table-cell-overflow-popover.tsx, ma-table-header.tsx, ma-table-pagination.tsx, ma-table-tabs.tsx, ma-table-toolbar.tsx, ma-table.tsx |
+| `context/`    | React 接入     | cell-renderers-context.ts                                                                                                                                  |
+| `hooks/`      | 状态与生命周期 | use-ma-table-selection.ts, use-ma-table-sort.ts, use-table-cell-renderers.ts                                                                               |
+| `types/`      | 公共及内部类型 | index.ts                                                                                                                                                   |
+| `utils/`      | 转换与状态工厂 | cell-renderers.ts, render-cell.ts, table-utils.ts                                                                                                          |
 
 使用 `pnpm run check:ma` 验证结构、类型、Lint 和行为；迁移验证同时覆盖应用消费者与依赖边界。

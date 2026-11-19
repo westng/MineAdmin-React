@@ -1,4 +1,4 @@
-import { useImperativeHandle, type Ref } from 'react'
+import { useMemo, useImperativeHandle, type Ref } from 'react'
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { createApi as createUserApi } from '@/modules/base/user/api/user'
 import { MaDialog, useMaFormDialog } from '@/components/ma-dialog'
@@ -8,7 +8,7 @@ import { useMessage } from '@/hooks/ui/use-message'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { extractList } from '@/utils/api-data'
 import { type UserVo } from '../../api/user'
-import { getRoleFormItems, type RoleForm } from '../data/getRoleFormItems'
+import { getRoleFormItems, type RoleForm } from '../data/getFormItems'
 
 export interface UserRoleDialogHandle {
   open: (user: UserVo) => void
@@ -39,6 +39,11 @@ export function UserRoleDialog({ ref }: { ref?: Ref<UserRoleDialogHandle> }) {
     onError: error => message.error(error instanceof Error ? error.message : tx('角色信息加载失败')),
   })
   useImperativeHandle(ref, () => ({ open: editor.open }), [editor.open])
+  const items = useMemo(
+    () => getRoleFormItems(tx, Boolean(editor.formProps.options?.disabled)),
+    [tx, editor.formProps.options?.disabled],
+  )
+
   return (
     <MaDialog
       {...editor.dialogProps}
@@ -50,11 +55,7 @@ export function UserRoleDialog({ ref }: { ref?: Ref<UserRoleDialogHandle> }) {
     >
       {editor.loading && <p role="status">{tx('正在加载角色信息…')}</p>}
       {editor.loadError != null && <p role="alert">{tx('角色信息加载失败，请关闭后重试。')}</p>}
-      <MaForm
-        key={editor.formKey}
-        {...editor.formProps}
-        items={getRoleFormItems(tx, Boolean(editor.formProps.options?.disabled))}
-      />
+      <MaForm key={editor.formKey} {...editor.formProps} items={items} />
     </MaDialog>
   )
 }

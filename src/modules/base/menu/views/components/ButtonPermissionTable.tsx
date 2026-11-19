@@ -1,16 +1,12 @@
 import { Badge } from '@/components/reui/primitives/badge'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
-import { MaProTable, type MaProTableColumns } from '@/components/ma-pro-table'
+import { MaProTable } from '@/components/ma-pro-table'
 import { Button } from '@/components/reui/primitives/button'
-import { Input } from '@/components/reui/primitives/input'
 import type { ButtonPermission } from '../data/menu-form'
-
-type ButtonPermissionRow = ButtonPermission & {
-  onUpdate: (field: 'title' | 'code', value: string) => void
-  onRemove: () => void
-}
+import { useMemo } from 'react'
+import { getTableColumns, type ButtonPermissionRow } from '../data/getTableColumns'
 
 export function ButtonPermissionTable({
   value,
@@ -21,55 +17,7 @@ export function ButtonPermissionTable({
 }) {
   const tx = useTextTranslator('base.permission.menu.ui')
 
-  const buttonPermissionColumns: MaProTableColumns<ButtonPermissionRow>[] = [
-    {
-      prop: 'title',
-      label: tx('按钮名称'),
-      cellRender: ({ row }) => (
-        <Input
-          value={row.title}
-          onChange={event => row.onUpdate('title', event.target.value)}
-          placeholder={tx('例如：菜单列表')}
-          aria-label={tx('按钮名称')}
-        />
-      ),
-      width: 200,
-      className: 'overflow-visible',
-    },
-    {
-      prop: 'code',
-      label: tx('按钮编码'),
-      cellRender: ({ row }) => (
-        <Input
-          value={row.code}
-          onChange={event => row.onUpdate('code', event.target.value)}
-          placeholder={tx('例如：permission:menu:index')}
-          aria-label={tx('按钮编码')}
-        />
-      ),
-      width: 300,
-      className: 'overflow-visible',
-    },
-    {
-      type: 'operation',
-      label: tx('操作'),
-      width: 50,
-      operationConfigure: {
-        type: 'tile',
-        actions: [
-          {
-            name: 'remove',
-            text: '',
-            ariaLabel: tx('删除按钮权限'),
-            icon: <Trash2 aria-hidden="true" />,
-            variant: 'ghost',
-            size: 'icon-sm',
-            onClick: ({ row }) => row.onRemove(),
-          },
-        ],
-      },
-    },
-  ]
+  const buttonPermissionColumns = useMemo(() => getTableColumns(tx), [tx])
 
   const localeRevision = useLocaleRevision()
   void localeRevision

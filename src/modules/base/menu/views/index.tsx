@@ -128,6 +128,8 @@ export default function PermissionMenuPageView() {
     </>,
   )
 
+  const items = useMemo(() => getFormItems(tx, form, parentMenus, views), [tx, form, parentMenus, views])
+
   return (
     <>
       <Card className="flex min-h-0 flex-1 flex-col shadow-none">
@@ -197,7 +199,7 @@ export default function PermissionMenuPageView() {
               onModelValueChange={setForm}
               onSubmit={saveMenu}
               options={{ layout: 'grid', grid: { columns: isMobile ? 1 : 2, gap: '1rem' }, disabled: loading }}
-              items={getFormItems(tx, form, parentMenus, views)}
+              items={items}
             />
             {form.type === 'M' && (
               <ButtonPermissionTable

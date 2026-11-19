@@ -1,20 +1,25 @@
+import * as React from 'react'
+import { Plus, RefreshCw, Trash2 } from 'lucide-react'
+
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
 import { PermissionGate } from '@/provider/access/permission-gate'
 import { usePermission } from '@/hooks/auth/use-permission'
-import { useUserQueries } from '../../hooks/use-user-queries'
-import * as React from 'react'
-import { Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { useSession } from '@/hooks/auth/use-session'
 import { Button } from '@/components/reui/primitives/button'
 import { MaProTable, type MaProTableExpose } from '@/components/ma-pro-table'
-import type { UserVo } from '../../api/user'
-import { createViewData as createSearchItemsViewData } from '../data/getSearchItems'
-import { createViewData as createTableColumnsViewData } from '../data/getTableColumns'
+import { createApi as createUserApi, type UserVo } from '@/modules/base/user/api/user'
+import {
+  createViewData as createSearchItemsViewData,
+  toUserQueryParams,
+} from '@/modules/base/user/views/data/getSearchItems'
+import { createViewData as createTableColumnsViewData } from '@/modules/base/user/views/data/getTableColumns'
 
 interface UserProTableProps {
   proTableRef: React.RefObject<MaProTableExpose<UserVo> | null>
   selectedIds: number[]
+  busyIds?: number[]
   getUserTypeLabel: (value: unknown) => string
   getStatusLabel: (value: unknown) => string
   onSelectionChange: (rows: UserVo[]) => void
@@ -29,6 +34,7 @@ interface UserProTableProps {
 export default function UserProTable({
   proTableRef,
   selectedIds,
+  busyIds = [],
   getUserTypeLabel,
   getStatusLabel,
   onSelectionChange,
@@ -48,12 +54,17 @@ export default function UserProTable({
   void localeRevision
 
   const { hasAuth } = usePermission()
-  const { request, sessionVersion, data, total, loading, error } = useUserQueries()
-  const searchItems = getSearchItems()
+  const { pageUsers } = useRuntimeFactory(createUserApi)
+  const sessionVersion = useSession(state => state.sessionVersion)
+  const searchItems = React.useMemo(() => {
+    void localeRevision
+    return getSearchItems()
+  }, [localeRevision, getSearchItems])
   const tableColumns = React.useMemo(() => {
     void localeRevision // Rebuild translated configuration when the active locale changes.
     return getTableColumns({
       hasAuth,
+      busyIds,
       getUserTypeLabel,
       getStatusLabel,
       onEdit,
@@ -65,6 +76,7 @@ export default function UserProTable({
     localeRevision,
     getTableColumns,
     hasAuth,
+    busyIds,
     getUserTypeLabel,
     getStatusLabel,
     onEdit,
@@ -76,23 +88,17 @@ export default function UserProTable({
   return (
     <MaProTable<UserVo>
       ref={proTableRef}
-      data={data}
-      loading={loading}
-      error={error}
       schema={{ searchItems, tableColumns }}
       options={{
         header: { mainTitle: tx('用户管理'), subTitle: tx('管理用户资料、所属角色和数据权限。') },
         toolbar: true,
         searchOptions: { defaultValue: emptySearch, foldRows: 2 },
         searchFormOptions: { layout: 'grid', grid: { columns: 5, gap: '1rem' } },
-        tableOptions: { pagination: { total } },
+        tableOptions: { rowKey: 'id' },
         requestOptions: {
           requestKey: sessionVersion,
-          api: params =>
-            request({
-              ...params,
-              status: params.status ? (Number(params.status) as 1 | 2) : undefined,
-            } as Partial<UserVo>),
+          api: pageUsers,
+          paramsTransform: toUserQueryParams,
           requestPage: { size: 20 },
         },
       }}
@@ -108,7 +114,7 @@ export default function UserProTable({
             <Button
               variant="destructive"
               size="sm"
-              disabled={!selectedIds.length}
+              disabled={!selectedIds.length || busyIds.length > 0}
               onClick={() => void onDelete(selectedIds)}
             >
               <Trash2 aria-hidden="true" />

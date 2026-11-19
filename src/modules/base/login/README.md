@@ -39,6 +39,14 @@
 
 ## 扩展调用方
 
-`LoginParams` 和 `LoginFormValues` 均要求传入 `captcha_id` 与 `code`。复用 `LoginForm` 的扩展会收到完整的四字段载荷；直接调用会话 `login()` 的扩展需要自行完成挑战获取和用户输入。Token 刷新及使用 `loginWithTokens()` 的独立认证方式沿用各自原有契约。
+默认服务端验证码模式下，`LoginForm` 提交的 `CaptchaLoginParams` 要求 `captcha_id` 与 `code`。复用 `LoginForm` 的扩展会收到完整的四字段载荷；直接调用会话 `login()` 的扩展需要按后端契约准备 `LoginParams`。Token 刷新及使用 `loginWithTokens()` 的独立认证方式沿用各自原有契约。
 
 服务端需要根据实际部署拓扑配置来源识别及限流，不能无条件信任客户端提供的转发头。
+
+## 仅凭据模式
+
+对于只接受用户名、密码的接入接口，应用可通过 `runtime.loginPage.register()` 显式选择 `passwordLoginMode: 'credentials'`。登录页复用同一表单、会话和 HTTP 客户端，只提交这两个字段。
+
+框架及未指定模式的 `LoginForm` 默认使用 `server-captcha`。验证码请求失败、挑战过期或登录失败不会自动切换为凭据模式；仅应用明确注册 `credentials` 时才沿用不包含挑战的后端契约。`LoginParams` 区分凭据载荷与完整挑战载荷，不接受只提供验证码答案或只提供挑战 ID 的参数组合。
+
+后端正式接入服务端验证码后，应同步调整应用配置，并分别验证签发、原子消费、失败重取及真实登录。此配置不代表当前后端已经具备验证码保护。

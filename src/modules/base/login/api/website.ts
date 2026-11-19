@@ -1,7 +1,5 @@
 import type { ResponseStruct } from '@/types/api'
-
-import type { WebsiteLoginConfig } from '../views/data/website'
-
+import type { WebsiteLoginConfig } from '@/provider/extensions/login-page'
 import type { AppRuntime } from '@/provider/runtime/types'
 import { createResourceQueries } from '@/services/query/resource'
 

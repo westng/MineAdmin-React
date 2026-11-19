@@ -14,6 +14,7 @@ export function MaUpload(props: MaUploadProps) {
     maxCount = Infinity,
     previewSize = 40,
     listType = 'text',
+    triggerType = 'button',
     label = '文件',
     id,
     name,
@@ -28,6 +29,22 @@ export function MaUpload(props: MaUploadProps) {
     event.target.value = ''
     void uploadFiles(files)
   }
+  const fileInput = (
+    <input
+      id={id}
+      name={name}
+      ref={inputRef}
+      type="file"
+      multiple={multiple}
+      accept={accept === '*' ? undefined : accept}
+      aria-label={props['aria-label'] ?? `上传${label}`}
+      aria-describedby={props['aria-describedby']}
+      aria-invalid={props['aria-invalid']}
+      disabled={inputDisabled}
+      className="sr-only"
+      onChange={selectFiles}
+    />
+  )
   const entry = (url: string) => (
     <UploadFileItem
       url={url}
@@ -65,34 +82,42 @@ export function MaUpload(props: MaUploadProps) {
               <ImageIcon size={20} aria-hidden="true" />
             </div>
           ))}
-        <input
-          id={id}
-          name={name}
-          ref={inputRef}
-          type="file"
-          multiple={multiple}
-          accept={accept === '*' ? undefined : accept}
-          aria-label={props['aria-label'] ?? `上传${label}`}
-          aria-describedby={props['aria-describedby']}
-          aria-invalid={props['aria-invalid']}
-          disabled={inputDisabled}
-          className="sr-only"
-          onChange={selectFiles}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={inputDisabled}
-          onClick={() => inputRef.current?.click()}
-        >
-          {uploading ? (
-            <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-          ) : (
-            <Upload aria-hidden="true" />
-          )}
-          {uploading ? '上传中…' : !multiple && values.length ? `更换${label}` : `上传${label}`}
-        </Button>
+        {triggerType === 'dropzone' ? (
+          <label
+            className={cn(
+              'flex min-h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed px-4 py-6 text-center text-sm transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+              inputDisabled
+                ? 'cursor-not-allowed bg-muted/40 text-muted-foreground'
+                : 'cursor-pointer bg-muted/20 hover:border-primary hover:bg-muted/40',
+            )}
+          >
+            {fileInput}
+            {uploading ? (
+              <LoaderCircle className="size-6 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            ) : (
+              <Upload className="size-6 text-muted-foreground" aria-hidden="true" />
+            )}
+            <span>{uploading ? '上传中…' : `点击选择或拖拽${label}到此处`}</span>
+          </label>
+        ) : (
+          <>
+            {fileInput}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={inputDisabled}
+              onClick={() => inputRef.current?.click()}
+            >
+              {uploading ? (
+                <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Upload aria-hidden="true" />
+              )}
+              {uploading ? '上传中…' : !multiple && values.length ? `更换${label}` : `上传${label}`}
+            </Button>
+          </>
+        )}
         {uploading && (
           <span role="status" className="min-w-0 truncate text-xs text-muted-foreground">
             {activeName}

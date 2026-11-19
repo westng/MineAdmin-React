@@ -92,7 +92,10 @@ export default function PermissionDepartmentPageView() {
   const confirm = useMaConfirm({
     onError: error => toast.error(error instanceof Error ? error.message : tx('部门删除失败')),
   })
-  const parentOptions = allRows.filter(row => row.department.id !== editor.data?.id)
+  const parentOptions = useMemo(
+    () => allRows.filter(row => row.department.id !== editor.data?.id),
+    [allRows, editor.data?.id],
+  )
   const openCreate = (parent?: DepartmentVo) => editor.open({ parent_id: parent?.id ?? 0 })
   const openEdit = (department: DepartmentVo) => editor.open(department)
 
@@ -137,6 +140,8 @@ export default function PermissionDepartmentPageView() {
       </Button>
     </PermissionGate>,
   )
+
+  const items = useMemo(() => getFormItems(tx, parentOptions), [tx, parentOptions])
 
   return (
     <>
@@ -205,7 +210,7 @@ export default function PermissionDepartmentPageView() {
         showFullscreenButton={false}
         contentClassName="sm:max-w-lg"
       >
-        <MaForm key={editor.formKey} {...editor.formProps} items={getFormItems(tx, parentOptions)} />
+        <MaForm key={editor.formKey} {...editor.formProps} items={items} />
       </MaDialog>
 
       <MaDrawer

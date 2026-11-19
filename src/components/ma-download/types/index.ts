@@ -8,12 +8,35 @@ export interface MaDownloadResult {
   filename?: string
 }
 
-export type MaDownloadRequest = (options: { signal: AbortSignal }) => Promise<Blob | MaDownloadResult>
+export interface MaDownloadProgress {
+  loaded: number
+  total?: number
+}
+
+export interface MaDownloadUrlResult {
+  url: string
+  filename?: string
+}
+
+export interface MaDownloadRequestOptions {
+  signal: AbortSignal
+  onProgress: (progress: MaDownloadProgress) => void
+}
+
+export type MaDownloadRequest = (
+  options: MaDownloadRequestOptions,
+) => Promise<Blob | MaDownloadResult | MaDownloadUrlResult>
 
 export type MaDownloadSource =
   | { url: string; blob?: never; request?: never }
   | { blob: Blob; url?: never; request?: never }
   | { request: MaDownloadRequest; url?: never; blob?: never }
+
+export type MaDownloadTask = MaDownloadSource & {
+  filename?: string
+  signal?: AbortSignal
+  onProgress?: (progress: MaDownloadProgress) => void
+}
 
 export interface MaDownloadBaseProps
   extends Omit<ComponentProps<'button'>, 'onError' | 'type'>, VariantProps<typeof buttonVariants> {

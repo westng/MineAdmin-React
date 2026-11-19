@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/utils/cn'
 
 const badgeVariants = cva(
-  'relative inline-flex h-5 min-w-5 shrink-0 items-center justify-center gap-1 rounded-sm border border-transparent px-1.5 py-0.5 text-xs font-medium leading-none whitespace-nowrap outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-3 [&_svg]:shrink-0',
+  'relative inline-flex shrink-0 items-center justify-center rounded-sm border border-transparent py-0.5 font-medium leading-none whitespace-nowrap outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -20,25 +20,36 @@ const badgeVariants = cva(
         'warning-light': 'border-warning/15 bg-warning/10 text-warning-foreground',
         'destructive-light': 'border-destructive/15 bg-destructive/10 text-destructive-foreground',
       },
+      size: {
+        compact: 'h-5 min-w-5 gap-1 px-1.5 text-xs [&_svg]:size-3',
+        xs: 'h-6 min-w-6 gap-1 px-2 text-xs [&_svg]:size-3',
+        sm: 'h-7 min-w-7 gap-1 px-2.5 text-[0.8rem] [&_svg]:size-3.5',
+        default: 'h-8 min-w-8 gap-1.5 px-2.5 text-sm [&_svg]:size-4',
+        lg: 'h-9 min-w-9 gap-1.5 px-2.5 text-sm [&_svg]:size-4',
+      },
       radius: {
         default: 'rounded-sm',
         full: 'rounded-full',
       },
     },
-    defaultVariants: { variant: 'default', radius: 'default' },
+    defaultVariants: { variant: 'default', size: 'compact', radius: 'default' },
   },
 )
 
 interface BadgeProps extends useRender.ComponentProps<'span'> {
   variant?: VariantProps<typeof badgeVariants>['variant']
+  size?: VariantProps<typeof badgeVariants>['size']
   radius?: VariantProps<typeof badgeVariants>['radius']
 }
 
-function Badge({ className, variant, radius, render, ...props }: BadgeProps) {
+function Badge({ className, variant, size, radius, render, ...props }: BadgeProps) {
   return useRender({
     defaultTagName: 'span',
     render,
-    props: mergeProps({ 'data-slot': 'badge', className: cn(badgeVariants({ variant, radius, className })) }, props),
+    props: mergeProps(
+      { 'data-slot': 'badge', className: cn(badgeVariants({ variant, size, radius, className })) },
+      props,
+    ),
   })
 }
 

@@ -15,6 +15,7 @@ import { createViewData as createTableColumnsViewData } from '../data/getTableCo
 interface Props {
   tableRef: RefObject<MaProTableExpose<RoleVo> | null>
   selectedIds: number[]
+  busyIds?: number[]
   onSelectionChange: (rows: RoleVo[]) => void
   onCreate: () => void
   onEdit: (row: RoleVo) => void
@@ -25,6 +26,7 @@ interface Props {
 export default function RoleProTable({
   tableRef,
   selectedIds,
+  busyIds = [],
   onSelectionChange,
   onCreate,
   onEdit,
@@ -42,17 +44,18 @@ export default function RoleProTable({
 
   const { hasAuth } = usePermission()
   const { toast } = useToast()
+  const searchItems = useMemo(() => getSearchItems(tx), [tx])
   const columns = useMemo(() => {
     void localeRevision // Rebuild translated configuration when the active locale changes.
-    return getTableColumns({ hasAuth, onEdit, onPermissions, onDelete })
-  }, [localeRevision, getTableColumns, hasAuth, onEdit, onPermissions, onDelete])
+    return getTableColumns({ hasAuth, busyIds, onEdit, onPermissions, onDelete })
+  }, [localeRevision, getTableColumns, hasAuth, busyIds, onEdit, onPermissions, onDelete])
 
   return (
     <MaProTable<RoleVo>
       ref={tableRef}
       schema={{
         tableColumns: columns,
-        searchItems: getSearchItems(tx),
+        searchItems,
       }}
       options={{
         header: { mainTitle: tx('角色管理'), subTitle: tx('维护角色编码并配置菜单权限。') },
@@ -80,7 +83,7 @@ export default function RoleProTable({
             <Button
               variant="destructive"
               size="sm"
-              disabled={!selectedIds.length}
+              disabled={!selectedIds.length || busyIds.length > 0}
               onClick={() => void onDelete(selectedIds)}
             >
               <Trash2 aria-hidden="true" />

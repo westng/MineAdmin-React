@@ -1,9 +1,9 @@
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
-import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
-import { useCallback, useEffect, useRef, useState } from 'react'
+
+import { useCallback, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { MaProTable, type MaProTableExpose } from '@/components/ma-pro-table'
+import { type MaProTableExpose } from '@/components/ma-pro-table'
 import { MaDialog, useMaConfirm } from '@/components/ma-dialog'
 import { Button } from '@/components/reui/primitives/button'
 import type { LeaderRecord } from '../../api/leader'
@@ -13,7 +13,7 @@ import { useToast } from '@/components/reui/use-toast'
 import { createApi as createLeaderApi } from '../../api/leader'
 import { createViewData as createDepartmentErrorViewData } from '../data/department-error'
 import { DepartmentLeaderPicker } from './DepartmentLeaderPicker'
-import { createViewData as createRelatedTableColumnsViewData } from '../data/related-table-columns'
+import { DepartmentLeaderTable } from './DepartmentRelatedTables'
 
 interface Props {
   departmentId: number
@@ -23,12 +23,7 @@ interface Props {
 }
 
 export function DepartmentLeadersDialog({ departmentId, departmentName, onClose, onChanged }: Props) {
-  const { getLeaderTableColumns } = useRuntimeFactory(createRelatedTableColumnsViewData)
-
   const tx = useTextTranslator('base.permission.department.ui')
-
-  const localeRevision = useLocaleRevision()
-  void localeRevision
 
   const { departmentErrorMessage } = useRuntimeFactory(createDepartmentErrorViewData)
 
@@ -100,9 +95,6 @@ export function DepartmentLeadersDialog({ departmentId, departmentName, onClose,
     },
     [busy, query.loading, canAccess, confirm, leaderApi, departmentId, onChanged, toast, tx],
   )
-  useEffect(() => {
-    tableRef.current?.setTableColumns(getLeaderTableColumns({ canRemove, busy, onRemove: removeLeader }))
-  }, [getLeaderTableColumns, canRemove, busy, pickerOpen, removeLeader])
 
   return (
     <>
@@ -124,12 +116,14 @@ export function DepartmentLeadersDialog({ departmentId, departmentName, onClose,
             </Button>
           }
         >
-          <MaProTable<LeaderRecord>
+          <DepartmentLeaderTable
             ref={tableRef}
             data={query.data}
             loading={query.loading}
             error={query.error}
-            schema={{ tableColumns: [] }}
+            canRemove={canRemove}
+            busy={busy}
+            onRemove={removeLeader}
             options={{
               toolbar: true,
               requestOptions: { api: request, requestKey: query.sessionVersion, requestPage: { size: 10 } },

@@ -12,6 +12,7 @@ import { usePermission } from '@/hooks/auth/use-permission'
 import type { DepartmentVo } from '../../api/department'
 import type { DepartmentRow } from '../data/department-tree'
 import { createViewData as createTableColumnsViewData } from '../data/getTableColumns'
+import { getSearchItems } from '../data/getSearchItems'
 
 interface Props {
   rows: DepartmentRow[]
@@ -111,16 +112,14 @@ export default function DepartmentProTable({
     onPositions,
     onDelete,
   ])
-  useEffect(() => {
-    tableRef.current?.setTableColumns(columns)
-  }, [columns])
 
+  const searchItems = useMemo(() => getSearchItems(tx), [tx])
   return (
     <MaProTable<DepartmentRow>
       ref={tableRef}
       data={rows}
       loading={loading}
-      schema={{ tableColumns: columns, searchItems: [{ prop: 'name', label: tx('部门名称'), render: 'Input' }] }}
+      schema={{ tableColumns: columns, searchItems: searchItems }}
       options={{
         header: { mainTitle: tx('部门管理'), subTitle: tx('维护组织树、部门负责人、岗位和部门用户关系。') },
         toolbar: true,

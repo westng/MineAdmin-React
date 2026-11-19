@@ -1,6 +1,6 @@
 import { createTextTranslator } from '@/services/i18n/translator'
 import type { MaSearchItem } from '@/components/ma-search'
-import type { UserVo } from '../../api/user'
+import type { UserVo } from '@/modules/base/user/api/user'
 import type { AppRuntime } from '@/provider/runtime/types'
 export type UserSearchState = {
   username: string
@@ -9,6 +9,14 @@ export type UserSearchState = {
   email: string
   status: string
 }
+
+export function toUserQueryParams(params: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...params,
+    status: params.status === '' || params.status == null ? undefined : Number(params.status),
+  }
+}
+
 export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
   const tx = createTextTranslator(runtime, 'base.permission.user.ui')
   const emptySearch: UserSearchState = {

@@ -1,9 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ToastContext } from '@/components/reui/toast-context'
 import type { MaDownloadProps } from '../types'
-import { downloadBlob, downloadUrl } from '../utils/download-utils'
+import { downloadFile } from '../utils/download-file'
 
 /** 管理单次下载生命周期；请求与鉴权通过调用方注入。 */
 export function useDownload(props: MaDownloadProps) {
+  const context = useContext(ToastContext)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
   const active = useRef<AbortController | null>(null)
@@ -34,18 +36,19 @@ export function useDownload(props: MaDownloadProps) {
     let triggered = false
     try {
       props.onDownloadingChange?.(true)
-      if (props.request) {
-        const result = await props.request({ signal: controller.signal })
-        if (controller.signal.aborted || active.current !== controller) return
-        downloadBlob(result, props.filename)
-      } else if (props.blob) {
-        downloadBlob(props.blob, props.filename)
-      } else {
-        downloadUrl(props.url ?? '', props.filename)
-      }
-      triggered = true
+      const source = props.request
+        ? { request: props.request }
+        : props.blob
+          ? { blob: props.blob }
+          : { url: props.url ?? '' }
+      await downloadFile({ ...source, filename: props.filename, signal: controller.signal }, context?.toast)
+      if (!controller.signal.aborted && active.current === controller) triggered = true
     } catch (reason) {
-      if (!controller.signal.aborted && active.current === controller) {
+      if (
+        !controller.signal.aborted &&
+        active.current === controller &&
+        !(reason instanceof DOMException && reason.name === 'AbortError')
+      ) {
         failure = reason instanceof Error ? reason : new Error(typeof reason === 'string' ? reason : '下载失败，请重试')
         setError(failure.message || '下载失败，请重试')
       }

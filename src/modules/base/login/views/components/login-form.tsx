@@ -9,7 +9,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/reui/pri
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/reui/primitives/input-group'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/reui/primitives/input-otp'
 import { VerifyCode, type VerifyCodeHandle } from './verify-code'
-import type { LoginParams } from '@/services/auth/types'
+import type { LoginParams, PasswordLoginMode } from '@/services/auth/types'
 
 export type LoginFormValues = LoginParams
 
@@ -21,6 +21,7 @@ interface LoginFormState {
 interface LoginFormProps {
   usernameType?: 'text' | 'email'
   showAccountLinks?: boolean
+  passwordLoginMode?: PasswordLoginMode
   onSubmit: (values: LoginFormValues) => Promise<void>
 }
 
@@ -29,7 +30,11 @@ const initialState: LoginFormState = {
   formError: '',
 }
 
-function validate(values: LoginFormValues, t: (key: string) => string): LoginFormState['fieldErrors'] {
+function validate(
+  values: LoginFormValues,
+  t: (key: string) => string,
+  requiresCaptcha: boolean,
+): LoginFormState['fieldErrors'] {
   const fieldErrors: LoginFormState['fieldErrors'] = {}
 
   if (!values.username.trim()) {
@@ -38,14 +43,19 @@ function validate(values: LoginFormValues, t: (key: string) => string): LoginFor
   if (!values.password) {
     fieldErrors.password = t('auth.enterPassword')
   }
-  if (!values.code.trim()) {
+  if (requiresCaptcha && !values.code?.trim()) {
     fieldErrors.code = t('auth.enterCaptcha')
   }
 
   return fieldErrors
 }
 
-export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = false }: LoginFormProps) {
+export function LoginForm({
+  onSubmit,
+  usernameType = 'text',
+  showAccountLinks = false,
+  passwordLoginMode = 'server-captcha',
+}: LoginFormProps) {
   const t = useTranslate()
   const shellSlots = useRuntime().slots
   const shortcuts = useSyncExternalStore(shellSlots.subscribe, shellSlots.getSnapshot, shellSlots.getSnapshot)
@@ -55,21 +65,27 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [captchaReady, setCaptchaReady] = useState(false)
+  const requiresCaptcha = passwordLoginMode !== 'credentials'
   const [state, formAction, isPending] = useActionState(
     async (_previousState: LoginFormState, formData: FormData): Promise<LoginFormState> => {
-      const values: LoginFormValues = {
+      const credentials = {
         username: String(formData.get('username') ?? ''),
         password: String(formData.get('password') ?? ''),
-        code: String(formData.get('code') ?? ''),
-        captcha_id: captchaRef.current?.getChallengeId() ?? '',
       }
-      const fieldErrors = validate(values, t)
+      const values: LoginFormValues = requiresCaptcha
+        ? {
+            ...credentials,
+            code: String(formData.get('code') ?? ''),
+            captcha_id: captchaRef.current?.getChallengeId() ?? '',
+          }
+        : credentials
+      const fieldErrors = validate(values, t, requiresCaptcha)
 
       if (Object.keys(fieldErrors).length > 0) {
         return { fieldErrors, formError: '' }
       }
 
-      if (!values.captcha_id) {
+      if (requiresCaptcha && !values.captcha_id) {
         captchaRef.current?.refresh()
         return {
           fieldErrors: { code: t('auth.invalidCaptcha') },
@@ -149,39 +165,41 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
           <FieldError>{state.fieldErrors.password}</FieldError>
         </Field>
 
-        <Field data-invalid={Boolean(state.fieldErrors.code)}>
-          <FieldLabel htmlFor="code">{t('auth.captcha')}</FieldLabel>
-          <div className="flex w-full items-start gap-3">
-            <InputOTP
-              id="code"
-              name="code"
-              value={code}
-              onChange={setCode}
-              maxLength={4}
-              inputMode="text"
-              autoComplete="one-time-code"
-              aria-invalid={Boolean(state.fieldErrors.code)}
-              disabled={isPending}
-              containerClassName="min-w-0 flex-1"
-            >
-              <InputOTPGroup className="h-8 w-full">
-                <InputOTPSlot className="min-w-0 flex-1" index={0} />
-                <InputOTPSlot className="min-w-0 flex-1" index={1} />
-                <InputOTPSlot className="min-w-0 flex-1" index={2} />
-                <InputOTPSlot className="min-w-0 flex-1" index={3} />
-              </InputOTPGroup>
-            </InputOTP>
-            <div className="shrink-0">
-              <VerifyCode
-                ref={captchaRef}
-                onRefresh={handleCaptchaRefresh}
-                onReadyChange={setCaptchaReady}
+        {requiresCaptcha && (
+          <Field data-invalid={Boolean(state.fieldErrors.code)}>
+            <FieldLabel htmlFor="code">{t('auth.captcha')}</FieldLabel>
+            <div className="flex w-full items-start gap-3">
+              <InputOTP
+                id="code"
+                name="code"
+                value={code}
+                onChange={setCode}
+                maxLength={4}
+                inputMode="text"
+                autoComplete="one-time-code"
+                aria-invalid={Boolean(state.fieldErrors.code)}
                 disabled={isPending}
-              />
+                containerClassName="min-w-0 flex-1"
+              >
+                <InputOTPGroup className="h-8 w-full">
+                  <InputOTPSlot className="min-w-0 flex-1" index={0} />
+                  <InputOTPSlot className="min-w-0 flex-1" index={1} />
+                  <InputOTPSlot className="min-w-0 flex-1" index={2} />
+                  <InputOTPSlot className="min-w-0 flex-1" index={3} />
+                </InputOTPGroup>
+              </InputOTP>
+              <div className="shrink-0">
+                <VerifyCode
+                  ref={captchaRef}
+                  onRefresh={handleCaptchaRefresh}
+                  onReadyChange={setCaptchaReady}
+                  disabled={isPending}
+                />
+              </div>
             </div>
-          </div>
-          <FieldError>{state.fieldErrors.code}</FieldError>
-        </Field>
+            <FieldError>{state.fieldErrors.code}</FieldError>
+          </Field>
+        )}
 
         {state.formError && (
           <Field data-invalid>
@@ -190,7 +208,7 @@ export function LoginForm({ onSubmit, usernameType = 'text', showAccountLinks = 
         )}
 
         <div className="flex flex-col gap-10">
-          <Button className="w-full" type="submit" disabled={isPending || !captchaReady}>
+          <Button className="w-full" type="submit" disabled={isPending || (requiresCaptcha && !captchaReady)}>
             {isPending ? t('auth.signingIn') : t('auth.signIn')}
           </Button>
 

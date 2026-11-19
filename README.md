@@ -144,7 +144,7 @@ test -f .env.development.local || cp .env.example .env.development.local
 pnpm run dev
 ```
 
-修改 `.env.development.local`，将后端地址设置为你的开发环境。示例端口是 `2777`，后端地址是 `http://127.0.0.1:9601`；Vite 使用严格端口模式，端口被占用会报错。启动日志给出实际访问地址，配置修改后需要重启开发服务器。
+修改 `.env.development.local`，将后端地址设置为你的开发环境。示例端口是 `2999`，后端地址是 `http://127.0.0.1:9601`。Vite 使用严格端口模式，端口被占用会报错。启动日志给出实际访问地址，配置修改后需要重启开发服务器。
 
 开发服务器会自动打开页面；只想启动服务时可使用 `pnpm exec vite --open false`。前端不会自动启动后端。
 
@@ -155,7 +155,7 @@ pnpm run dev
 | 变量                      | `.env.example` 示例值   | 用途                                    |
 | ------------------------- | ----------------------- | --------------------------------------- |
 | `VITE_APP_TITLE`          | `MineAdmin`             | 应用默认标题，同时用于浏览器标题和刷新加载首屏 |
-| `VITE_APP_PORT`           | `2777`                  | 开发服务器端口                          |
+| `VITE_APP_PORT`           | `2999`                  | 开发服务器端口                          |
 | `VITE_APP_ROOT_BASE`      | `/`                     | Vite 资源根路径                         |
 | `VITE_APP_ROUTE_MODE`     | `hash`                  | 路由模式：`hash` 或 `history`           |
 | `VITE_OPEN_PROXY`         | `true`                  | HTTP 客户端使用代理前缀还是后端地址     |

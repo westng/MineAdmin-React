@@ -113,6 +113,13 @@ export interface MaTablePagination {
   onChange?: (currentPage: number, pageSize: number) => void
 }
 
+export interface MaTablePageJumperProps {
+  currentPage: number
+  pageCount: number
+  onPageChange: (page: number) => void
+  disabled?: boolean
+}
+
 export interface MaTableOptions<T extends MaTableModel = MaTableModel> {
   data?: T[]
   containerHeight?: string

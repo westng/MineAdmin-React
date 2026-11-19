@@ -9,7 +9,7 @@ import { useMessage } from '@/hooks/ui/use-message'
 import { createApi as createMenuApi, type MenuVo } from '@/modules/base/menu/api/menu'
 import { extractList } from '@/utils/api-data'
 import { createApi as createRoleApi, type RolePermissionVo, type RoleVo } from '../../api/role'
-import { getPermissionFormItems, type RolePermissionForm } from '../data/getPermissionFormItems'
+import { getPermissionFormItems, type RolePermissionForm } from '../data/getFormItems'
 import { normalizeMenuTree } from '../data/menu-tree'
 
 export interface RolePermissionsDialogHandle {

@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react'
 import { createRegistry } from '@/services/registry'
+import type { PasswordLoginMode } from '@/services/auth/types'
 
 export interface WebsiteLoginConfig {
   site_name: string
@@ -29,9 +31,11 @@ export const defaultWebsiteLoginConfig: WebsiteLoginConfig = {
 export interface LoginPageConfig {
   id: string
   branding: WebsiteLoginConfig
+  renderBranding?: (branding: WebsiteLoginConfig) => ReactNode
   subtitle?: string
   usernameType?: 'text' | 'email'
   showAccountLinks?: boolean
+  passwordLoginMode?: PasswordLoginMode
 }
 
 export function createLoginPageConfigurations() {

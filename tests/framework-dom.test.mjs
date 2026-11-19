@@ -55,7 +55,7 @@ const result = await build({
   export { resolvePrimaryColors } from './src/components/reui/utils/theme-color'
   export { Access } from './src/provider/access/access'
   export { AppRouter } from './src/router'
-  export { useUserQueries } from './src/modules/base/user/hooks/use-user-queries'
+  export { default as UserProTable } from './src/modules/base/user/views/components/UserProTable'
   export { createAppRuntime } from './src/app/runtime/create-runtime'
   export { createApi as createUserApi } from './src/modules/base/user/api/user'
   export { usePermission } from './src/hooks/auth/use-permission'
@@ -1198,8 +1198,7 @@ test('列表观察注入 Query 的变更，写入失效后自动更新，不依�
   })
   t.after(() => app.dispose())
   let reads = 0,
-    username = 'before',
-    table
+    username = 'before'
   app.http.defaults.adapter = async config => {
     if (config.method === 'get') reads++
     else username = 'after'
@@ -1208,27 +1207,38 @@ test('列表观察注入 Query 的变更，写入失效后自动更新，不依�
       status: 200,
       statusText: 'OK',
       headers: {},
-      data: { code: 200, data: config.method === 'get' ? { items: [{ username }], total: 1 } : null },
+      data: { code: 200, data: config.method === 'get' ? { items: [{ id: 1, username }], total: 1 } : null },
     }
   }
-  function List() {
-    table = core.useUserQueries()
-    return React.createElement('p', null, table.data.map(row => row.username).join(','))
-  }
   const container = await mount(
-    React.createElement(core.RuntimeContext.Provider, { value: app }, React.createElement(List)),
+    React.createElement(
+      core.AppProviders,
+      { runtime: app },
+      React.createElement(core.UserProTable, {
+        proTableRef: React.createRef(),
+        selectedIds: [],
+        getUserTypeLabel: String,
+        getStatusLabel: String,
+        onSelectionChange() {},
+        onRefresh() {},
+        onCreate() {},
+        onEdit() {},
+        onOpenRoles() {},
+        onInitializePassword() {},
+        onDelete() {},
+      }),
+    ),
   )
   await act(async () => {
-    await table.request({ page: 1, page_size: 20 })
     await new Promise(resolve => setTimeout(resolve, 20))
   })
-  assert.equal(container.textContent, 'before')
+  assert.match(container.textContent, /before/)
   assert.equal(reads, 1)
   await act(async () => {
     await core.createUserApi(app).saveUser(1, { username: 'after' })
     await new Promise(resolve => setTimeout(resolve, 20))
   })
-  assert.equal(container.textContent, 'after')
+  assert.match(container.textContent, /after/)
   assert.equal(reads, 2)
 })
 

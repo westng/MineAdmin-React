@@ -7,6 +7,10 @@ import { Checkbox } from '@/components/reui/primitives/checkbox'
 import type { DepartmentVo } from '../../api/department'
 import type { DepartmentRow } from './department-tree'
 import type { AppRuntime } from '@/provider/runtime/types'
+import { UserRoundMinus } from 'lucide-react'
+import type { LeaderRecord } from '../../api/leader'
+import type { PositionVo } from '../../api/position'
+
 interface DepartmentColumnActions {
   hasAuth: (permission: string | string[]) => boolean
   rows: DepartmentRow[]
@@ -24,6 +28,7 @@ interface DepartmentColumnActions {
   onPositions: (row: DepartmentVo) => void
   onDelete: (ids: number[]) => Promise<void>
 }
+
 export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
   const tx = createTextTranslator(runtime, 'base.permission.department.ui')
   function relationCount(value: unknown) {
@@ -173,4 +178,106 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
     ]
   }
   return { getDepartmentTableColumns }
+}
+
+export function createRelatedTableViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
+  const tx = createTextTranslator(runtime, 'base.permission.department.ui')
+  function getLeaderPickerTableColumns(): MaProTableColumns[] {
+    return [
+      { type: 'selection', width: 44 },
+      { prop: 'username', label: tx('用户名') },
+      { prop: 'nickname', label: tx('昵称') },
+    ]
+  }
+  function getLeaderTableColumns({
+    canRemove,
+    busy,
+    onRemove,
+  }: {
+    canRemove: boolean
+    busy: boolean
+    onRemove: (row: LeaderRecord) => void
+  }): MaProTableColumns<LeaderRecord>[] {
+    return [
+      { label: tx('用户名'), cellRender: ({ row }) => row.user?.username || tx('用户 #{0}', { '0': row.user_id }) },
+      { label: tx('昵称'), cellRender: ({ row }) => row.user?.nickname || (row.user ? '-' : tx('用户已不可用')) },
+      ...(canRemove
+        ? [
+            {
+              type: 'operation' as const,
+              label: tx('操作'),
+              align: 'right' as const,
+              width: 100,
+              operationConfigure: {
+                type: 'auto' as const,
+                actions: [
+                  {
+                    name: 'remove',
+                    text: tx('移除'),
+                    icon: <UserRoundMinus aria-hidden="true" />,
+                    variant: 'destructive' as const,
+                    disabled: () => busy,
+                    onClick: ({ row }: { row: LeaderRecord }) => onRemove(row),
+                  },
+                ] satisfies MaProTableOperationAction<LeaderRecord>[],
+              },
+            },
+          ]
+        : []),
+    ]
+  }
+  function getPositionTableColumns({
+    canEdit,
+    canDelete,
+    busy,
+    onEdit,
+    onDelete,
+  }: {
+    canEdit: boolean
+    canDelete: boolean
+    busy: boolean
+    onEdit: (row: PositionVo) => void
+    onDelete: (row: PositionVo) => void
+  }): MaProTableColumns<PositionVo>[] {
+    const actions: MaProTableOperationAction<PositionVo>[] = [
+      ...(canEdit
+        ? [
+            {
+              name: 'edit',
+              text: tx('编辑'),
+              icon: <Pencil aria-hidden="true" />,
+              disabled: ({ row }: { row: PositionVo }) => busy || !row.id,
+              onClick: ({ row }: { row: PositionVo }) => onEdit(row),
+            },
+          ]
+        : []),
+      ...(canDelete
+        ? [
+            {
+              name: 'delete',
+              text: tx('删除'),
+              icon: <Trash2 aria-hidden="true" />,
+              variant: 'destructive' as const,
+              disabled: ({ row }: { row: PositionVo }) => busy || !row.id,
+              onClick: ({ row }: { row: PositionVo }) => onDelete(row),
+            },
+          ]
+        : []),
+    ]
+    return [
+      { prop: 'name', label: tx('岗位名称') },
+      ...(actions.length
+        ? [
+            {
+              type: 'operation' as const,
+              label: tx('操作'),
+              align: 'right' as const,
+              width: 170,
+              operationConfigure: { type: 'auto' as const, actions },
+            },
+          ]
+        : []),
+    ]
+  }
+  return { getLeaderPickerTableColumns, getLeaderTableColumns, getPositionTableColumns }
 }

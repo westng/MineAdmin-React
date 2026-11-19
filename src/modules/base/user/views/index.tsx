@@ -26,6 +26,7 @@ export default function PermissionUserPageView() {
   const { hasAuth } = usePermission()
   const message = useMessage()
   const dictionary = useDictStore(state => state.t)
+  const [actionIds, setActionIds] = useState<number[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const tableRef = useRef<MaProTableExpose<UserVo>>(null)
   const refreshUsers = useCallback(async () => {
@@ -39,7 +40,8 @@ export default function PermissionUserPageView() {
   })
 
   function removeUsers(ids: number[]) {
-    if (!ids.length || !hasAuth('permission:user:delete')) return
+    if (confirm.dialogProps.loading || !ids.length || !hasAuth('permission:user:delete')) return
+    setActionIds(ids)
     confirm.open({
       title: tx('删除用户'),
       description: tx('确认删除 {0} 个用户吗？', { '0': ids.length }),
@@ -55,8 +57,9 @@ export default function PermissionUserPageView() {
   }
 
   function initializePassword(user: UserVo) {
-    if (!user.id || !hasAuth('permission:user:password')) return
+    if (confirm.dialogProps.loading || !user.id || !hasAuth('permission:user:password')) return
     const id = user.id
+    setActionIds([id])
     confirm.open({
       title: tx('重置用户密码'),
       okVariant: 'destructive',
@@ -83,6 +86,7 @@ export default function PermissionUserPageView() {
       <UserProTable
         proTableRef={tableRef}
         selectedIds={selectedIds}
+        busyIds={confirm.dialogProps.loading ? actionIds : []}
         getUserTypeLabel={value => String(dictionary('base-userType', String(value)) || tx('普通用户'))}
         getStatusLabel={value => String(dictionary('system-status', String(value)) || tx('未知'))}
         onSelectionChange={rows => setSelectedIds(rows.flatMap(row => (row.id ? [row.id] : [])))}

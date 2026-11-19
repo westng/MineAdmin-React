@@ -18,6 +18,7 @@ base/
 └── settings/            # 系统外观设置
 
 <sub-module>/
+├── index.ts             # 跨子模块复用的显式公共入口（按需创建）
 ├── api/                 # 当前子模块的接口与数据类型
 ├── locales/             # 当前子模块使用的多语言资源
 ├── hooks/               # 可复用状态或生命周期 Hook（按需创建）
@@ -28,7 +29,9 @@ base/
     └── index.tsx        # 页面入口
 ```
 
-页面之间确需复用时，从拥有该接口或组件的子模块显式导入，不通过 `base` 根目录聚合。登录日志复用操作日志模块的通用协议、表格和弹窗，各自的页面入口与专属文案仍归对应子模块。个人资料更新接口由 `user-center` 维护，附件接口由 `attachment` 维护。
+页面之间确需复用时，从拥有该接口或组件的子模块显式导入，不通过 `base` 根目录聚合。`index.ts` 仅导出有跨子模块调用方的稳定契约；跨模块不直接引用 `views/components` 或 `views/data`，页面入口可用于路由和页面组合。登录日志复用操作日志模块的通用协议、表格和弹窗，各自的页面入口与专属文案仍归对应子模块。个人资料更新接口由 `user-center` 维护，附件接口由 `attachment` 维护。
+
+`hooks/` 按需创建，只承载明确的跨组件状态、生命周期或可复用副作用；纯 API 调用、转换和一次性页面逻辑留在 API、`views/data` 或所属组件。子模块不创建 `utils/` 等额外固定目录。
 
 没有独立请求的框架首页在 `api/README.md` 中说明接口边界，业务卡片的请求仍由各自业务模块维护。`pnpm run check:modules` 会检查直接子模块结构，并拒绝 `base/api`、`base/views`、`base/locales` 和额外的中间分组。
 
@@ -46,8 +49,9 @@ base/
 - 新增和编辑弹窗直接使用 `useMaFormDialog`，由框架处理回填、必填校验、保存状态、重复提交和失败后保留输入。弹窗较大时放入 `views/components/`，不再额外封装只转发 CRUD 状态的业务 Hook。
 - 普通删除确认使用 `useMaConfirm`，执行前再次检查操作权限，成功后刷新列表并清理失效选择。菜单右侧的内联编辑仍使用 `MaForm`，按钮权限的行内编辑仍由 `MaProTable` 承载。
 - 部门树、菜单树、角色权限树等专用交互保留各自组件；它们的新增、编辑和删除仍遵循上述表单与确认约定。
-- `user/hooks/use-user-queries.ts` 提供共享查询生命周期。附件的 Hook 负责跨网格/列表的查询状态、上传进度和取消、批量删除的部分失败及重试，属于专用交互，不作为普通 CRUD 页面模板。
+- 用户列表直接将携带 `queryOptions` 的资源 API 交给 MaProTable，搜索参数转换在 `views/data/getSearchItems.ts`。附件的 Hook 负责跨网格/列表的查询状态、上传进度和取消、批量删除的部分失败及重试，属于专用交互，不作为普通 CRUD 页面模板。
 - 登录、dashboard、个人资料与账户/系统设置是专用页面，不要求套用列表型 CRUD 布局。
+- 账号设置的读取、合并与回填在 `account-settings/views/data/account-settings.ts`；偏好行和布局／内容宽度预览在 `views/components/PreferenceControls.tsx`，页面保留草稿、保存、即时预览与离开保护的编排。
 
 ## 菜单组件路径
 

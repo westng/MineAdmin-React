@@ -7,6 +7,7 @@ import type { UserVo } from '../../api/user'
 import type { AppRuntime } from '@/provider/runtime/types'
 export interface UserTableColumnActions {
   hasAuth: (permission: string | string[]) => boolean
+  busyIds?: readonly number[]
   getUserTypeLabel: (value: unknown) => string
   getStatusLabel: (value: unknown) => string
   onEdit: (row: UserVo) => void
@@ -18,6 +19,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
   const tx = createTextTranslator(runtime, 'base.permission.user.ui')
   function getTableColumns({
     hasAuth,
+    busyIds = [],
     getUserTypeLabel,
     getStatusLabel,
     onEdit,
@@ -28,12 +30,14 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
     const actions: MaProTableOperationAction<UserVo>[] = [
       {
         name: 'edit',
+        disabled: ({ row }) => busyIds.includes(row.id ?? 0),
         show: () => hasAuth('permission:user:update'),
         text: tx('编辑'),
         onClick: ({ row }) => onEdit(row),
       },
       {
         name: 'roles',
+        disabled: ({ row }) => busyIds.includes(row.id ?? 0),
         show: () => hasAuth('permission:user:getRole'),
         text: tx('角色'),
         icon: <ShieldCheck className="size-3.5" aria-hidden="true" />,
@@ -41,6 +45,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
       },
       {
         name: 'reset-password',
+        disabled: ({ row }) => busyIds.includes(row.id ?? 0),
         show: () => hasAuth('permission:user:password'),
         text: tx('重置密码'),
         onClick: ({ row }) => void onInitializePassword(row),
@@ -50,7 +55,7 @@ export function createViewData(runtime: Pick<AppRuntime, 'i18n' | 'locales'>) {
         show: () => hasAuth('permission:user:delete'),
         text: tx('删除'),
         variant: 'destructive',
-        disabled: ({ row }) => row.id === 1,
+        disabled: ({ row }) => busyIds.includes(row.id ?? 0) || row.id === 1,
         onClick: ({ row }) => void onDelete(row.id ? [row.id] : []),
       },
     ]

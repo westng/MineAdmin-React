@@ -3,13 +3,14 @@ import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { createApi as createUserApi } from '@/modules/base/user/api/user'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { MaProTable, type MaProTableExpose } from '@/components/ma-pro-table'
 import { MaDialog } from '@/components/ma-dialog'
 import { useToast } from '@/components/reui/use-toast'
 import { Button } from '@/components/reui/primitives/button'
 import { type UserVo } from '../../../user/api/user'
-import { createViewData as createRelatedTableColumnsViewData } from '../data/related-table-columns'
+import { createRelatedTableViewData as createRelatedTableColumnsViewData } from '../data/getTableColumns'
+import { getLeaderSearchItems } from '../data/getSearchItems'
 
 interface Props {
   departmentName: string
@@ -49,6 +50,11 @@ export function DepartmentLeaderPicker({ departmentName, busy, onClose, onAdd }:
   const query = useQueryTable<UserVo>(queryOptions)
   const pending = query.loading
 
+  const columns = useMemo(() => {
+    void localeRevision
+    return getLeaderPickerTableColumns()
+  }, [localeRevision, getLeaderPickerTableColumns])
+  const searchItems = useMemo(() => getLeaderSearchItems(tx), [tx])
   return (
     <MaDialog
       open
@@ -84,11 +90,8 @@ export function DepartmentLeaderPicker({ departmentName, busy, onClose, onAdd }:
         loading={query.loading}
         error={query.error}
         schema={{
-          tableColumns: getLeaderPickerTableColumns(),
-          searchItems: [
-            { prop: 'username', label: tx('用户名'), render: 'Input' },
-            { prop: 'nickname', label: tx('昵称'), render: 'Input' },
-          ],
+          tableColumns: columns,
+          searchItems: searchItems,
         }}
         options={{
           toolbar: true,

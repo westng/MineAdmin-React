@@ -1,18 +1,18 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { Plus } from 'lucide-react'
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { useQueryTable } from '@/hooks/query/use-query-table'
 import { usePermission } from '@/hooks/auth/use-permission'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
-import { MaProTable, type MaProTableExpose } from '@/components/ma-pro-table'
+import { type MaProTableExpose } from '@/components/ma-pro-table'
 import { MaForm } from '@/components/ma-form'
 import { MaDialog, useMaFormDialog, useMaConfirm } from '@/components/ma-dialog'
 import { Button } from '@/components/reui/primitives/button'
 import { useToast } from '@/components/reui/use-toast'
 import { createApi, type PositionVo } from '../../api/position'
-import { createViewData as createRelatedTableColumnsViewData } from '../data/related-table-columns'
+import { DepartmentPositionTable } from './DepartmentRelatedTables'
 import { createViewData as createDepartmentErrorViewData } from '../data/department-error'
-import { getPositionFormItems, type PositionForm } from '../data/getPositionFormItems'
+import { getPositionFormItems, toPositionForm, toPositionPayload, type PositionForm } from '../data/getFormItems'
 
 interface Props {
   departmentId: number
@@ -26,7 +26,6 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
   const { toast } = useToast()
   const { hasAuth } = usePermission()
   const api = useRuntimeFactory(createApi)
-  const { getPositionTableColumns } = useRuntimeFactory(createRelatedTableColumnsViewData)
   const { departmentErrorMessage } = useRuntimeFactory(createDepartmentErrorViewData)
   const tableRef = useRef<MaProTableExpose<PositionVo>>(null)
   const queryOptions = useCallback(
@@ -45,11 +44,11 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
     await onChanged()
   }, [onChanged])
   const editor = useMaFormDialog<PositionForm, PositionVo | null>({
-    defaultValues: () => ({ name: '' }),
-    toValues: position => ({ name: position?.name ?? '' }),
+    defaultValues: () => toPositionForm(null),
+    toValues: toPositionForm,
     canSubmit: position => hasAuth(position?.id ? 'permission:position:update' : 'permission:position:save'),
     onSubmit: async (values, position) => {
-      const payload = { dept_id: departmentId, name: values.name.trim() }
+      const payload = toPositionPayload(values, departmentId)
       if (position?.id) await api.save(position.id, payload)
       else await api.create(payload)
     },
@@ -81,17 +80,9 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
     },
     [busy, query.loading, hasAuth, confirm, api, refresh, toast, tx],
   )
-  useEffect(() => {
-    tableRef.current?.setTableColumns(
-      getPositionTableColumns({
-        canEdit: hasAuth('permission:position:update'),
-        canDelete: hasAuth('permission:position:delete'),
-        busy,
-        onEdit: editor.open,
-        onDelete: removePosition,
-      }),
-    )
-  }, [getPositionTableColumns, hasAuth, busy, editor.dialogProps.open, editor.open, removePosition])
+
+  const formItems = useMemo(() => getPositionFormItems(tx), [tx])
+
   return (
     <>
       {!editor.dialogProps.open && (
@@ -112,12 +103,16 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
             </Button>
           }
         >
-          <MaProTable<PositionVo>
+          <DepartmentPositionTable
             ref={tableRef}
             data={query.data}
             loading={query.loading}
             error={query.error}
-            schema={{ tableColumns: [], searchItems: [{ prop: 'name', label: tx('岗位名称'), render: 'Input' }] }}
+            canEdit={hasAuth('permission:position:update')}
+            canDelete={hasAuth('permission:position:delete')}
+            busy={busy}
+            onEdit={editor.open}
+            onDelete={removePosition}
             options={{
               toolbar: true,
               searchOptions: { defaultValue: { name: '' }, foldButtonShow: false },
@@ -148,7 +143,7 @@ export function DepartmentPositionsDialog({ departmentId, departmentName, onClos
         okText={tx('保存岗位')}
         cancelText={tx('取消')}
       >
-        <MaForm key={editor.formKey} {...editor.formProps} items={getPositionFormItems(tx)} />
+        <MaForm key={editor.formKey} {...editor.formProps} items={formItems} />
       </MaDialog>
       <MaDialog {...confirm.dialogProps} cancelText={tx('取消')} />
     </>

@@ -1,5 +1,5 @@
 import { MaForm } from '@/components/ma-form'
-import { useImperativeHandle, type Ref } from 'react'
+import { useImperativeHandle, useMemo, type Ref } from 'react'
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { createApi as createDepartmentApi } from '@/modules/base/department/api/department'
 import { createApi as createPositionApi } from '@/modules/base/department/api/position'
@@ -76,7 +76,10 @@ export function UserFormDialog({ ref, onSaved }: { ref?: Ref<UserFormDialogHandl
     },
     onError: error => message.error(error instanceof Error ? error.message : tx('用户保存失败')),
   })
-  const items = getFormItems(Boolean(editor.data?.id), { departments, positions })
+  const items = useMemo(() => {
+    void tx
+    return getFormItems(Boolean(editor.data?.id), { departments, positions })
+  }, [tx, getFormItems, editor.data?.id, departments, positions])
   useImperativeHandle(ref, () => ({ open: editor.open }), [editor.open])
   return (
     <MaDialog

@@ -391,8 +391,13 @@ async function mountDownload(t, props) {
   return { container, render, clear: () => act(async () => root.render(null)) }
 }
 
-test('MaDownload 无 Provider 可下载直链，保留按钮属性且不会提交表单', async t => {
+test('MaDownload 无 Provider 仍可接收直链文件，保留按钮属性且不会提交表单', async t => {
   const downloads = captureDownloads(t)
+  const requests = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push({ url, options })
+    return new Response('template', { headers: { 'content-length': '8' } })
+  })
   const ref = createRef()
   let successes = 0
   const view = await mountDownload(t, {
@@ -407,11 +412,13 @@ test('MaDownload 无 Provider 可下载直链，保留按钮属性且不会提�
   assert.equal(ref.current.getAttribute('aria-label'), '下载模板')
   await click(ref.current)
   assert.deepEqual(downloads.links, [
-    { url: 'http://localhost/files/%E6%A8%A1%E6%9D%BF.xlsx?signature=test', filename: '模板.xlsx', connected: true },
+    { url: 'blob:http://localhost/download-1', filename: '模板.xlsx', connected: true },
   ])
   assert.equal(successes, 1)
   assert.equal(document.querySelector('a[download]'), null)
-  assert.equal(downloads.blobs.length, 0)
+  assert.equal(downloads.blobs.length, 1)
+  assert.equal(await downloads.blobs[0].text(), 'template')
+  assert.equal(requests[0].url, 'http://localhost/files/%E6%A8%A1%E6%9D%BF.xlsx?signature=test')
   await view.render({ url: '/next', disabled: true })
   await click(view.container.querySelector('button'))
   await view.render({ url: '/next', onClick: event => event.preventDefault() })
@@ -480,6 +487,7 @@ test('MaDownload 异步期间阻止重复请求并显示 loading，完成后恢�
 
 test('MaDownload 请求失败显示关联错误，重试清理错误并使用新来源', async t => {
   const downloads = captureDownloads(t)
+  t.mock.method(globalThis, 'fetch', async () => new Response('retry'))
   const errors = []
   let successes = 0
   const view = await mountDownload(t, {
@@ -505,6 +513,7 @@ test('MaDownload 请求失败显示关联错误，重试清理错误并使用新
 
 test('MaDownload 拒绝危险协议和非 Blob 请求结果，允许有效直链重试', async t => {
   const downloads = captureDownloads(t)
+  t.mock.method(globalThis, 'fetch', async () => new Response('external'))
   const view = await mountDownload(t, { url: 'javascript:alert(1)' })
   for (const props of [
     { url: 'javascript:alert(1)' },
@@ -521,7 +530,8 @@ test('MaDownload 拒绝危险协议和非 Blob 请求结果，允许有效直链
   await view.render({ url: 'blob:http://localhost/external', filename: '外部.txt' })
   await click(view.container.querySelector('button'))
   assert.equal(downloads.links[0].filename, '外部.txt')
-  assert.equal(downloads.releases.length, 0)
+  assert.equal(downloads.releases.length, 1)
+  assert.equal(downloads.links[0].url, 'blob:http://localhost/download-1')
 })
 
 test('MaDownload 卸载取消请求，忽略不遵守取消信号的晚到响应', async t => {
@@ -3063,6 +3073,54 @@ test('MaUpload 默认支持普通文件，显示文件名并可替换、移除',
   assert.doesNotMatch(view.container.textContent, /report.pdf/)
   await click(view.container.querySelector('[aria-label="移除archive.zip"]'))
   assert.equal(values.at(-1), '')
+})
+
+test('MaUpload 拖拽区域使用非按钮入口，支持选择、拖放及禁用', async t => {
+  const files = []
+  const props = {
+    triggerType: 'dropzone',
+    multiple: true,
+    label: '附件',
+    accept: '.pdf',
+    request: async file => {
+      files.push(file.name)
+      return `https://files.example.test/${file.name}`
+    },
+  }
+  const view = await mount(t, compiled.exports.MaUpload, props)
+  const zone = view.container.querySelector('label')
+  const input = zone.querySelector('input[type="file"]')
+  assert.equal(view.container.querySelector('button'), null)
+  assert.match(zone.textContent, /点击选择或拖拽附件到此处/)
+  let selections = 0
+  input.addEventListener('click', () => selections++)
+  await click(zone)
+  assert.equal(selections, 1)
+  Object.defineProperty(input, 'files', {
+    configurable: true,
+    value: [new File(['pdf'], 'selected.pdf', { type: 'application/pdf' })],
+  })
+  await act(async () => input.dispatchEvent(new dom.Event('change', { bubbles: true })))
+  const drop = async name => {
+    const event = new dom.Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'dataTransfer', { value: { files: [new File(['data'], name)] } })
+    await act(async () => zone.dispatchEvent(event))
+  }
+  await drop('forbidden.exe')
+  assert.match(view.container.textContent, /forbidden.exe：请选择允许的文件类型/)
+  await drop('dropped.pdf')
+  assert.deepEqual(files, ['selected.pdf', 'dropped.pdf'])
+  assert.equal(view.container.querySelectorAll('[role="listitem"]').length, 2)
+  await view.render({ ...props, disabled: true })
+  assert.equal(input.disabled, true)
+  await click(zone)
+  await drop('disabled.pdf')
+  assert.equal(selections, 1)
+  assert.deepEqual(files, ['selected.pdf', 'dropped.pdf'])
+  await view.render({ ...props, readOnly: true })
+  assert.equal(input.disabled, true)
+  await drop('read-only.pdf')
+  assert.deepEqual(files, ['selected.pdf', 'dropped.pdf'])
 })
 
 test('MaForm 多文件 Upload 以数组回填，支持数量限制和逐项移除', async t => {

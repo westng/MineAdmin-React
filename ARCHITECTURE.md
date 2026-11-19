@@ -2,7 +2,7 @@
 
 本项目是开源后台应用模板，使用 React 19、TypeScript、React Router 的路由配置、TanStack Query、Zustand、ReUI 与 Ma 组件。当前不发布 npm SDK。本文说明源码中的公共契约；构建通过不能替代浏览器、后端和部署验收。
 
-更新时间：2026-10-30。本文仅说明 MineAdmin-React 框架的职责、公共契约与源码分发范围。
+更新时间：2026-11-04。本文仅说明 MineAdmin-React 框架的职责、公共契约与源码分发范围。
 
 ## 依赖与组合
 
@@ -33,7 +33,7 @@ Router、Shell、页面权限和个人资料组件通过框架 Hook 读取同一
 
 运行时页面发现与 Git 收录完全独立：`app/runtime/instance.ts` 在构建时发现 `modules/**/views/` 和 `plugins/**/views/` 下的 `.tsx`、`.jsx` 页面，排除组件、数据、Hook 和测试目录；`router/dynamic-routes.tsx` 负责按文件地址解析页面。菜单组件值必须对应实际页面文件。`.gitignore`、`public-files.mjs` 和提交/推送策略只决定源码收录，不改变运行时页面集合。
 
-登录页和表单统一由 `modules/base/login/views` 提供。应用通过 `runtime.loginPage.register()` 配置品牌内容，通过 `runtime.slots.register()` 注册 `auth.methods` 登录扩展。扩展组件自行处理第三方按钮、弹窗和回调，并通过当前 Runtime 的 Session 完成登录。
+登录页和表单统一由 `modules/base/login/views` 提供。应用通过 `runtime.loginPage.register()` 配置品牌内容，可选的 `renderBranding(branding)` 接收合并默认值与网站接口后的品牌配置，仅替换桌面端左侧背景；登录页继续在上层展示 Logo、品牌文案、语言标签、备案号、版权和公司信息。前景空白区域允许鼠标穿透以操作背景，备案链接保持可点击；透明背景上的文字跟随当前主题。自定义背景负责自身的加载、失败和资源清理，窄屏仍沿用完整宽度的登录表单。未注册时使用默认视频背景。应用通过 `runtime.slots.register()` 注册 `auth.methods` 登录扩展。扩展组件自行处理第三方按钮、弹窗和回调，并通过当前 Runtime 的 Session 完成登录。
 
 ## 物理目录
 
@@ -166,7 +166,7 @@ Host 的 `dispose()` 使在途 `register()` 安装失效。旧安装返回的 di
 
 模块的 `api/*.ts` 导出 `createApi(runtime)`；React 使用 `useRuntimeFactory(createApi)`。读取、写入、缓存键和失效必须使用同一个 Runtime，模块不导入默认应用实例。权限回调通过 `usePermission` 在执行时读取当前注入会话；纯列配置接收 `hasAuth` 参数。
 
-用户列表使用 Query 观察缓存，MaProTable 通过受控 `data/loading/error/total` 展示结果并管理搜索、分页、选择。写入后由资源 API 失效当前会话的查询，列表自动更新。其他列表仍兼容命令式请求，迁移时沿用此模式，不在 Ma 基础组件中导入业务 API 或应用 Query 单例。
+用户列表将携带 `queryOptions` 的资源 API 直接交给 MaProTable 请求模式，由表格管理搜索、分页、选择及查询订阅。写入后由资源 API 失效当前会话的查询，列表自动更新。组合查询仍可使用受控 `data/loading/error/total`；未订阅 Query 的命令式列表明确维护刷新回调，不在 Ma 基础组件中导入业务 API 或应用 Query 单例。
 
 设置、标签、页面缓存、语言和字典均由 Runtime 持有，订阅 Hook 通过当前 Provider 读取实例。AppProviders 同时隔离主题作用域、Portal 容器和 Toast；共享浏览器存储时须选择合适的前缀，相同前缀会共用持久化缓存键，会话还通过存储事件同步。
 
@@ -177,6 +177,35 @@ Host 的 `dispose()` 使在途 `register()` 安装失效。旧安装返回的 di
 启动依次调用插件的 `hooks.start(config)` 和 `install(runtime)`，当前 bootstrap 不调用 `hooks.setup`。宿主没有安装超时、capability 白名单或 `context.signal`；插件须自行管理异步取消与部分安装失败的清理。HTTP 的 `networkRequest` 钩子单独受 `hookTimeout`（默认 10 秒）和请求 AbortSignal 限制。运行时释放后迟到的安装 disposer 仍会执行；这些生命周期规则不构成沙箱。
 
 ## 业务模块扩展
+
+前端业务子模块通常位于 `src/modules/<module>/<submodule>/`，叶子模块统一采用以下结构：
+
+```text
+<sub-module>/
+├── index.ts             # 跨子模块复用的显式公共入口，按需创建
+├── api/                 # 当前子模块的接口与数据类型
+├── locales/             # 当前子模块使用的多语言资源
+├── hooks/               # 状态或生命周期 Hook，按需创建
+├── register-*.ts        # 当前子模块的全局注册，按需创建
+└── views/
+    ├── components/      # 页面专属组件
+    ├── data/            # 页面静态配置或数据转换，按需创建
+    └── index.tsx        # 页面入口
+```
+
+`index.ts` 只显式导出有跨子模块调用方的稳定契约，不聚合未使用的能力。跨模块通过公共入口复用组件和转换，不直接导入 `views/components` 或 `views/data`；`views/index.tsx` 可以用于路由和页面组合。API 和数据类型可以从能力所有者的 `api/` 导入。
+
+`hooks/` 是可选目录，只用于明确的跨组件状态、生命周期或可复用副作用。纯 API 调用、数据转换和一次性页面逻辑不单独包装成 Hook；转换与页面配置放在 `views/data/`，页面专属组件放在 `views/components/`。子模块不另建 `utils/`、`clients/`、`types/` 或其他未登记的固定目录。共享能力归入已有能力所有者，并通过其显式入口复用，不创建脱离模块规则的共享总包。
+
+普通 CRUD 页面通过 `useRuntimeFactory` 创建资源 API，将携带 `queryOptions` 的列表函数直接交给 MaProTable 的 `requestOptions.api`。搜索转换放在 `views/data/`，由 `paramsTransform` 统一应用；缓存失效和正在展示的列表共用资源键，不重复维护单页查询 Hook。
+
+`views/index.tsx` 负责装配、权限、选中项和业务动作，独立列表、表单与详情按需放在 `views/components/`。完整列、搜索及表单配置分别由 `views/data/getTableColumns.tsx`、`getSearchItems.ts(x)`、`getFormItems.ts(x)` 提供；表单值和提交参数的纯转换也归入 `views/data/`，简单配置不再机械拆分辅助文件。
+
+列工厂接收权限、行级忙碌状态和业务回调，通过 `type: 'operation'` 与 `operationConfigure.actions` 集中声明操作的名称、文案、图标、顺序、显隐和禁用条件。页面不追加列或组装操作数组，操作列不使用 `cellRender` 手写按钮；数据列仍可提供预览链接等字段展示。配置工厂只保存事件回调，不在生成配置时执行业务动作。
+
+配置工厂不调用 React Hook、不导入默认应用单例；文案归入所属子模块的 `locales/`，沿用 Runtime 的翻译与语言订阅。视图以完整依赖的 `useMemo` 生成配置，权限、语言、忙碌状态或回调变化时更新。语言切换只更新显示配置，不通过重新挂载表单或重启上传等会话来刷新文案。
+
+`check:modules` 检查全部业务目录，包括 Git 忽略的源码和缺少页面入口的异常模块，并检查公共入口形态、Hook 中的普通导出及 API 工厂转发。其内容检查约束完整配置的位置、操作列声明、视图追加字段、配置工厂中的 Hook／默认应用依赖和 Memo 接入。MaForm／MaSearch 的配置归属检查独立于是否存在表格，识别组件别名；登录、树管理、上传和日历中的字段同样归入 `views/data`。Memo 检查针对渲染与模块初始化中的配置生成，提交事件中为定位校验错误而进行的一次性配置读取不要求调用 Hook。`check:application-boundaries` 检查公共契约的实际调用方，以及相对路径、别名、类型和动态导入中的跨模块内部引用；它读取当前工作树中的业务与插件源码。内容检查用于发现结构违规，完整 Hook 依赖仍由 ESLint 检查；权限与业务行为需通过调用方审核及相关回归验证。
 
 需要按平台分组时，可使用 `src/modules/<业务域>/<平台>/<产品>/<子模块>/` 组织扩展。中间分组目录不承担页面职责；叶子子模块仍使用 `api/`、`locales/`、`views/` 约定，不为未接入的产品或平台预建空模块。
 

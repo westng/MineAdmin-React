@@ -12,6 +12,19 @@ Sidebar、Chart 等组件以当前文件导出为准；已删除的历史目录�
 
 `check:boundaries` 会遍历源码的直接与传递导入；资源许可和仓库历史收录仍需独立发布检查。
 
+## Badge 尺寸
+
+`primitives/badge` 支持 `size` 属性。显式设置 `xs`、`sm`、`default` 或 `lg` 时，高度、字号、横向间距和图标尺寸与 Button 的同名尺寸一致；标签的语义配色与 `radius` 仍独立配置。
+
+| size      | 默认高度 | 用途                       |
+| --------- | -------- | -------------------------- |
+| `compact` | 20px     | 紧凑标签，省略 size 时使用 |
+| `xs`      | 24px     | 与 Button xs 对齐          |
+| `sm`      | 28px     | 与 Button sm 对齐          |
+| `default` | 32px     | 与 Button default 对齐     |
+| `lg`      | 36px     | 与 Button lg 对齐          |
+
+高度按默认根字号 16px 计算。需要在同一行对齐时，为 Badge 和 Button 显式设置相同的 `size`，例如 `<Badge size="sm">状态</Badge>` 与 `<Button size="sm">查看详情</Button>`。
 
 ## 状态与交互约定
 

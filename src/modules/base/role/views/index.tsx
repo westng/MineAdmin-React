@@ -21,6 +21,7 @@ export default function PermissionRolePageView() {
   const { deleteByIds } = useRuntimeFactory(createRoleApi)
   const { toast } = useToast()
   const { hasAuth } = usePermission()
+  const [actionIds, setActionIds] = useState<number[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const tableRef = useRef<MaProTableExpose<RoleVo>>(null)
   const editorRef = useRef<RoleFormDialogHandle>(null)
@@ -49,7 +50,8 @@ export default function PermissionRolePageView() {
   )
 
   async function removeRoles(ids: number[]) {
-    if (!ids.length || !hasAuth('permission:role:delete')) return
+    if (confirm.dialogProps.loading || !ids.length || !hasAuth('permission:role:delete')) return
+    setActionIds(ids)
     confirm.open({
       title: tx('删除角色'),
       description: tx('确认删除 {0} 个角色吗？', { '0': ids.length }),
@@ -67,6 +69,7 @@ export default function PermissionRolePageView() {
       <RoleProTable
         tableRef={tableRef}
         selectedIds={selectedIds}
+        busyIds={confirm.dialogProps.loading ? actionIds : []}
         onSelectionChange={handleSelectionChange}
         onCreate={openCreate}
         onEdit={role => editorRef.current?.open(role)}

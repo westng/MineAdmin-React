@@ -1,6 +1,7 @@
 export { createTableCellRenderers } from './utils/cell-renderers'
 export { MaTable } from './components/ma-table'
 export { MaTableToolbar } from './components/ma-table-toolbar'
+export { MaTablePageJumper } from './components/ma-table-pagination'
 export {
   TableCellRenderersContext,
   getTableCellRenderers,
@@ -21,6 +22,7 @@ export type {
   MaTableInstanceOptions,
   MaTableOptions,
   MaTablePagination,
+  MaTablePageJumperProps,
   MaTableProps,
   MaTableSortOrder,
   MaTableTabItem,

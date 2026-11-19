@@ -1,7 +1,7 @@
 import { useQueryTable, type TableQueryOptions } from '@/hooks/query/use-query-table'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
-import { useEffect, useMemo, type RefObject } from 'react'
+import { useMemo, type RefObject } from 'react'
 import { Trash2 } from 'lucide-react'
 import {
   MaProTable,
@@ -58,10 +58,6 @@ export function LogProTable<T extends MaProTableModel & { id: number }>({
     void localeRevision // Rebuild translated configuration when the active locale changes.
     return getTableColumns({ canDelete, busy, onDetail, onDelete })
   }, [busy, canDelete, getTableColumns, onDelete, onDetail, localeRevision])
-
-  useEffect(() => {
-    tableRef.current?.setTableColumns(columns)
-  }, [columns, tableRef])
 
   const options = useMemo<MaProTableOptions<T>>(() => {
     void localeRevision // Rebuild translated configuration when the active locale changes.

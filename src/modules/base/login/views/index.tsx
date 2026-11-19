@@ -1,9 +1,9 @@
+import { BriefcaseBusiness } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useRuntime } from '@/hooks/runtime/use-runtime'
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { createApi as createWebsiteApi } from '@/modules/base/login/api/website'
-import { useCallback, useEffect, useState } from 'react'
-import { BriefcaseBusiness } from 'lucide-react'
-import { useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from '@/hooks/auth/use-session'
 import { useSettingStore } from '@/store/settings/use-settings'
 import { useTranslate } from '@/hooks/i18n/use-translator'
@@ -23,9 +23,11 @@ function BrandMark({ siteName }: { siteName: string }) {
   )
 }
 
-function BrandContent({ config }: { config: WebsiteLoginConfig }) {
+function BrandContent({ config, hasVideoBackground }: { config: WebsiteLoginConfig; hasVideoBackground: boolean }) {
   return (
-    <div className={cn('relative z-10 min-w-0', config.video_url ? 'text-black' : 'text-foreground')}>
+    <div
+      className={cn('pointer-events-none relative z-10 min-w-0', hasVideoBackground ? 'text-black' : 'text-foreground')}
+    >
       <div className="flex flex-col gap-3 text-[40px] font-bold leading-normal">
         {config.headline && <p>{config.headline}</p>}
         {config.subheadline && <p>{config.subheadline}</p>}
@@ -46,7 +48,7 @@ function BrandContent({ config }: { config: WebsiteLoginConfig }) {
               href="https://beian.miit.gov.cn/"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline-offset-4 hover:underline"
+              className="pointer-events-auto underline-offset-4 hover:underline"
             >
               {config.icp_number}
             </a>
@@ -68,15 +70,28 @@ function BrandContent({ config }: { config: WebsiteLoginConfig }) {
 export default function LoginPage() {
   const { getWebsiteLoginConfig } = useRuntimeFactory(createWebsiteApi)
 
-  const { branding: brandingDefaults, subtitle, usernameType, showAccountLinks } = useRuntime().loginPage.getSnapshot()
+  const {
+    branding: brandingDefaults,
+    renderBranding: renderBackground,
+    subtitle,
+    usernameType,
+    showAccountLinks,
+    passwordLoginMode,
+  } = useRuntime().loginPage.getSnapshot()
   const navigate = useNavigate()
   const dashboardPath = useSettingStore(state => state.settings.dashboardPage.path)
   const { search } = useLocation()
   const login = useSession(state => state.login)
   const t = useTranslate()
   const [branding, setBranding] = useState(brandingDefaults)
+  const hasVideoBackground = !renderBackground && Boolean(branding.video_url)
   const hasBranding = Boolean(
-    branding.video_url || branding.logo_url || branding.headline || branding.subheadline || branding.description,
+    renderBackground ||
+    branding.video_url ||
+    branding.logo_url ||
+    branding.headline ||
+    branding.subheadline ||
+    branding.description,
   )
 
   useEffect(() => {
@@ -102,27 +117,33 @@ export default function LoginPage() {
     <main className="page-grid min-h-svh gap-0 bg-background">
       {hasBranding && (
         <aside
-          className="relative hidden flex-col justify-between gap-12 bg-muted p-(--page-grid-margin) lg:col-span-8 lg:flex"
+          className="relative isolate hidden flex-col justify-between gap-12 overflow-hidden bg-muted p-(--page-grid-margin) lg:col-span-8 lg:flex"
           aria-label="品牌展示区域"
         >
-          <video
-            className="absolute inset-0 size-full object-cover"
-            src={branding.video_url || undefined}
-            autoPlay
-            loop
-            muted
-            playsInline
-            aria-hidden="true"
-            onError={event => {
-              if (
-                brandingDefaults.video_url &&
-                event.currentTarget.getAttribute('src') !== brandingDefaults.video_url
-              ) {
-                event.currentTarget.src = brandingDefaults.video_url
-              }
-            }}
-          />
-          <div className="relative z-10 text-white">
+          <div className="absolute inset-0 z-0">
+            {renderBackground ? (
+              renderBackground(branding)
+            ) : (
+              <video
+                className="absolute inset-0 size-full object-cover"
+                src={branding.video_url || undefined}
+                autoPlay
+                loop
+                muted
+                playsInline
+                aria-hidden="true"
+                onError={event => {
+                  if (
+                    brandingDefaults.video_url &&
+                    event.currentTarget.getAttribute('src') !== brandingDefaults.video_url
+                  ) {
+                    event.currentTarget.src = brandingDefaults.video_url
+                  }
+                }}
+              />
+            )}
+          </div>
+          <div className="pointer-events-none relative z-10 text-white">
             <img
               src={branding.logo_url || undefined}
               alt={branding.site_name}
@@ -137,7 +158,7 @@ export default function LoginPage() {
               }}
             />
           </div>
-          <BrandContent config={branding} />
+          <BrandContent config={branding} hasVideoBackground={hasVideoBackground} />
         </aside>
       )}
       <section
@@ -157,7 +178,12 @@ export default function LoginPage() {
               {subtitle && <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>}
             </div>
 
-            <LoginForm onSubmit={handleLogin} usernameType={usernameType} showAccountLinks={showAccountLinks} />
+            <LoginForm
+              onSubmit={handleLogin}
+              usernameType={usernameType}
+              showAccountLinks={showAccountLinks}
+              passwordLoginMode={passwordLoginMode}
+            />
           </div>
         </div>
       </section>

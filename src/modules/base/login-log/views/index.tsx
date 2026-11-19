@@ -3,7 +3,7 @@ import type { MaProTableExpose } from '@/components/ma-pro-table'
 import { useToast } from '@/components/reui/use-toast'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useLocaleRevision } from '@/hooks/i18n/use-i18n-state'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRuntimeFactory } from '@/hooks/runtime/use-runtime-factory'
 import { createApi } from '../api/log'
 import { MaDrawer } from '@/components/ma-drawer'
@@ -29,7 +29,10 @@ export default function UserLoginLogPage() {
   )
   const localeRevision = useLocaleRevision()
   void localeRevision
-  const searchItems = getLoginSearchItems()
+  const searchItems = useMemo(() => {
+    void localeRevision
+    return getLoginSearchItems()
+  }, [localeRevision, getLoginSearchItems])
 
   const { hasAuth } = usePermission()
   const tableRef = useRef<MaProTableExpose<UserLoginLogVo>>(null)

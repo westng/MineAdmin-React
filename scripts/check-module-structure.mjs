@@ -1,16 +1,19 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
+import { inspectCrudViews } from './check-crud-view-structure.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const sourceRoot = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve(scriptDirectory, '../src/modules')
 if (!existsSync(sourceRoot) || !statSync(sourceRoot).isDirectory())
   throw new Error(`Invalid modules root: ${sourceRoot}`)
-const allowedModuleEntries = new Set(['api', 'locales', 'hooks', 'views', 'index.ts', 'README.md'])
+const moduleDirectories = new Set(['api', 'locales', 'hooks', 'views'])
+const moduleFiles = new Set(['index.ts', 'README.md'])
 const allowedViewEntries = new Set(['components', 'data', 'index.tsx'])
 
 function filesIn(directory) {
-  if (!existsSync(directory)) return []
+  if (!existsSync(directory) || !statSync(directory).isDirectory()) return []
   const result = []
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const absolute = path.join(directory, entry.name)
@@ -21,7 +24,7 @@ function filesIn(directory) {
 }
 
 function directoriesIn(directory) {
-  if (!existsSync(directory)) return []
+  if (!existsSync(directory) || !statSync(directory).isDirectory()) return []
   const result = []
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
@@ -36,28 +39,140 @@ function relativeToSource(absolute) {
 }
 
 const failures = []
-const modules = directoriesIn(sourceRoot).filter(directory => existsSync(path.join(directory, 'views', 'index.tsx')))
+const modules = []
 const popupFailures = []
+
+// Discover ownership from every directory, including malformed modules without a page entry.
+function discoverModules(directory) {
+  const entries = readdirSync(directory, { withFileTypes: true }).filter(entry => entry.name !== '.DS_Store')
+  if (
+    directory !== sourceRoot &&
+    entries.some(
+      entry =>
+        moduleDirectories.has(entry.name) ||
+        entry.name === 'index.ts' ||
+        /^register-.+\.ts$/.test(entry.name) ||
+        (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)),
+    )
+  ) {
+    modules.push(directory)
+    return
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory()) discoverModules(path.join(directory, entry.name))
+    else if (entry.name !== 'README.md') failures.push(`${relativeToSource(directory)}: unexpected ${entry.name}`)
+  }
+}
+
+discoverModules(sourceRoot)
+
+function inspectPublicEntry(file, moduleName) {
+  if (!existsSync(file) || !statSync(file).isFile()) return
+  const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
+  if (
+    !source.statements.length ||
+    source.statements.some(
+      statement =>
+        !ts.isExportDeclaration(statement) ||
+        !statement.moduleSpecifier ||
+        !statement.exportClause ||
+        !ts.isNamedExports(statement.exportClause) ||
+        !statement.exportClause.elements.length,
+    )
+  )
+    failures.push(`${moduleName}/index.ts: public entries only contain explicit named re-exports`)
+}
+
+function inspectHookExports(file) {
+  const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
+  const relative = relativeToSource(file)
+  const inspect = (name, implementation) => {
+    if (!/^use[A-Z]/.test(name)) {
+      failures.push(`${relative}: ${name} is not a Hook; move configuration and transformations to views/data`)
+      return
+    }
+    if (!implementation) return
+    const calls = []
+    const visit = node => {
+      if (ts.isCallExpression(node)) {
+        const name = ts.isPropertyAccessExpression(node.expression)
+          ? node.expression.name.text
+          : ts.isIdentifier(node.expression)
+            ? node.expression.text
+            : ''
+        if (/^use[A-Z]/.test(name)) calls.push(name)
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(implementation)
+    if (!calls.length || calls.every(name => name === 'useRuntimeFactory'))
+      failures.push(`${relative}: ${name} only calls an API factory; use the API in its consumer directly`)
+  }
+  for (const statement of source.statements) {
+    if (ts.isExportDeclaration(statement)) {
+      if (statement.isTypeOnly) continue
+      if (!statement.exportClause || !ts.isNamedExports(statement.exportClause)) {
+        failures.push(`${relative}: only explicit Hook exports and their types belong in hooks/`)
+        continue
+      }
+      for (const item of statement.exportClause.elements) {
+        if (!item.isTypeOnly) inspect(item.name.text)
+      }
+      continue
+    }
+    if (!statement.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)) continue
+    if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)) continue
+    if (ts.isFunctionDeclaration(statement)) inspect(statement.name?.text ?? 'default', statement.body)
+    else if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations)
+        inspect(
+          declaration.name.getText(source),
+          declaration.initializer &&
+            (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))
+            ? declaration.initializer.body
+            : declaration.initializer,
+        )
+    } else failures.push(`${relative}: only Hook implementations and their types belong in hooks/`)
+  }
+}
 
 for (const moduleDirectory of modules) {
   const moduleName = relativeToSource(moduleDirectory)
-  for (const required of ['api', 'locales', 'views/index.tsx']) {
-    if (!existsSync(path.join(moduleDirectory, required))) failures.push(`${moduleName}: missing ${required}`)
+  for (const required of ['api', 'locales', 'views']) {
+    const absolute = path.join(moduleDirectory, required)
+    if (!existsSync(absolute) || !statSync(absolute).isDirectory()) failures.push(`${moduleName}: missing ${required}/`)
   }
+  const page = path.join(moduleDirectory, 'views/index.tsx')
+  if (!existsSync(page) || !statSync(page).isFile()) failures.push(`${moduleName}: missing views/index.tsx`)
 
   for (const entry of readdirSync(moduleDirectory, { withFileTypes: true })) {
-    if (entry.isDirectory() && !allowedModuleEntries.has(entry.name))
+    if (entry.name === '.DS_Store') continue
+    if (entry.isDirectory() && !moduleDirectories.has(entry.name))
       failures.push(`${moduleName}: unexpected ${entry.name}/`)
-    if (entry.isFile() && !allowedModuleEntries.has(entry.name) && !/^register-.+\.ts$/.test(entry.name)) {
+    if (entry.isFile() && !moduleFiles.has(entry.name) && !/^register-.+\.ts$/.test(entry.name)) {
       failures.push(`${moduleName}: unexpected ${entry.name}`)
     }
   }
+  inspectPublicEntry(path.join(moduleDirectory, 'index.ts'), moduleName)
+  for (const file of filesIn(path.join(moduleDirectory, 'hooks')).filter(file => /\.(ts|tsx)$/.test(file)))
+    inspectHookExports(file)
 
   const viewsDirectory = path.join(moduleDirectory, 'views')
-  for (const entry of readdirSync(viewsDirectory, { withFileTypes: true })) {
+  if (!existsSync(viewsDirectory) || !statSync(viewsDirectory).isDirectory()) continue
+  for (const entry of readdirSync(viewsDirectory, { withFileTypes: true }).filter(
+    entry => entry.name !== '.DS_Store',
+  )) {
     if (!allowedViewEntries.has(entry.name)) failures.push(`${moduleName}: unexpected views/${entry.name}`)
   }
-  for (const file of filesIn(viewsDirectory)) {
+  const viewFiles = filesIn(viewsDirectory)
+  failures.push(
+    ...inspectCrudViews(
+      viewFiles
+        .filter(file => /\.tsx?$/.test(file))
+        .map(file => ({ file: relativeToSource(file), source: readFileSync(file, 'utf8') })),
+    ),
+  )
+  for (const file of viewFiles) {
     const relative = path.relative(viewsDirectory, file).split(path.sep).join('/')
     const [rootEntry] = relative.split('/')
     if (rootEntry !== 'index.tsx' && rootEntry !== 'components' && rootEntry !== 'data') {

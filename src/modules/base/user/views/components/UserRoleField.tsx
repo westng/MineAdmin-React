@@ -1,7 +1,7 @@
 import type { MaFormRenderContext } from '@/components/ma-form'
 import { MaRemoteSelect } from '@/components/ma-remote-select'
 import type { RoleVo } from '@/modules/base/role/api/role'
-import type { RoleForm } from '../data/getRoleFormItems'
+import type { RoleForm } from '../data/getFormItems'
 
 export function UserRoleField({ item, value, setValue }: MaFormRenderContext<RoleForm>) {
   return (
