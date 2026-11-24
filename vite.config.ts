@@ -75,7 +75,10 @@ export default defineConfig(({ mode, command }) => {
           codeSplitting: true,
           chunkFileNames: 'static/js/[name]-[hash].js',
           entryFileNames: 'static/js/[name]-[hash].js',
-          assetFileNames: 'static/[ext]/[name]-[hash].[ext]',
+          assetFileNames: ({ names }) =>
+            names.some(name => name.endsWith('.mjs'))
+              ? 'static/js/[name]-[hash].js'
+              : 'static/[ext]/[name]-[hash].[ext]',
           manualChunks(id) {
             if (/(?:^|\/)node_modules\/(?:react|react-dom|react-router-dom)(?:\/|$)/.test(id)) return 'react-vendor'
             if (/(?:^|\/)node_modules\/zod(?:\/|$)/.test(id)) return 'zod-vendor'

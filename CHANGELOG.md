@@ -44,6 +44,7 @@
 
 ### 修复
 
+- Vite 将作为独立资源输出的 `.mjs` 文件写入 `static/js/` 并使用 `.js` 扩展名，便于静态服务器以 JavaScript MIME 类型提供模块 Worker。
 - ReUI Tabs 按实际方向属性应用布局和选中指示器样式。
 - 账号设置将配置读取、保存映射及偏好预览组件拆入所属 `views/data`、`views/components`，保留即时预览、保存失败草稿与未保存离开保护。
 - 模块配置检查覆盖无表格的 MaForm／MaSearch 及组件别名；渲染配置仍要求 Memo，事件处理中的一次性校验配置读取不再误报。
