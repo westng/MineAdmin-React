@@ -10,6 +10,8 @@
 
 来源：[ReUI](https://github.com/keenthemes/reui)。涉及范围：src/components/reui/ 及从其组合而来的组件。
 
+Message、Bubble、MessageScroller 和 Marker 对应上游提交 `067aa0dc7f8bbfec1cd76fc5ad31f842be5f569a` 的 Base UI 实现，样式按同版本 Nova 展开；本地适配导入路径、图标及原生滚动条。这些公开组件的来源记录不包含需要商业授权的 AI Chat／Agent Activity 完整 Block 源码。
+
 ```text
 MIT License
 
@@ -25,6 +27,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ## shadcn/ui
 
 来源：[shadcn/ui](https://github.com/shadcn-ui/ui)。涉及范围：src/components/reui/primitives/ 中的基础样式、组件约定和包装层。
+
+MessageScroller 使用 MIT 许可的 `@shadcn/react@0.3.1` 运行时，完整许可随依赖包提供。
 
 ```text
 MIT License

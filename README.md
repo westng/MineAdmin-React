@@ -75,7 +75,7 @@
 
 经典布局和分栏导航均在顶部最右侧提供展开／隐藏按钮。桌面面板左侧的 Separator 支持拖拽调宽、按住拉长高亮、键盘调宽和双击复位；移动端使用右侧抽屉。主内容和 AI 内容容器隐藏滚动条，保留滚动能力。
 
-下图展示账号偏好页与 AI Agents 默认面板，可见面板开关、分隔条和底部输入区；尚未接入 AI 服务。
+下图为此前默认面板的界面示例，可见面板开关、分隔条和底部输入区；当前标题栏已调整为可配置名称与“新建会话／历史会话”图标，尚未更新此截图。
 
 ![账号偏好页右侧展开 AI Agents 默认面板与底部输入区](docs/images/ai-agents.jpg)
 
@@ -97,6 +97,8 @@ export default {
 ```
 
 插槽组件接收 `pathname` 和 `userId`，注册返回的清理函数用于撤销内容。在 Shell 内可通过 `useShell()` 的 `aiAgentsOpen` 和 `setAiAgentsOpen()` 读取及控制面板开关。
+
+标题栏可单独注册到 `shell.ai-agents.header`，复用 `AiAgentsHeader` 并传入 `title`、`onNewSession`、`onHistory` 与禁用状态。名称可由接入方的用户配置控制；未绑定回调的图标禁用。标题栏与内容区共享插件自己的会话状态，桌面和移动端沿用同一套扩展。面板标题栏不再显示折叠按钮，顶部开关、Escape 及移动端遮罩负责关闭。
 
 自定义内容替换整个默认内容区，可从 `@/layouts/components/ai-agents` 导入 `AiAgentsComposer` 复用输入界面。它通过 `value`、`onValueChange`、`onSend`、`pending` 和 `disabled` 接收输入及状态，并提供 `notice`、`status`、`actions`、`trailingActions`、`footer` 等区域供定制。组件支持 Enter 发送、Shift + Enter 换行、输入法确认保护和空白输入拦截；请求、错误处理及发送后的草稿清理由调用方负责。
 

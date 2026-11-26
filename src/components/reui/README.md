@@ -12,6 +12,46 @@ Sidebar、Chart 等组件以当前文件导出为准；已删除的历史目录�
 
 `check:boundaries` 会遍历源码的直接与传递导入；资源许可和仓库历史收录仍需独立发布检查。
 
+## AI 对话与执行标记
+
+`primitives/message`、`bubble`、`message-scroller`、`marker` 来自 ReUI 的公开 MIT 源码，固定上游提交为 [`067aa0dc7f8bbfec1cd76fc5ad31f842be5f569a`](https://github.com/keenthemes/reui/tree/067aa0dc7f8bbfec1cd76fc5ad31f842be5f569a/registry/bases/base/ui)。按同版本 `registry/styles/style-nova.css` 展开样式，使用项目 `cn` 和 Lucide 图标；滚动条采用原生细滚动条。`MessageScroller` 使用上游依赖 `@shadcn/react@0.3.1`。
+
+这些是 [AI Chat](https://reui.io/blocks/ai-agents/ai-chat) 使用的公开组件；[Agent Activity](https://reui.io/blocks/ai-agents/agent-activity) 的公开说明可用于组合执行记录。完整商业 Block 的源码需要 ReUI Pro／Ultimate 授权，本框架没有收录商业 Block 源码，也不将组件组合描述为完整 Block 安装。
+
+```tsx
+import { Bubble, BubbleContent } from '@/components/reui/primitives/bubble'
+import { Message, MessageContent, MessageHeader } from '@/components/reui/primitives/message'
+import {
+  MessageScroller, MessageScrollerProvider, MessageScrollerViewport,
+  MessageScrollerContent, MessageScrollerItem, MessageScrollerButton,
+} from '@/components/reui/primitives/message-scroller'
+
+// 外层提供可用高度；items 和发送／取消流程由接入方管理。
+<MessageScrollerProvider autoScroll>
+  <MessageScroller>
+    <MessageScrollerViewport aria-label="对话记录">
+      <MessageScrollerContent>
+        {items.map(item => (
+          <MessageScrollerItem key={item.id} messageId={item.id}>
+            <Message align={item.role === 'user' ? 'end' : 'start'}>
+              <MessageContent>
+                <MessageHeader>{item.name}</MessageHeader>
+                <Bubble variant={item.role === 'user' ? 'muted' : 'ghost'}>
+                  <BubbleContent>{item.text}</BubbleContent>
+                </Bubble>
+              </MessageContent>
+            </Message>
+          </MessageScrollerItem>
+        ))}
+      </MessageScrollerContent>
+    </MessageScrollerViewport>
+    <MessageScrollerButton aria-label="回到最新消息" />
+  </MessageScroller>
+</MessageScrollerProvider>
+```
+
+`autoScroll` 默认关闭，聊天流接入应显式开启；用户向上浏览后停止跟随，点击最新消息按钮恢复跟随。Viewport 默认保留向前加载历史时的滚动位置。`scrollAnchor` 可选用于将新轮次定位到指定消息，调用方需根据产品选择。切换会话应重建 Provider。`Marker`／`MarkerIcon`／`MarkerContent` 用于执行步骤与状态提示，支持 `default`、`separator` 和 `border`，不自行产生执行事件。
+
 ## Badge 尺寸
 
 `primitives/badge` 支持 `size` 属性。显式设置 `xs`、`sm`、`default` 或 `lg` 时，高度、字号、横向间距和图标尺寸与 Button 的同名尺寸一致；标签的语义配色与 `radius` 仍独立配置。

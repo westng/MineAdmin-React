@@ -3,6 +3,8 @@
 @import '@application-styles';
 @import '../../layouts/verve/style.css';
 @source inline("sm:basis-1/3 sm:pe-6 sm:ps-6 sm:block");
+/* Installed plugins are commonly Git-ignored; include their utility classes. */
+@source '../../plugins/**/*.{ts,tsx}';
 
 @custom-variant dark (&:is(.dark *));
 

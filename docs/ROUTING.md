@@ -112,8 +112,10 @@ export default {
 } satisfies PluginConfig
 ```
 
-Shell 支持 `shell.overlays`、`shell.toolbar`、`shell.pane`、`shell.ai-agents`、`shell.section.content`、`auth.methods`、`account.preferences`、`account.bindings`、`settings.extensions` 和 `notifications`。注册项可提供 `order` 和 `match(pathname)`；组件接收的路径、用户、分栏信息随插槽位置而定，完整类型见 `src/layouts/slots.ts`。
+Shell 支持 `shell.overlays`、`shell.toolbar`、`shell.pane`、`shell.ai-agents`、`shell.ai-agents.header`、`shell.section.content`、`auth.methods`、`account.preferences`、`account.bindings`、`settings.extensions` 和 `notifications`。注册项可提供 `order` 和 `match(pathname)`；组件接收的路径、用户、分栏信息随插槽位置而定，完整类型见 `src/layouts/slots.ts`。
 
 经典和分栏布局的顶部最右侧提供 AI Agents 展开／隐藏按钮。面板默认隐藏，桌面端位于内容右侧，移动端使用右侧抽屉；切换面板不重建主内容。`shell.ai-agents` 接收 `pathname` 和 `userId`，未注册内容时显示空状态及底部输入区，发送按钮禁用。自定义内容可复用受控的 `AiAgentsComposer`，通过 `onSend` 接入自己的发送逻辑，见 [AI Agents 输入区说明](../src/layouts/components/ai-agents/README.md)。折叠后扩展组件会卸载，需要保留的会话状态由扩展自身在组件外管理；框架提供容器与基础 UI，不包含 AI 服务调用。
+
+`shell.ai-agents.header` 同样接收 `pathname` 和 `userId`，用于注册一个 `AiAgentsHeader` 组件，通过 `title` 自定义名称，通过 `onNewSession`／`onHistory` 接入会话操作，支持统一或分别禁用图标。标题栏与内容区共享接入方的会话实例；卸载时一并撤销注册。默认名称为 `AI Agents`，未绑定操作的按钮禁用。面板标题栏移除折叠按钮，桌面仍可通过顶部开关或 Escape 隐藏，移动端通过遮罩或 Escape 关闭。
 
 分栏导航的 `shell.section.content` 接收 `sectionPath`、`sectionLabel` 和 `pathname`，二级菜单折叠时隐藏。页面自身的顶部操作使用 `useHeaderActions`，由布局提供的上下文管理，见 [工具栏说明](../src/layouts/components/bars/toolbar/README.md)。

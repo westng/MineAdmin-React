@@ -1,8 +1,9 @@
 import { Bot, Brain, Globe, Mic, PanelRightClose, PanelRightOpen, Plus } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { MaDrawer } from '@/components/ma-drawer'
 import { Button } from '@/components/reui/primitives/button'
 import { Separator } from '@/components/reui/primitives/separator'
+import { SheetDescription } from '@/components/reui/primitives/sheet'
 import { useSession } from '@/hooks/auth/use-session'
 import { useTextTranslator } from '@/hooks/i18n/use-translator'
 import { useIsMobile } from '@/hooks/ui/use-mobile'
@@ -10,10 +11,14 @@ import { useShell } from '@/layouts/hooks/use-shell'
 import { ShellSlotOutlet } from '@/layouts/slot-outlet'
 import { cn } from '@/utils/cn'
 import { AiAgentsComposer } from './composer'
+import { AiAgentsHeader } from './header'
+import { AiAgentsHeaderContext } from './header-context'
 import { usePanelResize } from './use-panel-resize'
 
 export { AiAgentsComposer } from './composer'
 export type { AiAgentsComposerProps } from './composer'
+export { AiAgentsHeader } from './header'
+export type { AiAgentsHeaderProps } from './header'
 
 export function AiAgentsButton({ className }: { className?: string }) {
   const t = useTextTranslator('shell.ui')
@@ -123,10 +128,36 @@ function AiAgentsContent() {
   return (
     <div
       data-slot="ai-agents-content"
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <ShellSlotOutlet slot="shell.ai-agents" pathname={pathname} userId={userId} fallback={<AiAgentsEmptyContent />} />
     </div>
+  )
+}
+
+function AiAgentsHeaderOutlet({ drawer = false }: { drawer?: boolean }) {
+  const t = useTextTranslator('shell.ui')
+  const { aiAgentsId, pathname } = useShell()
+  const userId = useSession(state => state.userInfo?.id)
+  const sessionVersion = useSession(state => state.sessionVersion)
+
+  return (
+    <AiAgentsHeaderContext.Provider
+      value={{
+        titleId: `${aiAgentsId}-title`,
+        drawer,
+        newSessionLabel: t('新建会话'),
+        historyLabel: t('历史会话'),
+      }}
+    >
+      <ShellSlotOutlet
+        key={sessionVersion}
+        slot="shell.ai-agents.header"
+        pathname={pathname}
+        userId={userId}
+        fallback={<AiAgentsHeader />}
+      />
+    </AiAgentsHeaderContext.Provider>
   )
 }
 
@@ -139,20 +170,13 @@ export default function AiAgents() {
     setAiAgentsOpen(false)
     trigger()?.focus()
   }
-  const title = (
-    <span className="flex items-center gap-2">
-      <Bot className="size-4 text-muted-foreground" aria-hidden="true" />
-      AI Agents
-    </span>
-  )
-
   if (isMobile) {
     return (
       <MaDrawer
         open={aiAgentsOpen}
         onOpenChange={setAiAgentsOpen}
-        title={title}
-        description={t('AI 智能助手')}
+        header={false}
+        showCloseButton={false}
         footer={false}
         resizable={false}
         disablePointerDismissal={false}
@@ -161,9 +185,10 @@ export default function AiAgents() {
         contentClassName="motion-reduce:transition-none"
         backdropProps={{ className: 'motion-reduce:transition-none' }}
         popupProps={{ id: aiAgentsId }}
-        closeProps={{ 'aria-label': t('隐藏 AI Agents') }}
         finalFocus={trigger}
       >
+        <AiAgentsHeaderOutlet drawer />
+        <SheetDescription className="sr-only">{t('AI 智能助手')}</SheetDescription>
         <AiAgentsContent />
       </MaDrawer>
     )
@@ -171,10 +196,10 @@ export default function AiAgents() {
 
   if (!aiAgentsOpen) return null
 
-  return <AiAgentsDesktop title={title} close={close} />
+  return <AiAgentsDesktop close={close} />
 }
 
-function AiAgentsDesktop({ title, close }: { title: ReactNode; close: () => void }) {
+function AiAgentsDesktop({ close }: { close: () => void }) {
   const t = useTextTranslator('shell.ui')
   const { aiAgentsId } = useShell()
   const { resizedWidth, separatorProps } = usePanelResize()
@@ -193,21 +218,7 @@ function AiAgentsDesktop({ title, close }: { title: ReactNode; close: () => void
         }
       }}
     >
-      <div className="flex h-(--header-height) shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-        <h2 id={`${aiAgentsId}-title`} className="text-sm font-medium">
-          {title}
-        </h2>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          title={t('隐藏 AI Agents')}
-          aria-label={t('隐藏 AI Agents')}
-          onClick={close}
-        >
-          <PanelRightClose aria-hidden="true" />
-        </Button>
-      </div>
+      <AiAgentsHeaderOutlet />
       <AiAgentsContent />
       <Separator
         {...separatorProps}

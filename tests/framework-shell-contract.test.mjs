@@ -43,7 +43,7 @@ const result = await build({
       export { AppProviders } from './src/provider/app-provider'
       export { AppRouter } from './src/router'
       export { default as AppLayout } from './src/layouts'
-      export { AiAgentsComposer } from './src/layouts/components/ai-agents'
+      export { AiAgentsComposer, AiAgentsHeader } from './src/layouts/components/ai-agents'
       export { default as shellLocale } from './src/layouts/locales/ui'
       export { registerLocaleBundles } from './src/services/i18n/discovery'
       export { menuToRoutes } from './src/router/dynamic-routes'
@@ -325,6 +325,12 @@ for (const layout of ['classic', 'columns']) {
     assert.equal(panel().previousElementSibling.contains(page), true)
     assert.equal(container.querySelector('#main-content').contains(panel()), false)
     assert.equal(panel().parentElement.lastElementChild, panel())
+    const header = panel().querySelector('[data-slot="ai-agents-header"]')
+    assert.equal(header.querySelector('h2').textContent, 'AI Agents')
+    assert.equal(header.querySelectorAll('button').length, 2)
+    assert.equal(header.querySelector('[data-slot="ai-agents-new-session"]').disabled, true)
+    assert.equal(header.querySelector('[data-slot="ai-agents-history"]').disabled, true)
+    assert.equal(panel().querySelector('button[aria-label="隐藏 AI Agents"]'), null)
     assert.ok(panel().querySelector('[data-slot="ai-agents-composer"] textarea'))
     assert.equal(panel().querySelector('button[type="submit"]').disabled, true)
     const thinking = [...panel().querySelectorAll('button')].find(button => button.textContent.trim() === '思考')
@@ -337,24 +343,20 @@ for (const layout of ['classic', 'columns']) {
     assert.equal(panel().querySelector('button[aria-label="添加附件"]').disabled, true)
     assert.equal(panel().querySelector('button[aria-label="语音输入"]').disabled, true)
 
-    for (const [locale, hide, empty] of [
-      ['en_US', 'Hide AI Agents', 'No AI agents available'],
-      ['zh_TW', '隱藏 AI Agents', '暫無可用的 AI Agent'],
-      ['zh_CN', '隐藏 AI Agents', '暂无可用的 AI Agent'],
+    for (const [locale, hide, empty, newSession, history] of [
+      ['en_US', 'Hide AI Agents', 'No AI agents available', 'New conversation', 'Conversation history'],
+      ['zh_TW', '隱藏 AI Agents', '暫無可用的 AI Agent', '新增對話', '對話記錄'],
+      ['zh_CN', '隐藏 AI Agents', '暂无可用的 AI Agent', '新建会话', '历史会话'],
     ]) {
       await act(async () => runtime.i18n.store.getState().setLocale(locale))
       assert.equal(trigger.getAttribute('aria-label'), hide)
       assert.ok(panel().textContent.includes(empty))
+      assert.equal(header.querySelector('[data-slot="ai-agents-new-session"]').getAttribute('aria-label'), newSession)
+      assert.equal(header.querySelector('[data-slot="ai-agents-history"]').getAttribute('aria-label'), history)
     }
 
     await act(async () => trigger.click())
     assert.equal(panel(), null)
-    await act(async () => trigger.click())
-    const close = panel().querySelector('button')
-    await act(async () => close.click())
-    assert.equal(panel(), null)
-    assert.equal(document.activeElement, trigger)
-
     await act(async () => trigger.click())
     await act(async () =>
       panel()
@@ -425,8 +427,17 @@ for (const layout of ['classic', 'columns']) {
     assert.ok(drawer.querySelector('[data-slot="ai-agents-composer"] textarea'))
     assert.equal(drawer.querySelector('[data-slot="sheet-footer"]'), null)
     assert.equal(drawer.querySelector('[data-slot="ai-agents-resize-handle"]'), null)
+    assert.equal(drawer.querySelector('[data-slot="sheet-close"]'), null)
+    assert.equal(drawer.querySelector('[data-slot="ai-agents-header"]').querySelectorAll('button').length, 2)
+    assert.equal(document.getElementById(drawer.getAttribute('aria-labelledby')).textContent, 'AI Agents')
 
-    await act(async () => drawer.querySelector('[data-slot="sheet-close"]').click())
+    const backdrop = document.querySelector('[data-slot="sheet-overlay"]')
+    await act(async () => {
+      for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+        const Event = type.startsWith('pointer') ? window.PointerEvent : window.MouseEvent
+        backdrop.dispatchEvent(new Event(type, { bubbles: true, cancelable: true, button: 0, pointerType: 'mouse' }))
+      }
+    })
     await settle()
     assert.equal(trigger.getAttribute('aria-expanded'), 'false')
     assert.equal(document.activeElement, trigger)
@@ -443,6 +454,125 @@ for (const layout of ['classic', 'columns']) {
     assert.equal(container.querySelector('#synthetic-page'), page)
   })
 }
+
+for (const mobile of [false, true]) {
+  test(`AI header extensions update names and actions and release user state (${mobile ? 'mobile' : 'desktop'})`, async () => {
+    if (mobile) window.happyDOM.setWindowSize({ width: 390, height: 844 })
+    const runtime = makeRuntime()
+    let changeTitle
+    let changeBusy
+    let mounted = 0
+    const actions = []
+    function CustomHeader({ pathname, userId }) {
+      const [title, setTitle] = React.useState(`Assistant ${userId}`)
+      const [busy, setBusy] = React.useState(false)
+      const [historyOpen, setHistoryOpen] = React.useState(false)
+      changeTitle = setTitle
+      changeBusy = setBusy
+      React.useEffect(() => {
+        mounted++
+        return () => {
+          mounted--
+        }
+      }, [])
+      return React.createElement(core.AiAgentsHeader, {
+        title,
+        disabled: busy,
+        onNewSession: () => actions.push(['new', userId, pathname]),
+        onHistory: () => {
+          actions.push(['history', userId, pathname])
+          setHistoryOpen(value => !value)
+        },
+        historyExpanded: historyOpen,
+      })
+    }
+    const dispose = runtime.slots.register({
+      id: 'test.ai-header',
+      slot: 'shell.ai-agents.header',
+      component: CustomHeader,
+    })
+    disposers.push(dispose)
+    const container = await mount(layoutPage())
+    const page = container.querySelector('#synthetic-page')
+    const trigger = container.querySelector('[data-slot="ai-agents-trigger"]')
+    assert.equal(mounted, 0)
+    await act(async () => trigger.click())
+    await settle()
+    const panel = () => document.getElementById(trigger.getAttribute('aria-controls'))
+    const title = () => document.getElementById(panel().getAttribute('aria-labelledby'))
+    const newSession = () => panel().querySelector('[data-slot="ai-agents-new-session"]')
+    const history = () => panel().querySelector('[data-slot="ai-agents-history"]')
+    const composer = panel().querySelector('textarea')
+    assert.equal(mounted, 1)
+    assert.equal(title().textContent, 'Assistant 1')
+    await act(async () => changeTitle('用户自定义的一个很长很长的助手名称 <script>text only</script>'))
+    assert.equal(title().querySelector('span').title, title().textContent)
+    assert.equal(panel().querySelector('script'), null)
+    assert.equal(panel().querySelector('textarea'), composer)
+    await act(async () => {
+      newSession().click()
+      history().click()
+    })
+    assert.deepEqual(actions, [
+      ['new', 1, '/reports'],
+      ['history', 1, '/reports'],
+    ])
+    assert.equal(history().getAttribute('aria-expanded'), 'true')
+    await act(async () => changeBusy(true))
+    await act(async () => {
+      newSession().click()
+      history().click()
+    })
+    assert.equal(actions.length, 2)
+    assert.equal(newSession().disabled, true)
+    assert.equal(history().disabled, true)
+
+    await act(async () =>
+      runtime.session.setState({
+        sessionVersion: runtime.session.getState().sessionVersion + 1,
+        userInfo: { id: 2, username: 'second-user' },
+      }),
+    )
+    assert.equal(title().textContent, 'Assistant 2')
+    assert.equal(history().getAttribute('aria-expanded'), 'false')
+    await act(async () => newSession().click())
+    assert.deepEqual(actions.at(-1), ['new', 2, '/reports'])
+    await act(async () => dispose())
+    assert.equal(mounted, 0)
+    assert.equal(title().textContent, 'AI Agents')
+    assert.equal(newSession().disabled, true)
+    assert.equal(history().disabled, true)
+    assert.equal(container.querySelector('#synthetic-page'), page)
+  })
+}
+
+test('AI header can be used without a Runtime and disables unbound actions independently', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  roots.push(root)
+  let created = 0
+  let opened = 0
+  const render = props => act(async () => root.render(React.createElement(core.AiAgentsHeader, props)))
+  await render({ title: 'My assistant', onNewSession: () => created++, historyLabel: 'Recent chats' })
+  assert.equal(container.querySelector('h2').textContent, 'My assistant')
+  assert.ok(container.querySelector('h2 svg'), 'default icon remains available without an override')
+  assert.equal(container.querySelector('[aria-label="Recent chats"]').disabled, true)
+  await act(async () => container.querySelector('[aria-label="新建会话"]').click())
+  assert.equal(created, 1)
+  await render({ title: ' ', onNewSession: () => created++, newSessionDisabled: true, onHistory: () => opened++ })
+  assert.equal(container.querySelector('h2').textContent, 'AI Agents')
+  assert.equal(container.querySelector('[aria-label="新建会话"]').disabled, true)
+  await act(async () => container.querySelector('[aria-label="历史会话"]').click())
+  assert.equal(opened, 1)
+  await render({
+    title: 'Custom assistant',
+    icon: React.createElement('svg', { 'data-custom-avatar': '', 'aria-hidden': true }),
+  })
+  assert.equal(container.querySelector('h2').textContent, 'Custom assistant')
+  assert.ok(container.querySelector('h2 [data-custom-avatar]'))
+  assert.equal(container.querySelectorAll('h2 svg').length, 1, 'override replaces only the title icon')
+})
 
 async function panelPointer(target, type, options = {}) {
   await act(async () =>

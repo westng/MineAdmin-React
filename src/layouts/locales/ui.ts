@@ -4,6 +4,8 @@ export default {
     en_US: {
       '展开 AI Agents': 'Show AI Agents',
       '隐藏 AI Agents': 'Hide AI Agents',
+      新建会话: 'New conversation',
+      历史会话: 'Conversation history',
       '调整 AI 面板宽度': 'Resize AI panel',
       'AI 智能助手': 'AI assistant',
       '暂无可用的 AI Agent': 'No AI agents available',
@@ -65,6 +67,8 @@ export default {
     zh_TW: {
       '展开 AI Agents': '展開 AI Agents',
       '隐藏 AI Agents': '隱藏 AI Agents',
+      新建会话: '新增對話',
+      历史会话: '對話記錄',
       '调整 AI 面板宽度': '調整 AI 面板寬度',
       'AI 智能助手': 'AI 智慧助理',
       '暂无可用的 AI Agent': '暫無可用的 AI Agent',
@@ -126,6 +130,8 @@ export default {
     zh_CN: {
       '展开 AI Agents': '展开 AI Agents',
       '隐藏 AI Agents': '隐藏 AI Agents',
+      新建会话: '新建会话',
+      历史会话: '历史会话',
       '调整 AI 面板宽度': '调整 AI 面板宽度',
       'AI 智能助手': 'AI 智能助手',
       '暂无可用的 AI Agent': '暂无可用的 AI Agent',

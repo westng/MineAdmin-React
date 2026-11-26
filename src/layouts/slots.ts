@@ -4,6 +4,7 @@ export type ShellSlotName =
   | 'shell.toolbar'
   | 'shell.pane'
   | 'shell.ai-agents'
+  | 'shell.ai-agents.header'
   | 'shell.section.content'
   | 'auth.methods'
   | 'account.preferences'

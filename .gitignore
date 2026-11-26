@@ -14,6 +14,7 @@ src/app/application.tsx
 src/app/config/
 src/app/styles/application.css
 src/plugins/**
+!src/plugins/**/
 # 本框架仓库仅收录通用组件。
 src/components/*
 !src/components/ma-*/

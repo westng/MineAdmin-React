@@ -41,6 +41,8 @@
     "check:architecture": "pnpm run check:boundaries && pnpm run check:application-boundaries && pnpm run check:modules && pnpm run test:architecture"
   },
   "dependencies": {
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
     "@base-ui/react": "^1.7.0",
     "@date-fns/tz": "^1.5.0",
     "@dnd-kit/core": "^6.3.1",
@@ -52,6 +54,7 @@
     "@iconify/react": "^6.0.2",
     "@radix-ui/react-collapsible": "^1.1.20",
     "@radix-ui/react-slot": "^1.3.3",
+    "@shadcn/react": "0.3.1",
     "@tanstack/react-query": "^5.103.1",
     "@tanstack/react-table": "^9.2.4",
     "@tanstack/react-virtual": "^3.14.10",
@@ -70,9 +73,11 @@
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.8",
     "react-is": "19.2.8",
+    "react-markdown": "10.1.0",
     "react-phone-number-input": "^3.4.18",
     "react-router-dom": "^7.18.3",
     "recharts": "3.8.0",
+    "remark-gfm": "4.0.1",
     "shiki": "^4.4.3",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
