@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla'
 import { coreMessages } from './messages'
+import { normalizeLocale, parseStoredLocale } from './locale'
 import type { LocaleRegistry } from './registry'
 import type { StorageAdapter } from '@/services/storage'
 export interface I18nState {
@@ -74,12 +75,13 @@ export function createI18nManager(registry: LocaleRegistry, storage: StorageAdap
   )
 
   const store = createStore<I18nState>((set, get) => ({
-    locale: storage.getItem(`${prefix}language`) || 'zh_CN',
+    locale: parseStoredLocale(storage.getItem(`${prefix}language`)),
     revision: 0,
     setLocale: locale => {
-      if (!locale.trim()) return
-      storage.setItem(`${prefix}language`, locale)
-      set({ locale })
+      const nextLocale = normalizeLocale(locale)
+      if (!nextLocale) return
+      storage.setItem(`${prefix}language`, nextLocale)
+      set({ locale: nextLocale })
     },
     t: (key, fallback) => registry.translate(get().locale, 'app', key, fallback),
   }))

@@ -1,6 +1,7 @@
 import { evaluateAccess } from './access'
 import { tokenSchema, validateResponse } from './schemas'
 import { createStore } from 'zustand/vanilla'
+import { normalizeLocale, parseStoredLocale } from '@/services/i18n/locale'
 import type { CurrentUserInfo, LoginParams } from './types'
 import type { StorageAdapter } from '@/services/storage'
 
@@ -101,7 +102,7 @@ export function createSessionManager(ports: SessionPorts) {
     token: ports.storage.getItem(tokenKey),
     sessionVersion: 0,
     userInfo: readUserInfo(),
-    language: ports.storage.getItem(languageKey) || 'zh_CN',
+    language: parseStoredLocale(ports.storage.getItem(languageKey)),
     initialized: false,
     loading: false,
     error: null,
@@ -199,7 +200,7 @@ export function createSessionManager(ports: SessionPorts) {
     },
     setLanguage: language => {
       assertActive()
-      const nextLanguage = language.trim()
+      const nextLanguage = normalizeLocale(language)
       if (!nextLanguage) return
       ports.storage.setItem(languageKey, nextLanguage)
       set({ language: nextLanguage })

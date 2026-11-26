@@ -25,8 +25,8 @@ afterEach(() => {
   for (const client of clients) client.clear()
   clients.clear()
 })
-function harness() {
-  const values = new Map()
+function harness(stored = {}) {
+  const values = new Map(Object.entries(stored))
   const storage = {
     getItem: key => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, String(value)),
@@ -60,6 +60,68 @@ function harness() {
   return h
 }
 const tokens = name => ({ data: { access_token: name, refresh_token: `refresh-${name}`, expire_at: 100 } })
+
+test('旧语言缓存与 JSON 字符串解包后用于翻译及请求头，不改写其他持久化值', async () => {
+  const legacy = value => JSON.stringify({ c: Date.now() - 1000, e: Date.now() + 60_000, v: value })
+  for (const [raw, expected] of [
+    ['zh_CN', 'zh_CN'],
+    [' en_US ', 'en_US'],
+    [JSON.stringify('zh_TW'), 'zh_TW'],
+    [legacy('zh_CN'), 'zh_CN'],
+    [legacy(JSON.stringify('en_US')), 'en_US'],
+    [legacy(JSON.stringify('zh_Hans_CN')), 'zh_Hans_CN'],
+  ]) {
+    const h = harness({ test_language: raw, test_unrelated: 'keep' })
+    assert.equal(h.runtime.i18n.store.getState().locale, expected)
+    assert.equal(h.user.getState().language, expected)
+    assert.doesNotThrow(() => new Intl.DateTimeFormat(expected.replaceAll('_', '-')))
+    const pending = h.http.get('/language-check')
+    await flush()
+    const request = h.take('/language-check')
+    assert.equal(request.config.headers['Accept-Language'], expected)
+    request.ok({ code: 200 })
+    await pending
+    assert.equal(localStorage.getItem('test_language'), raw)
+    assert.equal(localStorage.getItem('test_unrelated'), 'keep')
+    h.runtime.dispose()
+  }
+})
+
+test('过期、损坏或非字符串语言缓存回退默认语言', () => {
+  for (const raw of [
+    '',
+    '{broken',
+    'not a locale',
+    'null',
+    '42',
+    JSON.stringify(['en_US']),
+    JSON.stringify({ v: 'en_US' }),
+    JSON.stringify({ c: Date.now() - 2000, e: Date.now() - 1000, v: JSON.stringify('en_US') }),
+    JSON.stringify({ c: Date.now(), e: Date.now() + 60_000, v: 42 }),
+  ]) {
+    const h = harness({ test_language: raw })
+    assert.equal(h.runtime.i18n.store.getState().locale, 'zh_CN')
+    assert.equal(h.user.getState().language, 'zh_CN')
+    h.runtime.dispose()
+  }
+})
+
+test('语言切换修剪空白并拒绝非法值，已有语言和缓存保持有效', () => {
+  const h = harness({ test_language: 'zh_CN' })
+  h.runtime.i18n.store.getState().setLocale(' en_US ')
+  h.user.getState().setLanguage(' en_US ')
+  assert.equal(h.runtime.i18n.store.getState().locale, 'en_US')
+  assert.equal(h.user.getState().language, 'en_US')
+  assert.equal(localStorage.getItem('test_language'), 'en_US')
+  for (const invalid of [' ', 'not a locale', '{broken']) {
+    h.runtime.i18n.store.getState().setLocale(invalid)
+    h.user.getState().setLanguage(invalid)
+    assert.equal(h.runtime.i18n.store.getState().locale, 'en_US')
+    assert.equal(h.user.getState().language, 'en_US')
+    assert.equal(localStorage.getItem('test_language'), 'en_US')
+  }
+  h.runtime.dispose()
+})
 
 test('运行时销毁将取消信号传到真实认证客户端，晚到登录不能落盘', async () => {
   const h = harness()
